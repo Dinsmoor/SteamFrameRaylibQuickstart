@@ -691,6 +691,9 @@ const char    *vrui_smooth_name(VruiSmoothMode mode);            // "Snap", "Lag
 
 void vrui_group_name(unsigned group, const char *name);   // e.g. vrui_group_name(G_TABLE, "table")
 void vrui_name_widget(VruiId id, const char *label);      // for widgets without a label (a grab region)
+// A named spot that isn't a widget (a character, a target on the table):
+// tests and tools find it by name like one ("voice.bug_2"), kind "mark".
+void vrui_mark(VruiId id, const char *label, SfxrPose pose);
 typedef struct {
     char name[48];          // "table.sky"
     char label[24];         // as the event log shows it ("SKY")

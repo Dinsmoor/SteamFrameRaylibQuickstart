@@ -134,7 +134,9 @@ int menus_update(const char *const *items, int count, const char *watch_text)
     if (M.watch) watch(oh, watch_text);
     if (M.palm && (p = palm(oh, items, count)) >= 0) picked = p;
     if (M.tablet && (p = tablet(oh, items, count)) >= 0) picked = p;
-    if (M.radial) {
+    // (a station's own ring menu on the same button -- the Voice commands
+    // bugs' orders -- opens first and claims the hand: then this one waits)
+    if (M.radial && (!vrui_input_claimed(mh) || vrui_radial_open(VRUI_ID2(G_MENUS, 4)))) {
         const SfxrHand *hand = sfxr_hand(mh);
         if ((p = vrui_radial_menu(VRUI_ID2(G_MENUS, 4), mh, &hand->primary, items, count)) >= 0) picked = p;
     }

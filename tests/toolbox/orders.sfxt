@@ -1,0 +1,37 @@
+# tests/toolbox/orders.sfxt - the Voice commands station: one button, two menus, chosen by what you point at.
+app   toolbox
+rate  72
+
+case a-on-a-bug-opens-its-orders
+  expect  app bug2 == 2                         # stopped, to start
+  stand   at voice.bug_2 back 0.7
+  look    at voice.bug_2 over 0.3s
+  hand    R point at voice.bug_2 over 0.3s
+  wait    3f
+  button  R a down                              # A, pointing at bug 2: the orders ring
+  wait    3f
+  stick   R 0,0.9                               # up: the first order, attack
+  wait    3f
+  button  R a up
+  wait    3f
+  stick   R 0,0
+  wait    3f
+  expect  app bug2 == 0                         # bug 2 attacks
+  expect  app bug1 == 2                         # the others didn't hear it
+  expect  app grid == 1                         # and the toolbox's ring didn't open too
+
+case a-elsewhere-opens-the-toolbox-ring
+  fails-if toolbox_voice_ring_everywhere
+  stand   at voice.bug_2 back 0.7
+  hand    R point at table.sky over 0.3s        # far off, pointing at no bug
+  wait    3f
+  button  R a down
+  wait    3f
+  stick   R 0,0.9                               # up: the toolbox ring's first item, Grid
+  wait    3f
+  button  R a up
+  wait    3f
+  stick   R 0,0
+  wait    3f
+  expect  app grid == 0
+  expect  app bug2 == 2

@@ -3,7 +3,8 @@
 //
 // They stand in one row in front of you; walk along it (stick forward to
 // teleport, sideways to turn). From left to right:
-//   Sound & voice      sounds from where things are; point and speak commands
+//   Voice commands     one set of orders bound four ways: context button, ring menu, world button, hands-free
+//   Sound              sounds from where things are: point, cone, line, box and ambient emitters
 //   Menus & HUD        hand menus (watch, palm, tablet, radial) and visor HUDs
 //   Hands-on setup     learns how you like to grab, point and press
 //   Headset            worn, refresh rate, passthrough, batteries, joints
@@ -39,7 +40,7 @@
 static void toolbox_hud(void)
 {
     static const struct { float x; const char *name; } ROW[] = {
-        { -9.8f, "Sound & voice" }, { -8.0f, "Menus & HUD" }, { -6.4f, "Hands-on setup" }, { -4.8f, "Headset" }, { -3.2f, "Controllers" },
+        { -12.2f, "Voice commands" }, { -9.8f, "Sound" }, { -8.0f, "Menus & HUD" }, { -6.4f, "Hands-on setup" }, { -4.8f, "Headset" }, { -3.2f, "Controllers" },
         { -1.6f, "Toolbox" }, { 0, "Workbench" }, { 2.5f, "Mechanisms" }, { 5.2f, "Linkage bench" },
         { 7.9f, "Attach & label" }, { 10.9f, "Smoothing" }, { 15.3f, "Hinges & cords" }, { 19.5f, "Daddy Bug Smasher" },
     };
@@ -80,7 +81,7 @@ void toolbox_setup(void)
     // names for the widget registry: "table.sky", "mech.knob"... (tests find widgets by these)
     static const struct { unsigned g; const char *name; } GROUPS[] = {
         { G_TABLE, "table" }, { G_BLOCKS, "blocks" }, { G_BENCH, "mech" }, { G_LINK, "link" }, { G_YARD, "yard" },
-        { G_HINGE, "hinges" }, { G_VOICE, "voice" }, { G_ATTACH, "attach" }, { G_MENUS, "menus" }, { G_SMOOTH, "smooth" }, { G_GARDEN, "garden" },
+        { G_HINGE, "hinges" }, { G_VOICE, "voice" }, { G_SOUND, "sound" }, { G_ATTACH, "attach" }, { G_MENUS, "menus" }, { G_SMOOTH, "smooth" }, { G_GARDEN, "garden" },
     };
     for (size_t i = 0; i < sizeof GROUPS / sizeof GROUPS[0]; i++) vrui_group_name(GROUPS[i].g, GROUPS[i].name);
 
@@ -102,6 +103,7 @@ void toolbox_logic(void)
         return;
     }
     panels_toolbox(&loco);
+    station_sound();
     station_voice();
     station_menus();
     switch (menus_update(MENU, NMENU, TextFormat("blocks %d", world.spawned))) {

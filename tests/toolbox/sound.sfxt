@@ -1,0 +1,15 @@
+# tests/toolbox/sound.sfxt - the Sound station: its switches start and stop the emitters' loops.
+app   toolbox
+rate  72
+
+case radio-switch-plays-and-stops-the-radio
+  expect  app cone_playing == 0
+  stand   at sound.radio back 0.6
+  look    at sound.radio over 0.3s
+  hand    R poke sound.radio
+  expect  flip sound.radio within 20f
+  expect  app cone_playing == 1
+  hand    R move 0,0.15,0 over 0.3s
+  hand    R poke sound.radio
+  expect  flip sound.radio within 20f
+  expect  app cone_playing == 0

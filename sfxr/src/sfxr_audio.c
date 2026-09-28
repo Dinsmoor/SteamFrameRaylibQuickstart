@@ -385,7 +385,8 @@ void sfxr_playing_stop(SfxrPlaying h)
 {
     pthread_mutex_lock(&A.lock);
     Play *p = playing(h);
-    if (p) p->stop = true;   // the audio thread fades it out over its next block
+    if (p && A.device) p->stop = true;   // the audio thread fades it out over its next block
+    else if (p) p->snd = 0;              // offline: nothing is mixing it
     pthread_mutex_unlock(&A.lock);
 }
 

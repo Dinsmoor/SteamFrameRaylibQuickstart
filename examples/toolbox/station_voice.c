@@ -1,34 +1,45 @@
-// station_voice.c - Sound & voice, at the left end of the row (docs/AUDIO.md).
+// station_voice.c - Voice commands, at the left end of the row (docs/AUDIO.md,
+// "Binding a command"). Three little bugs and a cardboard Daddy, and one
+// set of orders -- attack, return, stop -- given four different ways, so
+// you can feel which suits what:
 //
-//   The speaker   flip its switch on and it chimes every second or so (while
-//                 you're near it), from where it is: pick it up
-//                 and carry it round your head. Left, right, behind, far:
-//                 you hear where it is (sfxr_sound_play at a position).
-//   The bugs      three little bugs, and a cardboard Daddy. Point at a bug
-//                 with the right laser, HOLD the bumper (above the trigger),
-//                 say "attack", "return" or "stop", let go: it does it. Point
-//                 and speak -- the Bugmaster's controls in Revenge of the
-//                 Bugmaster, in miniature. No recognizer installed
-//                 (scripts/get-speech.sh)? The panel's buttons do the same.
-//   TALK button   a big push-to-talk button on the table: hold it down
-//                 (fingertip, or laser + trigger), speak, let go. What was
-//                 heard is shown on the board above it, and if it was a
-//                 command, the last bug you pointed at does it.
-//   The panel     what the recognizer heard, how long it took, the
-//                 microphone's level, and every sound the toolbox makes.
+//   1 POINT + BUMPER   point at a bug with either laser: it lights up and
+//                      says "hold the bumper". Hold it, say the order, let
+//                      go. A binding IN CONTEXT: the bumper only talks while
+//                      you're pointing at a bug, so it's free for other
+//                      things everywhere else. (Daddy Bug Smasher binds the
+//                      bumper to voice everywhere instead: a global binding.)
+//   2 POINT + A        point at a bug and hold A (left: D-pad down): the
+//                      orders open in a ring; tilt the stick to one, let go.
+//                      No voice: a context menu. Elsewhere, A opens the
+//                      toolbox's own ring menu -- the same button, a
+//                      different menu, because of what you point at.
+//   3 TALK button      a big push-to-talk button on the table, an intercom
+//                      to every bug: hold it (fingertip or laser), speak.
+//                      Nothing to point at, so both hands are free for it.
+//   4 HANDS-FREE       flip the switch and just talk: "bugs, attack". No
+//                      button at all; a pause ends what you said. Anything
+//                      without the wake word "bugs" is ignored, since the
+//                      microphone hears everything (you, the room, the
+//                      game's sounds).
 //
-// Push-to-talk is on purpose: other people in the room, and the game's own
-// sounds, can't give commands, and recognition runs once per command on a
-// short clip instead of listening all the time.
+// The panel's buttons give the same orders by laser, with no recognizer
+// installed (scripts/get-speech.sh builds one).
 
 #include "toolbox.h"
 #include "sfxr_audio.h"
 #include "sfxr_voice.h"
+#include "sfxr_break.h"
+
+#define BREAK SFXR_BREAK_DECLARE
+#include "toolbox_breaks.def"
+#undef BREAK
 
 #include <stdio.h>
 #include <string.h>
 
-#define X0 -9.8f
+#define X0 -12.2f
+#define ALL 3               // an order for every bug
 
 static const char *const CMDS[] = { "attack", "return", "stop" };
 enum { CMD_ATTACK, CMD_RETURN, CMD_STOP };
@@ -37,51 +48,58 @@ typedef struct { Vector3 home, pos; int order; float hop; } Minion;
 
 static struct {
     bool init;
-    SfxrPose speaker, panel;
-    bool speaker_held;
-    bool chime_on;          // the switch beside it (off to start: a sound that repeats wears thin)
-    float chime_t;
+    SfxrPose panel;
     Minion bug[3];
-    int selected;           // the bug the laser was on when you started talking (-1 none)
-    char heard[128], result[96];
-    float heard_ms;
-    bool talking;
+    int pointed[2];         // the bug each laser is on (-1 none)
+    int last_pointed;       // the last bug either laser was on (the panel's buttons order it)
+    int talk_to;            // who the clip being recorded is for (a bug, or ALL)
+    int talk_hand;          // the hand holding the bumper (-1: not by bumper)
     bool button_talking;    // the TALK button is held
+    int radial_bug[2];      // the bug a hand's ring menu is giving orders to
+    bool hands_free;
     char board[160];        // the transcript board's text
+    char result[96];
+    char heard[128];
+    float heard_ms;
 } VO;
 
 static Vector3 daddy_at(void) { return (Vector3){ X0 + 0.6f, TABLE_Y, ROW_Z - 0.15f }; }
+static SfxrPose on_table(float x, float y, float z) { return (SfxrPose){ { X0 + x, TABLE_Y + y, ROW_Z + z }, QuaternionIdentity() }; }
 
 static void init(void)
 {
-    VO.speaker = (SfxrPose){ { X0 - 0.45f, TABLE_Y + 0.08f, ROW_Z + 0.1f }, QuaternionIdentity() };
-    VO.panel = (SfxrPose){ { X0 - 0.45f, 1.45f, ROW_Z - 0.25f }, QuaternionIdentity() };
+    VO.panel = (SfxrPose){ { X0 - 0.45f, 1.5f, ROW_Z - 0.25f }, QuaternionIdentity() };
     for (int i = 0; i < 3; i++) {
-        VO.bug[i].home = (Vector3){ X0 - 0.25f + 0.2f * (float)i, TABLE_Y, ROW_Z + 0.2f };
+        VO.bug[i].home = (Vector3){ X0 - 0.25f + 0.2f * (float)i, TABLE_Y, ROW_Z + 0.05f };
         VO.bug[i].pos = VO.bug[i].home;
         VO.bug[i].order = CMD_STOP;
     }
-    VO.selected = -1;
-    snprintf(VO.result, sizeof VO.result, "point at a bug, hold the bumper, speak");
+    VO.pointed[0] = VO.pointed[1] = VO.last_pointed = -1;
+    VO.talk_hand = -1;
+    snprintf(VO.result, sizeof VO.result, "point at a bug: it says what to do");
     // the words to listen for: short commands are what Whisper mishears without them
-    sfxr_voice_set_prompt("attack, return, stop");
+    sfxr_voice_set_prompt("bugs, attack, return, stop");
     VO.init = true;
 }
 
-static void order(int bug, int cmd, const char *how)
+static void order(int who, int cmd, const char *how)
 {
-    if (bug < 0 || bug > 2) { snprintf(VO.result, sizeof VO.result, "%s: but no bug was pointed at", CMDS[cmd]); return; }
-    VO.bug[bug].order = cmd;
-    snprintf(VO.result, sizeof VO.result, "bug %d: %s (%s)", bug + 1, CMDS[cmd], how);
-    sound_play(SND_BLIP, VO.bug[bug].pos, 0.8f);
-    sfxr_event("order", "bug %d %s by %s", bug + 1, CMDS[cmd], how);
+    if (who < 0) { snprintf(VO.result, sizeof VO.result, "%s: but to whom? (point at a bug first)", CMDS[cmd]); return; }
+    for (int i = 0; i < 3; i++) {
+        if (who != ALL && who != i) continue;
+        VO.bug[i].order = cmd;
+        sound_play(SND_BLIP, VO.bug[i].pos, 0.8f);
+    }
+    snprintf(VO.result, sizeof VO.result, "%s: %s (%s)", who == ALL ? "all bugs" : TextFormat("bug %d", who + 1), CMDS[cmd], how);
+    sfxr_event("order", "%s %s by %s", who == ALL ? "all" : TextFormat("bug %d", who + 1), CMDS[cmd], how);
 }
 
-// Which bug the right laser is on (-1 none).
-static int pointed_bug(void)
+// Which bug a hand's laser is on (-1 none).
+static int pointed_bug(int h)
 {
-    const SfxrHand *h = sfxr_hand(SFXR_RIGHT);
-    Ray ray = { h->aim.position, sfxr_pose_forward(h->aim) };
+    const SfxrHand *hand = sfxr_hand((SfxrHandId)h);
+    if (!hand->active) return -1;
+    Ray ray = { hand->aim.position, sfxr_pose_forward(hand->aim) };
     int best = -1;
     float bd = 1e9f;
     for (int i = 0; i < 3; i++) {
@@ -94,7 +112,6 @@ static int pointed_bug(void)
 static void minions(void)
 {
     float dt = sfxr_dt();
-    int pointed = pointed_bug();
     for (int i = 0; i < 3; i++) {
         Minion *m = &VO.bug[i];
         Vector3 goal = m->order == CMD_ATTACK ? daddy_at() : m->order == CMD_RETURN ? m->home : m->pos;
@@ -109,8 +126,10 @@ static void minions(void)
         }
         Vector3 at = Vector3Add(m->pos, (Vector3){ 0, 0.04f + fabsf(sinf(m->hop)) * 0.03f, 0 });
         Color c = i == 0 ? (Color){ 210, 60, 60, 255 } : i == 1 ? (Color){ 60, 110, 230, 255 } : (Color){ 70, 190, 80, 255 };
-        bool lit = i == pointed || (VO.talking && i == VO.selected);
+        bool lit = i == VO.pointed[0] || i == VO.pointed[1] || (VO.talk_hand >= 0 && VO.talk_to == i);
         vrui_box((SfxrPose){ at, QuaternionIdentity() }, (Vector3){ 0.08f, 0.06f, 0.1f }, lit ? ColorBrightness(c, 0.4f) : c);
+        vrui_mark(VRUI_ID2(G_VOICE, 20 + i), TextFormat("bug %d", i + 1), (SfxrPose){ at, QuaternionIdentity() });   // tests point at "voice.bug_2"
+        sfxr_report(TextFormat("bug%d", i + 1), (float)m->order);   // ...and check "app bug2 == 0" (attack)
         vrui_text3d(Vector3Add(at, (Vector3){ 0, 0.08f, 0 }), TextFormat("%d: %s", i + 1, CMDS[m->order]), 0.018f,
                     lit ? YELLOW : RAYWHITE);
     }
@@ -121,107 +140,153 @@ static void minions(void)
     vrui_text3d(Vector3Add(dp, (Vector3){ 0.1f, 0.47f, 0 }), "Daddy (cardboard)", 0.02f, RAYWHITE);
 }
 
-static void talk(void)
+static void listen_for(int who, int hand, const char *board)
 {
-    // hold the right bumper to talk; the bug under the laser when you
-    // start is the one you're talking to
-    const SfxrHand *r = sfxr_hand(SFXR_RIGHT);
-    if (r->bumper.pressed && !vrui_input_claimed(SFXR_RIGHT)) {
-        VO.selected = pointed_bug();
-        VO.talking = true;
-        sfxr_voice_listen_begin();
-        sound_play_here(SND_BLIP, 0.3f);
+    VO.talk_to = who;
+    VO.talk_hand = hand;
+    sfxr_voice_listen_begin();
+    snprintf(VO.board, sizeof VO.board, "%s", board);
+    sound_play_here(SND_BLIP, 0.3f);
+}
+
+// 1: point at a bug, hold the bumper, speak. The bumper means "talk" only
+// while pointing at a bug: that's the context.
+static void bind_point_and_bumper(void)
+{
+    for (int h = 0; h < 2; h++) {
+        const SfxrHand *hand = sfxr_hand((SfxrHandId)h);
+        int bug = VO.pointed[h];
+        if (bug >= 0 && VO.talk_hand < 0 && !vrui_radial_open(VRUI_ID2(G_VOICE, 10 + h))) {
+            // the binding says itself, where you're looking
+            vrui_tag(Vector3Add(VO.bug[bug].pos, (Vector3){ 0, 0.2f, 0 }),
+                     TextFormat("hold the bumper and speak\nor hold %s for the orders", h ? "A" : "D-pad down"), 0.014f,
+                     RAYWHITE, (Color){ 20, 22, 28, 220 });
+            if (hand->bumper.pressed && !vrui_input_claimed((SfxrHandId)h) && !sfxr_voice_listening())
+                listen_for(bug, h, "listening...");
+        }
+        if (VO.talk_hand == h && hand->bumper.released) {
+            VO.talk_hand = -1;
+            sfxr_voice_listen_end();
+            snprintf(VO.board, sizeof VO.board, "thinking...");
+        }
     }
-    if (VO.talking && r->bumper.released) {
-        VO.talking = false;
-        sfxr_voice_listen_end();
+    if (VO.talk_hand >= 0) {   // a listening light on that controller
+        const SfxrHand *hand = sfxr_hand((SfxrHandId)VO.talk_hand);
+        vrui_tag(Vector3Add(hand->grip.position, (Vector3){ 0, 0.12f, 0 }), "listening...", 0.015f, RAYWHITE, (Color){ 150, 30, 30, 220 });
     }
-    // ...or hold the TALK button on the table (a momentary push button: it's
-    // down for as long as it's held)
+}
+
+// 2: point at a bug, hold A: a ring of orders. The ring is offered only
+// while pointing at a bug (or while it's open), so everywhere else A opens
+// the toolbox's own ring menu (station_menus.c): this one runs first, and
+// an open ring claims the hand, which the toolbox's ring checks.
+static void bind_point_and_radial(void)
+{
+    for (int h = 0; h < 2; h++) {
+        VruiId id = VRUI_ID2(G_VOICE, 10 + h);
+        bool open = vrui_radial_open(id);
+        if (!open && VO.pointed[h] < 0 && !SFXR_BREAK(toolbox_voice_ring_everywhere)) continue;
+        if (!open) VO.radial_bug[h] = VO.pointed[h];
+        int pick = vrui_radial_menu(id, (SfxrHandId)h, &sfxr_hand((SfxrHandId)h)->primary, CMDS, 3);
+        if (pick >= 0) order(VO.radial_bug[h], pick, "ring menu");
+    }
+}
+
+// 3: the TALK button, an intercom: every bug hears it. A momentary push
+// button: it's down for as long as it's held.
+static void bind_world_button(void)
+{
     VruiPressSpec ps = vrui_press_spec();
     ps.radius = 0.045f;
     ps.color = VO.button_talking ? (Color){ 230, 60, 50, 255 } : (Color){ 170, 40, 40, 255 };
     ps.label = "TALK (hold)";
-    SfxrPose at = { { X0 + 0.3f, TABLE_Y, ROW_Z + 0.22f }, QuaternionIdentity() };
-    VruiPress p = vrui_press(VRUI_ID2(G_VOICE, 2), at, &ps, NULL);
-    if (p.pressed && !VO.talking) { VO.button_talking = true; sfxr_voice_listen_begin(); snprintf(VO.board, sizeof VO.board, "listening..."); }
-    if (VO.button_talking && !p.down) { VO.button_talking = false; sfxr_voice_listen_end(); snprintf(VO.board, sizeof VO.board, "thinking..."); }
+    VruiPress p = vrui_press(VRUI_ID2(G_VOICE, 2), on_table(0.3f, 0, 0.2f), &ps, NULL);
+    if (p.pressed && VO.talk_hand < 0 && !sfxr_voice_listening()) {
+        VO.button_talking = true;
+        listen_for(ALL, -1, "listening (to all bugs)...");
+    }
+    if (VO.button_talking && !p.down) {
+        VO.button_talking = false;
+        sfxr_voice_listen_end();
+        snprintf(VO.board, sizeof VO.board, "thinking...");
+    }
+}
 
+// 4: hands-free: a switch turns it on; "bugs, <order>" orders them all.
+static void bind_hands_free(void)
+{
+    if (vrui_switch(VRUI_ID2(G_VOICE, 3), on_table(-0.55f, 0, 0.22f), &VO.hands_free, "HANDS-FREE")) {
+        sfxr_voice_hands_free(VO.hands_free, 0.15f, 0.6f);
+        snprintf(VO.board, sizeof VO.board, "%s", VO.hands_free ? "say \"bugs, attack\" (or return, stop)" : "");
+    }
+    if (VO.hands_free && sfxr_voice_listening() && sfxr_voice_hands_free_heard()) snprintf(VO.board, sizeof VO.board, "hearing you...");
+}
+
+static void results(void)
+{
     char said[128];
-    if (sfxr_voice_result(said, sizeof said)) {
-        snprintf(VO.board, sizeof VO.board, "you said: \"%.40s\"", said[0] ? said : "(nothing)");
-        snprintf(VO.heard, sizeof VO.heard, "%s", said[0] ? said : "(nothing)");
-        VO.heard_ms = sfxr_voice_last_ms();
-        int c = sfxr_voice_match(said, CMDS, 3);
-        if (c >= 0) order(VO.selected, c, "voice");
-        else snprintf(VO.result, sizeof VO.result, "not a command: attack, return or stop");
+    if (!sfxr_voice_result(said, sizeof said)) return;
+    snprintf(VO.heard, sizeof VO.heard, "%s", said[0] ? said : "(nothing)");
+    VO.heard_ms = sfxr_voice_last_ms();
+    snprintf(VO.board, sizeof VO.board, "you said: \"%.40s\"", VO.heard);
+    int c = sfxr_voice_match(said, CMDS, 3);
+    if (sfxr_voice_hands_free_heard()) {
+        // hands-free: only with the wake word, and then it's for every bug
+        static const char *const WAKE[] = { "bugs", "bug" };
+        if (sfxr_voice_match(said, WAKE, 2) < 0) { snprintf(VO.result, sizeof VO.result, "(no \"bugs\" in it: ignored)"); return; }
+        if (c >= 0) order(ALL, c, "hands-free");
+        else snprintf(VO.result, sizeof VO.result, "bugs... but what? attack, return or stop");
+        return;
     }
-    // the transcript board, standing behind the button
-    SfxrPose board = { { X0 + 0.3f, TABLE_Y + 0.35f, ROW_Z - 0.2f }, QuaternionIdentity() };
-    vrui_sign(board, 0.6f, "Push to talk", VO.board[0] ? VO.board : (sfxr_voice_available() ? "hold TALK and speak" :
-              "no recognizer: run scripts/get-speech.sh"), (Color){ 40, 44, 56, 255 });
-    if (VO.talking) {   // a listening light on the controller
-        vrui_tag(Vector3Add(r->grip.position, (Vector3){ 0, 0.12f, 0 }), "listening...", 0.015f, RAYWHITE,
-                 (Color){ 150, 30, 30, 220 });
-    }
+    if (c >= 0) order(VO.talk_to, c, "voice");
+    else snprintf(VO.result, sizeof VO.result, "not an order: attack, return or stop");
 }
 
 static void panel(void)
 {
-    if (!vrui_panel_begin(VRUI_ID2(G_VOICE, 0), &VO.panel, 0.5f, 0.54f, "Sound & voice")) return;
+    if (!vrui_panel_begin(VRUI_ID2(G_VOICE, 0), &VO.panel, 0.5f, 0.5f, "Voice commands")) return;
     vrui_layout_begin(vrui_panel_content(), 4);
-    vrui_label(vrui_row(20), sfxr_audio_device() ? "sound: on" : "sound: offline (no audio device)");
     vrui_label(vrui_row(20), sfxr_voice_status());
     Rectangle row = vrui_row(14);
     vrui_progress(row, sfxr_voice_level(), sfxr_voice_level() > 0.6f ? RED : vrui_style()->accent);
     vrui_label(vrui_row(20), TextFormat("heard: %s", VO.heard[0] ? VO.heard : "-"));
     if (VO.heard[0]) vrui_label(vrui_row(20), TextFormat("  in %.0f ms", VO.heard_ms));
     vrui_label(vrui_row(20), VO.result);
-    vrui_label(vrui_row(20), "no voice? point at a bug, then:");
+    vrui_space(6);
+    vrui_label(vrui_row(20), "by laser (no voice): the bug you last pointed at");
     Rectangle cols[3];
     vrui_row_cols(32, 3, cols);
-    int pointed = VO.selected;
     for (int c = 0; c < 3; c++)
-        if (vrui_button(1 + c, cols[c], CMDS[c])) order(pointed, c, "button");
-    vrui_label(vrui_row(20), "the toolbox's sounds (made in code):");
-    static const char *const NAMES[] = { "click", "tick", "stop", "bell", "chime", "thump", "squish", "chomp", "whoosh", "trill" };
-    for (int i = 0; i < 10; i += 5) {
-        Rectangle c5[5];
-        vrui_row_cols(28, 5, c5);
-        for (int k = 0; k < 5; k++)
-            if (vrui_button(10 + i + k, c5[k], NAMES[i + k])) sound_play((SoundId)(i + k), VO.panel.position, 1.0f);
-    }
+        if (vrui_button(1 + c, cols[c], CMDS[c])) order(VO.last_pointed, c, "panel");
     vrui_panel_end();
+}
+
+// A placard on the table's front edge for each binding.
+static void placards(void)
+{
+    static const char *const P[4] = { "1  point + BUMPER: speak", "2  point + A: ring menu", "3  TALK: intercom", "4  HANDS-FREE: \"bugs, ...\"" };
+    for (int i = 0; i < 4; i++)
+        vrui_text_at(on_table(-0.5f + 0.34f * (float)i, -0.03f, 0.352f), P[i], 0.013f, (Color){ 250, 220, 150, 255 });
 }
 
 void station_voice(void)
 {
     if (!VO.init) init();
-    station_sign(X0, "Sound & voice", "carry the speaker round your head; point at a\nbug, hold the bumper, say attack / return / stop");
-    vrui_box((SfxrPose){ { X0, TABLE_Y - 0.025f, ROW_Z }, QuaternionIdentity() }, (Vector3){ 1.4f, 0.05f, 0.7f }, (Color){ 120, 92, 66, 255 });
-
-    // the speaker: a box that chimes from wherever it is
-    VruiGrab g = vrui_grabbable(VRUI_ID2(G_VOICE, 1), &VO.speaker, (Vector3){ 0.05f, 0.07f, 0.05f }, (Color){ 50, 50, 56, 255 });
-    vrui_name_widget(VRUI_ID2(G_VOICE, 1), "speaker");
-    if (g.released && VO.speaker.position.y < 0.2f) VO.speaker.position.y = TABLE_Y + 0.08f;   // dropped: back on the table
-    // it chimes only while its switch is on, and only while you're near it
-    // (or carrying it): a sound that repeats forever becomes noise
-    // everywhere else in the toolbox
-    if (vrui_switch(VRUI_ID2(G_VOICE, 3), (SfxrPose){ { X0 - 0.62f, TABLE_Y, ROW_Z + 0.1f }, QuaternionIdentity() },
-                    &VO.chime_on, "chime"))
-        VO.chime_t = 0;   // switched on: chime right away
-    vrui_name_widget(VRUI_ID2(G_VOICE, 3), "chime switch");
-    bool near = g.held || Vector3Distance(sfxr_head().position, VO.speaker.position) < 3.0f;
-    if (VO.chime_on && near && (VO.chime_t -= sfxr_dt()) <= 0) {
-        VO.chime_t = 1.2f;
-        sound_play(SND_CHIME, VO.speaker.position, 0.9f);
+    station_sign(X0, "Voice commands", "one set of orders, four ways to give them:\nwhich suits what?");
+    vrui_box(on_table(0, -0.025f, 0), (Vector3){ 1.4f, 0.05f, 0.7f }, (Color){ 120, 92, 66, 255 });
+    for (int h = 0; h < 2; h++) {
+        VO.pointed[h] = pointed_bug(h);
+        if (VO.pointed[h] >= 0) VO.last_pointed = VO.pointed[h];
     }
-    vrui_text3d(Vector3Add(VO.speaker.position, (Vector3){ 0, 0.11f, 0 }), VO.chime_on ? "speaker: carry me around" : "speaker: switch me on", 0.018f, RAYWHITE);
-
     minions();
-    talk();
+    bind_point_and_radial();   // (before the bumper: an open ring hides the bumper's hint)
+    bind_point_and_bumper();
+    bind_world_button();
+    bind_hands_free();
+    results();
+    placards();
+    // the transcript board, standing behind the TALK button
+    vrui_sign(on_table(0.3f, 0.35f, -0.2f), 0.6f, "What was heard", VO.board[0] ? VO.board :
+              (sfxr_voice_available() ? "hold TALK and speak" : "no recognizer: run scripts/get-speech.sh"), (Color){ 40, 44, 56, 255 });
     panel();
-    // selecting by laser for the buttons: the last bug pointed at
-    int p = pointed_bug();
-    if (p >= 0 && !VO.talking) VO.selected = p;
 }

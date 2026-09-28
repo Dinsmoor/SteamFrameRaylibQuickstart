@@ -70,6 +70,30 @@ static void repeats_are_collapsed(void)
           "one of each: \"%s\"", said);
 }
 
+// Hands-free: two seconds of room noise start nothing; then speech starts a
+// clip, and a pause ends it and gets it recognized, with no button at all.
+static void hands_free_speech_starts_and_a_pause_ends(void)
+{
+    if (!start_voice("Bugs, attack!")) return;
+    sfxr_voice_hands_free(true, 0.15f, 0.4f);
+    static float buf[16000 * 2];
+    for (int i = 0; i < 32000; i++) buf[i] = 0.01f * sinf((float)i * 0.37f) * sinf((float)i * 0.011f);   // a quiet room
+    sfxr_voice_feed(buf, 32000);
+    CHECK(!sfxr_voice_listening() && !sfxr_voice_busy(), "room noise starts nothing");
+    for (int i = 0; i < 8000; i++) buf[i] = 0.3f * sinf((float)i * 0.12f) * (0.6f + 0.4f * sinf((float)i * 0.002f));   // half a second of "speech"
+    sfxr_voice_feed(buf, 8000);
+    CHECK(sfxr_voice_listening(), "speech started a clip");
+    for (int i = 0; i < 9600; i++) buf[i] = 0;   // 0.6 s of quiet
+    sfxr_voice_feed(buf, 9600);
+    CHECK(!sfxr_voice_listening(), "the pause ended it");
+    char said[256] = "";
+    bool got = false;
+    for (int f = 0; f < 72 && !got; f++) { sfxt_frames(1); got = sfxr_voice_result(said, sizeof said); }
+    CHECK(got && strstr(said, "attack"), "recognized: \"%s\"", said);
+    CHECK(sfxr_voice_hands_free_heard(), "and it knows speech started it, not a button");
+    sfxr_voice_hands_free(false, 0, 0);
+}
+
 // The ways a command comes back slightly wrong, and ones that aren't commands.
 static void match_is_forgiving(void)
 {
@@ -163,6 +187,7 @@ static void cones_face_and_lines_follow(void)
 
 static const SfxtCase CASES[] = {
     { "voice/push-to-talk-recognizes",       push_to_talk_recognizes,           "sfxr_voice_no_prompt" },
+    { "voice/hands-free-speech-starts-and-a-pause-ends", hands_free_speech_starts_and_a_pause_ends, "sfxr_voice_any_sound_starts" },
     { "voice/repeats-are-collapsed",          repeats_are_collapsed,             "sfxr_voice_keeps_repeats" },
     { "voice/match-is-forgiving",             match_is_forgiving,                "sfxr_voice_match_exact" },
     { "voice/sound-from-the-left-is-on-the-left", sound_from_the_left_is_on_the_left, "sfxr_audio_pan_flipped" },

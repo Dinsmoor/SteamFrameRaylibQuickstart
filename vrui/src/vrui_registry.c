@@ -36,6 +36,12 @@ void vrui_group_name(unsigned group, const char *name)
 
 void vrui_name_widget(VruiId id, const char *label) { vrui__name(id, label); }
 
+void vrui_mark(VruiId id, const char *label, SfxrPose pose)
+{
+    vrui__name(id, label);
+    vrui__report(id, "mark", pose, pose, 0, false);
+}
+
 // "SPAWN (full pull)" -> "spawn", "Reset blocks" -> "reset_blocks"
 void vrui__slug(const char *text, char *out, int size)
 {

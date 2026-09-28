@@ -9,6 +9,8 @@
 //   panel_controllers.c  every controller input live, finger curl, a haptics tester
 //   panel_headset.c      worn state, refresh rate, passthrough, batteries, joints, counters
 //   onboarding.c         the hands-on setup station (learns the player's habits)
+//   station_sound.c      Sound: point, cone, line, box and ambient emitters, and what your ears get
+//   station_voice.c      Voice commands: one command, bound every way (context button, radial, world button, hands-free)
 //   station_hinges.c     Hinges & cords: a door, a chest lid, a bell cord, a radio dial, a valve, a key switch
 //   yard.c               the Movement yard: teleport pads, stairs, climbing wall, monkey bars
 //   station_attach.c     Attach & label: things riding on things, every kind of world label
@@ -34,7 +36,8 @@
 // sign above it (vrui_sign) saying what it is.
 //
 //      x   station                       file
-//   -9.8   Sound & voice                 station_voice.c (positional sound, voice commands)
+//  -12.2   Voice commands                station_voice.c (ways to bind a command: button, menu, hands-free)
+//   -9.8   Sound                         station_sound.c (emitters: point, cone, line, box, ambient)
 //   -8.0   Menus & HUD                   station_menus.c (hand menus, visor HUDs)
 //   -6.4   Hands-on setup                onboarding.c
 //   -4.8   Headset panel                 panel_headset.c
@@ -77,7 +80,7 @@ static inline void station_sign(float x, const char *title, const char *body)
 
 // Widget id groups: VRUI_ID2(group, index).
 enum { G_TABLE = 1, G_PANEL, G_WRIST, G_BLOCKS, G_BENCH, G_CTRL, G_HEADSET, G_LINK, G_YARD, G_HINGE,
-       G_ATTACH, G_MENUS, G_HUD, G_GARDEN, G_SMOOTH, G_VOICE };
+       G_ATTACH, G_MENUS, G_HUD, G_GARDEN, G_SMOOTH, G_VOICE, G_SOUND };
 
 // World settings, changed by the workbench controls and the Toolbox panel.
 typedef struct {
@@ -126,7 +129,8 @@ void sound_play_here(SoundId id, float volume);          // not positional
 void sound_pitch(SoundId id, float pitch);
 int  sound_handle(SoundId id);                           // its SfxrSound
 void sounds_vrui(VruiSound kind, Vector3 at, float strength);
-void station_voice(void);                                // station_voice.c: Sound & voice
+void station_sound(void);                                // station_sound.c: Sound (emitters)
+void station_voice(void);                                // station_voice.c: Voice commands
 
 // hud.c: visor HUD templates (Daddy Bug Smasher uses them too)
 typedef enum { HUD_OFF, HUD_HEAD, HUD_FOLLOW, HUD_BODY, HUD_COUNT } HudStyle;

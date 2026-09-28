@@ -22,6 +22,7 @@
 #include <ctype.h>
 #include <dlfcn.h>
 #include <limits.h>
+#include <math.h>
 #include <pthread.h>
 #include <stdatomic.h>
 #include <stdio.h>
@@ -53,6 +54,13 @@ static struct {
     atomic_bool busy, ready;
     char text[256];
     float ms;
+
+    // hands-free: a speech detector on 20 ms blocks
+    bool free_on, free_clip;    // on; the current clip was started by it
+    float free_threshold;
+    int free_pause;             // samples of quiet that end a clip
+    float block_sum;
+    int block_n, loud_run, quiet_run;
 } V;
 
 bool sfxr_voice_available(void) { return V.ctx != NULL; }
@@ -139,33 +147,80 @@ void sfxr_voice_shutdown(void)
     memset(&V, 0, sizeof V);
 }
 
+void sfxr_voice_hands_free(bool on, float threshold, float pause_s)
+{
+    if (!on && V.free_clip && V.listening) sfxr_voice_listen_end();
+    V.free_on = on;
+    V.free_threshold = threshold > 0 ? threshold : 0.15f;
+    V.free_pause = (int)((pause_s > 0 ? pause_s : 0.6f) * RATE);
+    V.loud_run = V.quiet_run = 0;
+    sfxr_event("voice", "hands-free %s", on ? "on" : "off");
+}
+bool sfxr_voice_hands_free_on(void) { return V.free_on; }
+bool sfxr_voice_hands_free_heard(void) { return V.free_clip; }
+
+// The speech detector, on each 20 ms block: loud (at the level meter's
+// scale) for 60 ms starts a clip, quiet for the pause ends it; a clip also
+// ends at 6 s, whatever is going on.
+static void detect(float block_level)
+{
+    const int block = RATE / 50;
+    bool loud = block_level > (SFXR_BREAK(sfxr_voice_any_sound_starts) ? 0.0f : V.free_threshold);
+    if (!V.listening) {
+        V.loud_run = loud ? V.loud_run + block : 0;
+        if (V.loud_run >= RATE * 6 / 100 && !atomic_load(&V.busy)) {
+            sfxr_voice_listen_begin();
+            V.free_clip = true;
+            V.quiet_run = 0;
+        }
+        return;
+    }
+    if (!V.free_clip) return;   // a button's clip: the button ends it
+    V.quiet_run = loud ? 0 : V.quiet_run + block;
+    if (V.quiet_run >= V.free_pause || V.nclip >= RATE * 6) {
+        V.loud_run = 0;
+        sfxr_voice_listen_end();
+    }
+}
+
+// Samples as the microphone hears them: into the clip, or the moment-before.
+static void take(const float *s, int n)
+{
+    const int block = RATE / 50;
+    for (int i = 0; i < n; i++) {
+        if (V.listening) { if (V.nclip < MAX_CLIP) V.clip[V.nclip++] = s[i]; }
+        else { V.pre[V.pre_w] = s[i]; V.pre_w = (V.pre_w + 1) % PREROLL; }
+        if (!V.free_on) continue;
+        V.block_sum += s[i] * s[i];
+        if (++V.block_n == block) {
+            float level = sqrtf(V.block_sum / (float)block) * 4.0f;   // the same scale as sfxr_mic_level
+            V.block_sum = 0;
+            V.block_n = 0;
+            detect(level > 1 ? 1 : level);
+        }
+    }
+}
+
 // Every frame (sfxr_frame_begin): keep the pre-roll fresh, or grow the clip.
 void sfxr_voice_update(void)
 {
     if (!sfxr_mic_on()) return;
     float buf[4096];
     int n;
-    while ((n = sfxr_mic_read(buf, 4096)) > 0) {
-        for (int i = 0; i < n; i++) {
-            if (V.listening) { if (V.nclip < MAX_CLIP) V.clip[V.nclip++] = buf[i]; }
-            else { V.pre[V.pre_w] = buf[i]; V.pre_w = (V.pre_w + 1) % PREROLL; }
-        }
-    }
+    while ((n = sfxr_mic_read(buf, 4096)) > 0) take(buf, n);
 }
 
 void sfxr_voice_listen_begin(void)
 {
     if (V.listening) return;
     V.listening = true;
+    V.free_clip = false;
     V.nclip = 0;
     for (int i = 0; i < PREROLL; i++) V.clip[V.nclip++] = V.pre[(V.pre_w + i) % PREROLL];   // oldest first
     sfxr_event("voice", "listening");
 }
 
-void sfxr_voice_feed(const float *pcm, int n)
-{
-    for (int i = 0; i < n && V.nclip < MAX_CLIP; i++) V.clip[V.nclip++] = pcm[i];
-}
+void sfxr_voice_feed(const float *pcm, int n) { take(pcm, n); }
 
 // Whisper sometimes gets stuck in a loop on a short clip and says a word (or
 // a few) over and over: "return return return return". Keep the first of
@@ -225,7 +280,7 @@ void sfxr_voice_listen_end(void)
 {
     if (!V.listening && V.nclip == 0) return;
     V.listening = false;
-    sfxr_voice_update();
+    if (!V.free_clip) sfxr_voice_update();   // (hands-free ends inside the update: don't re-enter it)
     if (!V.ctx || atomic_load(&V.busy)) { V.nclip = 0; return; }
     // Whisper wants at least a second: pad short clips with silence
     while (V.nclip < RATE + RATE / 10 && V.nclip < MAX_CLIP) V.clip[V.nclip++] = 0;

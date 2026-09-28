@@ -56,8 +56,18 @@ bool sfxr_voice_result(char *text, int size);
 // wrong ("attach" is attack when attack is a command).
 int  sfxr_voice_match(const char *text, const char *const *commands, int count);
 
-// For tests and tools: recognize these samples (16 kHz mono) instead of the
-// microphone's, as if they'd been said between listen_begin and listen_end.
+// Hands-free: no button. Speech starts a clip (with the moment before it),
+// a pause of `pause_s` ends it and recognizes it. `threshold` is the level
+// (as sfxr_voice_level) that counts as speech. Anything loud enough starts
+// one -- other people, the game's own sounds through open speakers -- so use
+// a wake word ("bugs, attack") and ignore transcripts without it.
+void sfxr_voice_hands_free(bool on, float threshold, float pause_s);
+bool sfxr_voice_hands_free_on(void);
+bool sfxr_voice_hands_free_heard(void);   // the current (or last) clip was started by speech, not a button
+
+// For tests and tools: samples (16 kHz mono) as if the microphone heard them:
+// into the clip while listening, else into the moment-before (and, hands-free,
+// to the speech detector).
 void sfxr_voice_feed(const float *pcm, int n);
 
 #ifdef __cplusplus

@@ -142,7 +142,8 @@ on its own:
 | `panels.c` | the Toolbox panel (settings) |
 | `station_menus.c` | hand menus (watch, palm buttons, a tablet in your hand, a radial menu) and the Menus & HUD station |
 | `hud.c` | visor HUD templates: head-locked, lazy follow, on your belt |
-| `station_voice.c`, `sounds.c` | Sound & voice: a speaker to carry round your head, a push-to-talk button, bugs you point at and give voice commands; the toolbox's sounds made in code |
+| `station_sound.c`, `sounds.c` | Sound: point, cone, line, box and ambient emitters with a switch each, and what each ear gets; the toolbox's sounds made in code |
+| `station_voice.c` | Voice commands: one set of orders bound four ways (point + bumper, point + A ring menu, a TALK button, hands-free with a wake word) |
 | `station_smoothing.c` | Smoothing: a sword and five ghosts following it, one per smoothing mode; easing curves |
 | `garden*.c` | Daddy Bug Smasher, part three: a small game (take the hammer, smash the bugs) built from the pieces above |
 | `station_attach.c` | Attach & label: things riding on things (a turntable, a lever on it, a flag on the lever, your belt) and every kind of world label |
