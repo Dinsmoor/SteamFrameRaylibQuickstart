@@ -9,6 +9,7 @@
 //   make test T=hands
 
 #include "sfxt.h"
+#include "../../sfxr/src/sfxr_internal.h"   // sfxr__hand_model: the true hand, to compare with
 
 #include <math.h>
 
@@ -176,7 +177,29 @@ static void joint_only_fist_grabs(void)
     CHECK(!grab.held, "opening the hand lets go");
 }
 
+// Holding Frame controllers, SteamVR's skeleton (built from the touch
+// sensors) has the thumb mirrored across the controller. sfxr reflects it
+// back: the thumb drawn is where the hand's thumb is, lifted or resting.
+static void frame_thumb_on_the_right_side(void)
+{
+    sfxt_hand_kind(R, SFXT_FRAME_SKELETON);
+    SfxrPose g = pose((Vector3){ 0.2f, 1.1f, -0.3f }, rot(X_AXIS, -20));
+    sfxt_hand_set(R, g);
+    const float lifted[5] = { 0, 0.6f, 0.8f, 0.8f, 0.8f };
+    sfxt_fingers(R, lifted[0], lifted[1], lifted[2], lifted[3], lifted[4]);
+    sfxt_frames(3);
+    const SfxrHandJoints *j = sfxr_hand_joints(R);
+    CHECK(j->valid && j->source == SFXR_SOURCE_CONTROLLER, "a skeleton from the controller");
+    SfxrHandJoints truth;
+    sfxr__hand_model(1, sfxr_hand(R)->grip, lifted, 0, &truth);   // the hand as it is (the rig doesn't move here)
+    float off = Vector3Distance(j->joint[SFXR_JOINT_THUMB_TIP].position, truth.joint[SFXR_JOINT_THUMB_TIP].position);
+    CHECK(off < 0.002f, "the thumb tip is where the thumb is (%.1f mm off)", off * 1000.0f);
+    float fing = Vector3Distance(j->joint[SFXR_JOINT_INDEX_TIP].position, truth.joint[SFXR_JOINT_INDEX_TIP].position);
+    CHECK(fing < 0.002f, "the fingers are left as reported (%.1f mm off)", fing * 1000.0f);
+}
+
 static const SfxtCase CASES[] = {
+    { "hands/frame-thumb-on-the-right-side",   frame_thumb_on_the_right_side,   "sfxr_thumb_as_reported" },
     { "hands/shapes-from-joints",            shapes_from_joints,            "sfxr_shapes_from_values_only" },
     { "hands/light-pinch-is-a-pinch",        light_pinch_is_a_pinch,        "sfxr_pinch_shape_from_curl_only" },
     { "hands/pinch-no-flicker-at-the-edge",  pinch_no_flicker_at_the_edge,  "sfxr_pinch_no_hysteresis" },

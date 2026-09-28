@@ -125,7 +125,7 @@ static void fill(void)
             Vector3 ax = Vector3Normalize((Vector3){ rnd(), rnd(), rnd() + 0.001f });
             g.orientation = QuaternionMultiply(QuaternionFromAxisAngle(ax, rnd() * T.n_rot * DEG2RAD), g.orientation);
         }
-        if (H->kind != SFXT_CONTROLLER) { fill_bare(h, H, g, o); continue; }
+        if (H->kind != SFXT_CONTROLLER && H->kind != SFXT_FRAME_SKELETON) { fill_bare(h, H, g, o); continue; }
         o->active = true;
         o->source = SFXR_SOURCE_CONTROLLER;
         o->pose_valid = RAW_POSE_GRIP | RAW_POSE_AIM;
@@ -146,6 +146,13 @@ static void fill(void)
         o->touch = o->click | H->touching;
         if (H->trigger > 0) o->touch |= RAW_BIT(SFXR_CTL_TRIGGER);
         if (H->squeeze > 0) o->touch |= RAW_BIT(SFXR_CTL_SQUEEZE);
+        if (H->kind == SFXT_FRAME_SKELETON) {   // SteamVR's skeleton from the controller, its thumb mirrored
+            snprintf(o->profile, sizeof o->profile, "/interaction_profiles/valve/frame_controller_valve");
+            SfxrHandJoints *j = &S.sig.joints[h];
+            sfxr__hand_model(h, g, H->curl, 0, j);
+            j->source = SFXR_SOURCE_CONTROLLER;
+            sfxr__unmirror_thumb(g, j);
+        }
     }
 }
 

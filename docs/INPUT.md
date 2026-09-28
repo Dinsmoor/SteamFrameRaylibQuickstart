@@ -60,6 +60,18 @@ Use shapes to make physical interaction **conditional**:
 **Tests:** `input/shapes-from-touch-sensors`, `mech/button-point-to-press`,
 `mech/grab-by-closing-hand`.
 
+
+**SteamVR's thumb is mirrored.** Holding the Frame controllers, SteamVR also reports a full
+hand skeleton built from the touch sensors (the joints' data source is "controller"). Its
+thumb is reflected across the controller: lift your thumb and the bones swing about 3 cm to
+the *far* side of the controller, away from the palm, where a real thumb lifts up and out on
+the palm side. Every recorded session shows it, on both hands. sfxr reflects the thumb back,
+about its own base, before you see the joints (`sfxr__unmirror_thumb` in `sfxr_input.c`);
+the palm and fingers are left as reported. Recordings keep what the runtime said, so replays
+get the same fix. Test: `hands/frame-thumb-on-the-right-side` (break switch
+`sfxr_thumb_as_reported`); `sfxt_hand_kind(h, SFXT_FRAME_SKELETON)` imitates SteamVR's
+skeleton in tests.
+
 ## Bare hands
 
 Put the controllers down and the Frame's cameras track your hands. Everything above still

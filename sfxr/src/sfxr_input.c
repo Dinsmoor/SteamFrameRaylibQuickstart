@@ -167,6 +167,31 @@ static void derive_shapes(void)
     }
 }
 
+// SteamVR's hand skeleton for the Frame controllers (joints from the touch
+// sensors, XR_HAND_TRACKING_DATA_SOURCE_CONTROLLER_EXT) has the thumb
+// mirrored across the controller: lift your thumb off and its bones swing
+// ~3 cm to the FAR side of the controller, away from the palm, where a real
+// thumb lifts up and out on the palm side (every recorded session, both
+// hands, as mirror images of each other). Reflect the thumb back across the
+// controller's side-to-side axis, about its own base; the palm and fingers
+// are left as reported. Applied here, after recording, so recordings keep
+// what the runtime said and replays get the same fix.
+void sfxr__unmirror_thumb(SfxrPose grip, SfxrHandJoints *j)
+{
+    Quaternion gi = QuaternionInvert(grip.orientation);
+    Vector3 base = Vector3RotateByQuaternion(Vector3Subtract(j->joint[SFXR_JOINT_THUMB_METACARPAL].position, grip.position), gi);
+    for (int k = SFXR_JOINT_THUMB_METACARPAL; k <= SFXR_JOINT_THUMB_TIP; k++) {
+        SfxrPose *p = &j->joint[k];
+        Vector3 l = Vector3RotateByQuaternion(Vector3Subtract(p->position, grip.position), gi);
+        l.x = 2.0f * base.x - l.x;
+        p->position = Vector3Add(grip.position, Vector3RotateByQuaternion(l, grip.orientation));
+        // the same reflection for its orientation: x -> -x is (x, y, z, w) -> (x, -y, -z, w)
+        Quaternion q = QuaternionMultiply(gi, p->orientation);
+        q = (Quaternion){ q.x, -q.y, -q.z, q.w };
+        p->orientation = QuaternionMultiply(grip.orientation, q);
+    }
+}
+
 void sfxr__derive_input(void)
 {
     sfxr__hands_update();   // gestures; hands known only as joints get raw input first
@@ -217,6 +242,13 @@ void sfxr__derive_input(void)
         SfxrHandJoints *out = &S.joints_world[i];
         out->valid = in->valid;
         out->source = in->source;
+        SfxrHandJoints fixed;
+        if (in->valid && in->source == SFXR_SOURCE_CONTROLLER && strstr(S.raw[i].profile, "frame_controller") &&
+            !SFXR_BREAK(sfxr_thumb_as_reported)) {
+            fixed = *in;
+            sfxr__unmirror_thumb(S.raw[i].grip, &fixed);
+            in = &fixed;
+        }
         for (int j = 0; j < SFXR_JOINT_COUNT; j++) {
             out->joint[j] = in->valid ? sfxr_pose_mul(rig, in->joint[j]) : sfxr_pose_identity();
             out->radius[j] = in->radius[j];
