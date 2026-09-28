@@ -1,6 +1,6 @@
 // station_voice.c - Sound & voice, at the left end of the row (docs/AUDIO.md).
 //
-//   The speaker   it chimes every second or so, from where it is: pick it up
+//   The speaker   it chimes every second or so (while you're near it), from where it is: pick it up
 //                 and carry it round your head. Left, right, behind, far:
 //                 you hear where it is (sfxr_sound_play at a position).
 //   The bugs      three little bugs, and a cardboard Daddy. Point at a bug
@@ -202,7 +202,10 @@ void station_voice(void)
     VruiGrab g = vrui_grabbable(VRUI_ID2(G_VOICE, 1), &VO.speaker, (Vector3){ 0.05f, 0.07f, 0.05f }, (Color){ 50, 50, 56, 255 });
     vrui_name_widget(VRUI_ID2(G_VOICE, 1), "speaker");
     if (g.released && VO.speaker.position.y < 0.2f) VO.speaker.position.y = TABLE_Y + 0.08f;   // dropped: back on the table
-    if ((VO.chime_t -= sfxr_dt()) <= 0) {
+    // it only chimes while you're near it (or carrying it): a sound that
+    // repeats forever becomes noise everywhere else in the toolbox
+    bool near = g.held || Vector3Distance(sfxr_head().position, VO.speaker.position) < 3.0f;
+    if (near && (VO.chime_t -= sfxr_dt()) <= 0) {
         VO.chime_t = 1.2f;
         sound_play(SND_CHIME, VO.speaker.position, 0.9f);
     }
