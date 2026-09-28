@@ -8,6 +8,7 @@ static struct {
     SfxrPose pose;
     bool  placed;
     bool  smooth_turn;
+    bool  real_falls;
     int   snap_choice;    // 0:15 1:30 2:45 degrees
     int   pull_choice;    // SfxrPull
     int   grab_choice;    // VruiGrabStyle
@@ -34,7 +35,9 @@ void panels_toolbox(VruiLocoConfig *loco)
     vrui_row_cols(36, 2, cols);
     vrui_toggle(3, cols[0], "Gravity", &world.gravity);
     vrui_toggle(4, cols[1], "Grid", &world.show_grid);
-    vrui_toggle(5, vrui_row(36), "Smooth turn (less comfortable)", &P.smooth_turn);
+    vrui_row_cols(36, 2, cols);
+    vrui_toggle(5, cols[0], "Smooth turn", &P.smooth_turn);
+    vrui_toggle(12, cols[1], "Real falls", &P.real_falls);   // both: less comfortable
 
     vrui_label(vrui_row(24), "Snap turn angle");
     static const char *const snaps[] = { "15", "30", "45" };
@@ -61,6 +64,7 @@ void panels_toolbox(VruiLocoConfig *loco)
     vrui_panel_end();
 
     loco->smooth_turn = P.smooth_turn;
+    loco->fall = P.real_falls ? VRUI_FALL_DROP : VRUI_FALL_BLINK;
     loco->snap_angle_deg = 15.0f * (float)(P.snap_choice + 1);
 }
 

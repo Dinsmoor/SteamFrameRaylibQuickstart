@@ -57,7 +57,8 @@ while (sfxr_frame_begin()) {                 // one loop iteration = one headset
   Without a headset it opens a **desktop simulator** instead.
 - **vrui: an interaction toolkit.**
   - floating 2D panels
-  - teleporting
+  - moving the player: teleport, teleport pads, platforms and stairs, climbing walls,
+    ladders and monkey bars
   - grabbable objects
   - **reference mechanisms**: knob, selector, crank, wheel of fortune, lever, slider,
     plunger, joystick, buttons, switches
@@ -80,7 +81,7 @@ vrui/            the interaction toolkit (C library, on top of sfxr)
 sfxt/            the test harness (C, for your tests)
 examples/        hello (the smallest app) and toolbox (the testbed)
 apps/            your own apps go here (make new-app NAME=...)
-tests/           behavior tests (mech, input) and recorded replays (regress)
+tests/           behavior tests (mech, input, move) and recorded replays (regress)
 docs/            how things behave and why
 scripts/         build, test and headset scripts
 tools/           xr_probe, sfxrec_dump, Valve's devkit helper scripts
@@ -119,7 +120,7 @@ with a table of contents.
 | `vrui_press.c` | push buttons and rocker switches |
 | `vrui_display.c` | gauges, rolling counters, lamps |
 | `vrui_haptics.c` | the haptics mixer (ticks and hums sharing one motor) |
-| `vrui_loco.c` | teleport and turning |
+| `vrui_loco.c` | moving the player: teleport, pads, turning, surfaces and falling, climbing (handholds) |
 
 **`examples/toolbox/`: the testbed.** One file per station, so each can be read on its own:
 
@@ -133,6 +134,7 @@ with a table of contents.
 | `panel_controllers.c` | every controller input live, finger curl, a haptics tester |
 | `panel_headset.c` | worn state, refresh rate, passthrough, batteries, joints, performance counters |
 | `onboarding.c` | the hands-on setup station: learns how a player likes to use their hands |
+| `yard.c` | the Movement yard: teleport pads, stairs, a climbing wall with a ladder, monkey bars |
 
 **`docs/`**
 - `MECHANISMS.md`: what each control promises the player, its defaults, and how to
@@ -140,6 +142,7 @@ with a table of contents.
 - `INPUT.md`: the ways hands act on things (laser, grab, poke, hand shape), who owns a
   controller when, and haptics as feedback
 - `ONBOARDING.md`: fitting the controls to the player by watching them
+- `MOVEMENT.md`: moving the player comfortably: teleport, pads, surfaces, climbing
 - `TESTING.md`: how and why things are tested
 
 ## Where to look when you build your own Frame app
@@ -151,6 +154,7 @@ with a table of contents.
 | A knob, lever, slider or button that feels right | `docs/MECHANISMS.md`, then copy one from `examples/toolbox/bench_mechanisms.c`; set `spec.draw = false` and draw your model at the result's `part` |
 | Menus | the panel functions in `vrui.h` (section 3) and `examples/toolbox/panels.c` |
 | Keep the stick from teleporting people while they use your UI | "input ownership" in `docs/INPUT.md`: `vrui_claim_input()` / `vrui_input_claimed()` |
+| Move players around (pads, platforms, climbing, monkey bars) | `docs/MOVEMENT.md` and `examples/toolbox/yard.c` |
 | Feedback players can feel | `vrui_haptic_pulse()` / `vrui_haptic_hum()` and the haptic vocabulary in `docs/INPUT.md` |
 | Know what the hardware can do | the toolbox's Controllers and Headset panels (try them in the headset), `scripts/frame.sh probe --paths`, and `CLAUDE.md` Part 1 |
 | Comfortable VR design | `CLAUDE.md`, "VR design: what works and what doesn't" |

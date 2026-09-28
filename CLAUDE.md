@@ -414,8 +414,10 @@ while (sfxr_frame_begin()) {              // wait for runtime, sample poses and 
   **point-to-press** buttons (`VruiPressSpec.require_point`).
 - **Displays:** `vrui_gauge`, `vrui_odometer`, `vrui_lamp` (read-only; passive panels
   take no input).
-- Locomotion: `vrui_locomotion(&cfg)`. It leaves a hand's stick alone while that hand
-  points at UI.
+- Locomotion: `vrui_locomotion(&cfg)` is the only thing that moves the rig. It leaves a
+  hand's stick alone while that hand points at UI or is claimed. It also handles teleport
+  pads, surfaces (`ground_height`: platforms, stairs, lifts, falling) and climbing
+  (`vrui_handhold`, called before it). See `docs/MOVEMENT.md`; tests in `tests/move/`.
 - **Adding a widget:** follow the existing ones. Compute hit distance/proximity, call
   `vrui__ray_offer`/`vrui__grab_offer`, use `handle_update()` for grabbable handles, keep
   per-widget state in `vrui__item(id)`, queue drawing with `vrui_box`/`vrui__cylinder`/...,

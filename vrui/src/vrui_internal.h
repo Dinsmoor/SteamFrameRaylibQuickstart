@@ -104,6 +104,10 @@ typedef struct {
 
     VruiHapticMix hap[2];
 
+    // handholds (vrui_handhold -> vrui_locomotion): which hands are on one
+    // this frame, since when, and the world point each hand is pinned to
+    struct { uint64_t held_frame[2], since[2]; Vector3 anchor[2]; } climb;
+
     // "how do I use this?" hints for whatever each hand is on (vrui__hint)
     struct { VruiId id; char text[80]; } hints[64];
     int nhints;

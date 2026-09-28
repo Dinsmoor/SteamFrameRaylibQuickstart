@@ -30,6 +30,7 @@ typedef struct {
 
 static struct {
     Hand hand[2];
+    SfxrPose head;          // tracking space; starts at 1.6 m looking down -Z
     void (*scene)(void);
     const char *case_name;
     int failures;
@@ -57,7 +58,7 @@ static float noisy01(float v)
 
 static void fill(void)
 {
-    S.head_stage = (SfxrPose){ { 0, 1.6f, 0 }, QuaternionIdentity() };
+    S.head_stage = T.head;
     S.eye_stage[0] = S.eye_stage[1] = S.head_stage;
     for (int e = 0; e < 2; e++) {
         S.fov[e][0] = -0.785f; S.fov[e][1] = 0.785f; S.fov[e][2] = 0.785f; S.fov[e][3] = -0.785f;
@@ -140,6 +141,19 @@ void sfxt_hand_to(SfxrHandId h, SfxrPose target, float seconds)
     }
     H->grip = target;
 }
+
+void sfxt_head_to(SfxrPose target, float seconds)
+{
+    SfxrPose from = T.head;
+    int n = (int)lroundf(seconds * 72.0f);
+    for (int i = 1; i <= n; i++) {
+        T.head = sfxr_pose_lerp(from, target, ease((float)i / (float)n));
+        run_frame();
+    }
+    T.head = target;
+}
+
+SfxrPose sfxt_head(void) { return T.head; }
 
 void sfxt_hand_path(SfxrHandId h, SfxrPose (*pose)(float t, void *user), void *user, float seconds)
 {
@@ -260,6 +274,7 @@ int sfxt_main(int argc, char **argv, const SfxtCase *cases, int ncases, void (*s
     Quaternion ahead_down = QuaternionFromAxisAngle((Vector3){ 1, 0, 0 }, -0.6f);
     T.hand[0] = (Hand){ .active = true, .grip = { { -0.3f, 0.7f, 0.1f }, ahead_down } };
     T.hand[1] = (Hand){ .active = true, .grip = { { 0.3f, 0.7f, 0.1f }, ahead_down } };
+    T.head = (SfxrPose){ { 0, 1.6f, 0 }, QuaternionIdentity() };
     sfxt_frames(3);
 
     c->run();

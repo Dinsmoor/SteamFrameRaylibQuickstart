@@ -370,6 +370,33 @@ void vrui_lamp(SfxrPose pose, bool on, Color color, const char *label);         
 // ===========================================================================
 // 8. Locomotion (teleport + snap turn by default; only unclaimed hands)
 // ===========================================================================
+// vrui_locomotion is the one place that moves the player (the rig). Besides
+// the stick (teleport, turning, walking) it handles, when you use them:
+//   * SURFACES: ground_height says how high the ground is anywhere, so the
+//     teleport arc lands on platforms, walking in your room steps you up onto
+//     low things (step_height) and off edges (you fall, see `fall`).
+//   * PADS: fixed teleport destinations that snap you to their center, and
+//     optionally turn you to face a set direction.
+//   * CLIMBING: while a hand holds a handhold (vrui_handhold), that hand stays
+//     put and the WORLD moves instead: pull down to rise, push to move away.
+// docs/MOVEMENT.md explains each, with the examples in the toolbox's
+// Movement yard (examples/toolbox/yard.c).
+
+// A fixed teleport destination. Landing within `radius` of `center` (and
+// within 0.5 m of its height) snaps you to the center.
+typedef struct {
+    Vector3 center;             // on the surface
+    float   radius;             // meters
+    bool    face;               // also turn the player to face yaw_deg
+    float   yaw_deg;            // 0 = -Z, positive = to the right (clockwise seen from above)
+} VruiTeleportPad;
+
+// How the player comes down when the ground drops away (walked off an edge,
+// let go of a handhold).
+typedef enum {
+    VRUI_FALL_BLINK,            // a short fade, and you are on the ground (default: comfortable)
+    VRUI_FALL_DROP,             // real falling under gravity (lively, can be sickening)
+} VruiFall;
 
 typedef struct {
     bool  teleport;             // stick forward: aim arc, release: jump (default on)
@@ -383,12 +410,39 @@ typedef struct {
     float fade_seconds;         // blink on teleport/snap (default 0.08; 0 = off)
     float floor_y;              // teleport onto this height (default 0)
     // Optional: reject targets (walls, water...). NULL = anywhere on the floor.
+    // Pads are always valid (they are the level designer's decision).
     bool (*valid_target)(Vector3 target, void *user);
     void *user;
+
+    // Optional surfaces: the top of the highest walkable surface at or below
+    // `p` (NULL: flat floor at floor_y everywhere). When set, the player steps
+    // up onto anything up to step_height and falls off edges.
+    float (*ground_height)(Vector3 p, void *user);
+    float step_height;          // default 0.35 (a stair; higher is a wall or a table)
+    VruiFall fall;              // default VRUI_FALL_BLINK
+    float gravity;              // VRUI_FALL_DROP, m/s^2 (default 9.8)
+
+    // Optional teleport pads. pads_only: nothing else is a valid target.
+    const VruiTeleportPad *pads;
+    int   npads;
+    bool  pads_only;
 } VruiLocoConfig;
 
 VruiLocoConfig vrui_loco_default(void);
+// Call after the frame's handholds (they report which hands are climbing).
 void vrui_locomotion(const VruiLocoConfig *cfg);
+
+// A handhold: something to climb on. a..b is a bar (a rung, a monkey bar, a
+// ledge's edge); a == b is a single hold (a rock). Take hold with the hand
+// (the grab style in effect, see vrui_style()->grab); the laser never climbs.
+// Drawn as a rod or ball of `radius` in `color`.
+typedef struct {
+    bool hovered, grabbed, held, released;
+    SfxrHandId hand;            // the holding hand (when held/released)
+} VruiHold;
+VruiHold vrui_handhold(VruiId id, Vector3 a, Vector3 b, float radius, Color color);
+bool     vrui_climbing(void);   // a hand is on a handhold: the rig follows it
+bool     vrui_airborne(void);   // falling, or just let go and not landed yet
 
 // ===========================================================================
 // 9. Queued 3D drawing helpers (call from logic code; drawn by vrui_draw)

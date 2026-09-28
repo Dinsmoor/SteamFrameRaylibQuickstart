@@ -9,6 +9,7 @@
 //   panel_controllers.c  every controller input live, finger curl, a haptics tester
 //   panel_headset.c      worn state, refresh rate, passthrough, batteries, joints, counters
 //   onboarding.c         the hands-on setup station (learns the player's habits)
+//   yard.c               the Movement yard: teleport pads, stairs, climbing wall, monkey bars
 
 #ifndef TOOLBOX_H
 #define TOOLBOX_H
@@ -38,6 +39,7 @@
 //   Controllers panel -110   2.2
 //   Headset panel     -160   2.2
 //   Setup station      165   2.2
+//   Movement yard: straight ahead past the ring, 4 to 12 m out (yard.c)
 static inline SfxrPose station_pose(float angle_deg, float radius, float y)
 {
     float a = angle_deg * DEG2RAD;
@@ -45,7 +47,7 @@ static inline SfxrPose station_pose(float angle_deg, float radius, float y)
 }
 
 // Widget id groups: VRUI_ID2(group, index).
-enum { G_TABLE = 1, G_PANEL, G_WRIST, G_BLOCKS, G_BENCH, G_CTRL, G_HEADSET, G_LINK };
+enum { G_TABLE = 1, G_PANEL, G_WRIST, G_BLOCKS, G_BENCH, G_CTRL, G_HEADSET, G_LINK, G_YARD };
 
 // World settings, changed by the workbench controls and the Toolbox panel.
 typedef struct {
@@ -69,6 +71,7 @@ Color world_sky(void);
 void  world_draw(void);               // inside sfxr_draw_begin/end
 void  world_spawn_block(Vector3 at);
 void  world_reset_blocks(void);
+float world_lift_height(void);        // top of the lift platform (the LIFT slider)
 extern const char *const SPAWN_COLOR_NAMES[6];
 
 // the stations (each between vrui_begin/end)
@@ -78,5 +81,10 @@ void bench_mechanisms(void);
 void bench_linkage(void);
 void panel_controllers(void);
 void panel_headset(void);
+
+// yard.c: surfaces, pads and handholds; yard_setup fills in the loco config
+void yard_setup(VruiLocoConfig *loco);
+void yard_update(void);               // handholds and signs (before vrui_locomotion)
+void yard_draw(void);                 // blocks, pads (inside sfxr_draw_begin/end)
 
 #endif

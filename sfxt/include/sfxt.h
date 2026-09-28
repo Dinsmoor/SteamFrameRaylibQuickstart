@@ -26,8 +26,10 @@
 // again with that switch on: passing both ways means the test is UNTRUSTED.
 //
 // Time is simulated: exactly 1/72 s per frame, and nothing happens between
-// calls that don't advance frames. Positions are world meters (the rig stays
-// at the origin, the head at 1.6 m looking down -Z).
+// calls that don't advance frames. Hand and head poses are TRACKING-space
+// meters, like a real runtime reports them: while the rig stays at the origin
+// (it does unless the scene moves the player) they are world meters too. The
+// head starts at 1.6 m looking down -Z.
 //
 // Hands: a scripted hand is a GRIP pose. Its aim (laser) pose is the same pose
 // (pointing along the grip's -Z) and its poke point (the tip that presses
@@ -72,6 +74,10 @@ void     sfxt_hand_to(SfxrHandId h, SfxrPose grip, float seconds);
 SfxrPose sfxt_tip_pose(Vector3 point, Vector3 dir);
 // General motion: pose(t) for t = 0..1 (already eased), sampled every frame.
 void     sfxt_hand_path(SfxrHandId h, SfxrPose (*pose)(float t, void *user), void *user, float seconds);
+
+// --- head (tracking space; the player walking or leaning)
+void     sfxt_head_to(SfxrPose head, float seconds);    // 0 s: from the next frame
+SfxrPose sfxt_head(void);
 
 // --- controls (take effect on the next frame)
 void sfxt_trigger(SfxrHandId h, float v);

@@ -217,8 +217,10 @@ void world_draw(void)
         DrawCube((Vector3){ x, (TABLE_Y - 0.05f) * 0.5f, z }, 0.05f, TABLE_Y - 0.05f, 0.05f, (Color){ 100, 72, 50, 255 });
     }
 
-    // the lift platform, driven by the LIFT slider
-    float lift_h = 0.05f + world.lift * 1.5f;
+    // the lift platform, driven by the LIFT slider (a surface: yard.c)
+    float lift_h = world_lift_height();
     DrawCube((Vector3){ -2.4f, lift_h * 0.5f, -2.4f }, 1.0f, lift_h, 1.0f, (Color){ 90, 96, 110, 255 });
     DrawCubeWires((Vector3){ -2.4f, lift_h * 0.5f, -2.4f }, 1.0f, lift_h, 1.0f, (Color){ 30, 32, 40, 255 });
 }
+
+float world_lift_height(void) { return 0.05f + world.lift * 1.5f; }

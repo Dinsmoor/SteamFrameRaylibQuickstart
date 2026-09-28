@@ -11,6 +11,7 @@
 //   Behind right: the Linkage bench -- controls wired to mechanical displays
 //   Behind:       the Hands-on setup station (docs/ONBOARDING.md)
 //   The stations stand on a ring with room to walk around each (toolbox.h).
+//   Far ahead:    the Movement yard -- teleport pads, stairs, climbing wall, monkey bars
 //   On your wrist: fps, hand shapes, trigger level
 //   Moving:       stick forward = teleport arc, stick sideways = snap turn
 //
@@ -37,6 +38,7 @@ int main(void)
 
     world_init();
     VruiLocoConfig loco = vrui_loco_default();
+    yard_setup(&loco);   // surfaces, teleport pads, "only pads inside the yard"
     SfxrPose setup_pose = station_pose(165, 2.2f, 1.35f);
 
     while (sfxr_frame_begin()) {
@@ -50,7 +52,8 @@ int main(void)
             bench_linkage();
             panel_controllers();
             panel_headset();
-            vrui_locomotion(&loco);
+            yard_update();
+            vrui_locomotion(&loco);   // after the handholds (yard_update)
             vrui_text3d((Vector3){ 0, 2.2f, -2.5f }, "sfxr + vrui toolbox", 0.12f, RAYWHITE);
         vrui_end();
 
@@ -58,6 +61,7 @@ int main(void)
 
         if (sfxr_draw_begin(world_sky())) {
             world_draw();
+            yard_draw();
             vrui_draw();
             sfxr_draw_end();
         }
