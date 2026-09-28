@@ -397,6 +397,7 @@ platform research, VR design guidance (comfort, interaction, text size, performa
 the architecture, testing methods and lessons learned.
 
 ## Credits and licenses
+- This quickstart: **MIT** (see `LICENSE`). Copy what you need into your own projects.
 - [raylib](https://github.com/raysan5/raylib), zlib license. Included as the upstream
   source archive.
 - [OpenXR SDK](https://github.com/KhronosGroup/OpenXR-SDK), Apache-2.0. Included as the

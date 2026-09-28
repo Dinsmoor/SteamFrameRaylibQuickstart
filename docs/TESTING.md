@@ -281,7 +281,7 @@ instead of people remembering it.
 - The same harness and vocabulary: every scenario command is one C function
   (`hand R to table.lever/handle over 0.4s` is
   `sfxt_hand_to(SFXR_RIGHT, "table.lever/handle", 0.4f)`), so nothing is DSL-only.
-- mLink-style `CHECK(cond, "message")`, plus `SFXT_FAILS_IF(...)`, the same runner and
+- plain `CHECK(cond, "message")` checks, plus `SFXT_FAILS_IF(...)`, the same runner and
   the same audit.
 
 **Why this shape:**
