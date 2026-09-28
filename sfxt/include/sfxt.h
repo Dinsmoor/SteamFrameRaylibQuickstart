@@ -43,6 +43,8 @@
 #include "vrui.h"
 #include "sfxr_break.h"
 
+#include <stddef.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -78,6 +80,19 @@ void     sfxt_hand_path(SfxrHandId h, SfxrPose (*pose)(float t, void *user), voi
 // --- head (tracking space; the player walking or leaning)
 void     sfxt_head_to(SfxrPose head, float seconds);    // 0 s: from the next frame
 SfxrPose sfxt_head(void);
+
+// --- bare hands (docs/INPUT.md, "Bare hands"). The grip pose above still
+// places the hand; sfxt builds all 26 joints from it plus the finger curls.
+typedef enum {
+    SFXT_CONTROLLER = 0,    // holding a Steam Frame controller (the default)
+    SFXT_BARE,              // bare hand, and the runtime has a hand-interaction profile
+                            // (its own pinch -> trigger, grasp -> grip, aim and poke poses)
+    SFXT_BARE_JOINTS_ONLY,  // bare hand, and the runtime reports only joints (sfxr builds the rest)
+} SfxtHandKind;
+void sfxt_hand_kind(SfxrHandId h, SfxtHandKind kind);
+void sfxt_fingers(SfxrHandId h, float thumb, float index, float middle, float ring, float little); // curl 0..1
+void sfxt_pinch(SfxrHandId h, float amount);          // thumb tip toward the index tip: 0 .. 1 touching
+void sfxt_shape(SfxrHandId h, SfxrHandShape shape);   // curls (and pinch) that make this shape
 
 // --- controls (take effect on the next frame)
 void sfxt_trigger(SfxrHandId h, float v);

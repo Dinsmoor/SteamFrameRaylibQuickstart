@@ -329,6 +329,41 @@ bool sfxr_hand_joints_supported(void);
 const SfxrHandJoints *sfxr_hand_joints(SfxrHandId hand);   // never NULL; check ->valid
 
 // ---------------------------------------------------------------------------
+// Bare hands: gestures read from the joints (docs/INPUT.md, "Bare hands")
+// ---------------------------------------------------------------------------
+//
+// With bare hands, sfxr_hand() already works like a controller: pinch is the
+// trigger, closing the hand is the grip, the index tip pokes, and the aim pose
+// points. That comes from the runtime's hand-interaction profile -- or, when a
+// runtime only reports joints, from these gestures (SFXR_HANDS=joints forces
+// that, to compare the two). The gestures below are measured from the joints
+// every frame, with or without a controller in hand, for apps that want more
+// than "trigger and grip": a second pinch, the palm facing up for a wrist
+// menu, a steady ray.
+//
+// Every "button" here has hysteresis (it closes at one distance and opens at a
+// wider one), so a hand held right at the edge doesn't flicker.
+
+typedef struct {
+    bool       valid;           // joints tracked this frame (everything below is zero otherwise)
+    float      pinch_dist[4];   // thumb tip to index / middle / ring / little tip, meters
+    float      pinch_strength;  // index pinch: 0 at 5 cm apart or more .. 1 touching (1.5 cm or less)
+    SfxrButton pinch;           // index pinch: closes under 2 cm, opens over 3.5 cm
+    SfxrButton middle_pinch;    // thumb to middle finger: a second "button" (same distances)
+    float      grasp_strength;  // middle, ring and little finger curl: 0 open .. 1 closed
+    SfxrButton grasp;           // hand closed: closes at 0.65, opens under 0.45
+    Vector3    palm_normal;     // out of the palm (world, unit)
+    bool       palm_up;         // palm to the sky: within 40 degrees, stays until past 55
+    bool       palm_to_head;    // palm facing your eyes (a wrist-menu cue): within 40, until past 55
+    SfxrPose   ray;             // a steady bare-hand laser: from an estimated shoulder through the
+                                // index knuckle, -Z forward. It doesn't dip when you pinch, unlike
+                                // a ray from the fingertips.
+    Vector3    index_tip, thumb_tip;   // world
+} SfxrHandGestures;
+
+const SfxrHandGestures *sfxr_hand_gestures(SfxrHandId hand);   // never NULL; check ->valid
+
+// ---------------------------------------------------------------------------
 // Headset and system signals
 // ---------------------------------------------------------------------------
 

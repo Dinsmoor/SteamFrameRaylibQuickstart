@@ -172,7 +172,7 @@ $(BUILD)/bin/xr_probe: tools/xr_probe.c $(OPENXR_LIB) $(OPENXR_STAMP)
 
 TEST_SUITES := $(notdir $(patsubst %/,%,$(dir $(wildcard tests/*/main.c))))
 TEST_BINS   := $(patsubst %,$(BUILD)/tests/%,$(TEST_SUITES))
-SFXT_OBJ    := $(BUILD)/obj/sfxt/src/sfxt.o
+SFXT_OBJ    := $(patsubst %.c,$(BUILD)/obj/%.o,$(wildcard sfxt/src/*.c))
 
 $(BUILD)/obj/sfxt/%.o: CFLAGS += -Isfxt/include -Isfxr/src
 

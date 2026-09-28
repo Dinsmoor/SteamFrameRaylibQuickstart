@@ -116,6 +116,9 @@ typedef struct {
     SfxrHand hands[2];
     SfxrPose gaze_world;
     SfxrHandJoints joints_world[2];
+    SfxrHandGestures gestures[2];     // sfxr_hands.c
+    Vector3 joint_hand_prev[2];       // joint-derived hands: last grip position (velocity)
+    bool joint_hand_had_prev[2];
     SfxrBlendMode blend;
 
     // rig: world_from_stage
@@ -154,6 +157,12 @@ SfxrPose sfxr_rig_pose(void);                   // world_from_stage as a pose
 bool     sfxr_env_flag(const char *name, bool def);
 // sfxr_input.c: raw hands + signals -> SfxrHand, shapes, world-space joints (each frame)
 void     sfxr__derive_input(void);
+float    sfxr__finger_curl(const SfxrHandJoints *j, int finger);   // 0 straight .. 1 curled (SFXR_FINGER_*)
+// sfxr_hand_model.c: a procedural skeleton (tracking space) from a grip pose,
+// finger curls (SFXR_FINGER_*) and a pinch amount 0..1. Tests and the simulator.
+void     sfxr__hand_model(int hand, SfxrPose grip, const float curl[5], float pinch, SfxrHandJoints *out);
+// sfxr_hands.c: gestures from the joints; joint-only hands get raw input (called first by derive_input)
+void     sfxr__hands_update(void);
 const char *sfxr_env_str(const char *name);
 
 // XR-common entry points implemented in sfxr_xr.c; the GL/VK files plug in

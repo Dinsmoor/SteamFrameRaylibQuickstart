@@ -52,6 +52,66 @@ Use shapes to make physical interaction **conditional**:
 **Tests:** `input/shapes-from-touch-sensors`, `mech/button-point-to-press`,
 `mech/grab-by-closing-hand`.
 
+## Bare hands
+
+Put the controllers down and the Frame's cameras track your hands. Everything above still
+works, because a bare hand is presented as a controller:
+
+| Controller | Bare hand |
+|---|---|
+| trigger | **pinch** (thumb tip to index tip): its strength is the trigger value, so pull levels work |
+| grip | **closing the hand** (middle, ring and little finger curl) |
+| poke point | the **index fingertip** |
+| aim (laser) | a ray from the hand |
+
+`sfxr_hand(h)->source` says which one you have. Buttons and the stick don't exist on a
+bare hand, so anything that needs them (menus on B, teleport on the stick) needs a
+hand-friendly alternative. Offer a pinch or a palm gesture, or say "pick up a controller".
+
+**Where it comes from.** A runtime with a *hand-interaction profile* (the Frame's SteamVR
+accepts one) supplies pinch, grasp and the poses itself. A runtime that reports only the
+joints would otherwise leave bare hands dead. sfxr then builds the whole hand from the
+joints, using the gestures below. `SFXR_HANDS=joints` forces that path even when the
+profile is there, so you can compare the two in the headset.
+
+### Gestures (`sfxr_hand_gestures`)
+
+Measured from the joints every frame, for bare hands or joints inferred while holding a
+controller:
+
+| Field | What it is | Why |
+|---|---|---|
+| `pinch`, `pinch_strength`, `pinch_dist[4]` | thumb tip to each fingertip | the index pinch **closes under 2 cm and opens over 3.5 cm**. A hand hovering at the edge doesn't flicker between the two |
+| `middle_pinch` | thumb to middle finger | a second "button" that's hard to hit by accident |
+| `grasp`, `grasp_strength` | the last three fingers curled | closes at 0.65 curl, opens under 0.45 |
+| `palm_up`, `palm_to_head`, `palm_normal` | which way the palm faces | a wrist menu that opens when you look at your palm. On within 40°, off past 55° |
+| `ray` | from an estimated shoulder through the index knuckle | a laser that **doesn't dip when you pinch**. A ray from the fingertips moves as they close, so the target slips off just as you click |
+
+A **pinch** shape is also recognized by distance: thumb and index touching, the other
+fingers open, even when the index is nearly straight. A light fingertip pinch barely
+curls anything, so curl alone misses it.
+
+### Trying it without a headset
+
+In the simulator, **H** switches to bare hands. **LMB** pinches, **F** or **MMB** makes a fist,
+and **P** points. The skeleton is the same procedural hand the tests use.
+
+In tests, `sfxt_hand_kind(h, SFXT_BARE)` (runtime with a hand profile) or
+`SFXT_BARE_JOINTS_ONLY` (joints only), then `sfxt_shape`, `sfxt_fingers` and `sfxt_pinch`.
+The harness builds all 26 joints from the grip pose.
+
+**Tests (`tests/hands`):**
+- `shapes-from-joints`
+- `light-pinch-is-a-pinch`
+- `pinch-no-flicker-at-the-edge`
+- `palm-up-both-hands`: the hands are mirror images, and a sign error shows up here
+- `joint-only-hand-pinch-clicks`, `joint-only-fingertip-pokes`, `joint-only-fist-grabs`
+
+**Not yet tried on the Frame:** the tests run on the procedural hand, not on real camera
+tracking. How the Frame's own pinch values and aim pose compare with these is the first
+thing to check in a headset session: look at the Controllers panel's gesture line and the
+thin ray it draws from each bare hand.
+
 ## Who owns the controller right now?
 
 A controller is shared by everything: locomotion wants the stick, a panel wants the

@@ -81,7 +81,7 @@ vrui/            the interaction toolkit (C library, on top of sfxr)
 sfxt/            the test harness (C, for your tests)
 examples/        hello (the smallest app) and toolbox (the testbed)
 apps/            your own apps go here (make new-app NAME=...)
-tests/           behavior tests (mech, input, move) and recorded replays (regress)
+tests/           behavior tests (mech, input, move, hands) and recorded replays (regress)
 docs/            how things behave and why
 scripts/         build, test and headset scripts
 tools/           xr_probe, sfxrec_dump, Valve's devkit helper scripts
@@ -98,6 +98,7 @@ CLAUDE.md        full technical notes: platform research, design guidance, archi
 | `sfxr.c` | starting up, the frame loop, drawing both eyes, the desktop mirror window, screenshots |
 | `sfxr_pose.c` | pose math, and the rig: moving, turning and teleporting the player |
 | `sfxr_input.c` | turns raw readings into buttons: pull levels, hand shapes, finger curl |
+| `sfxr_hands.c`, `sfxr_hand_model.c` | bare hands: gestures from the joints (pinch, grasp, palm facing, a steady ray), hands known only as joints; a procedural hand for the simulator and tests |
 | `sfxr_signals.c` | headset signals: worn or not, refresh rate, batteries, joints, controller models |
 | `sfxr_xr.c` | the OpenXR session and frame timing |
 | `sfxr_xr_input.c` | which Frame inputs are bound (every one), and reading them each frame |
@@ -155,6 +156,7 @@ with a table of contents.
 | Menus | the panel functions in `vrui.h` (section 3) and `examples/toolbox/panels.c` |
 | Keep the stick from teleporting people while they use your UI | "input ownership" in `docs/INPUT.md`: `vrui_claim_input()` / `vrui_input_claimed()` |
 | Move players around (pads, platforms, climbing, monkey bars) | `docs/MOVEMENT.md` and `examples/toolbox/yard.c` |
+| Bare hands (pinch, palm-up menus, a steady hand ray) | "Bare hands" in `docs/INPUT.md`, `sfxr_hand_gestures()`; press **H** in the simulator |
 | Feedback players can feel | `vrui_haptic_pulse()` / `vrui_haptic_hum()` and the haptic vocabulary in `docs/INPUT.md` |
 | Know what the hardware can do | the toolbox's Controllers and Headset panels (try them in the headset), `scripts/frame.sh probe --paths`, and `CLAUDE.md` Part 1 |
 | Comfortable VR design | `CLAUDE.md`, "VR design: what works and what doesn't" |

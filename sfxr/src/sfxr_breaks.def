@@ -1,3 +1,7 @@
 // sfxr break switches: BREAK(name, "what breaks"). See sfxr/include/sfxr_break.h.
 BREAK(sfxr_shapes_from_values_only, "hand shapes ignore the touch sensors and joints (analog trigger/grip values only)")
 BREAK(sfxr_no_hysteresis, "trigger/grip pull levels release at their press point (no debounce)")
+BREAK(sfxr_pinch_no_hysteresis, "bare-hand pinch opens at the distance it closed at, so a hand at the edge flickers")
+BREAK(sfxr_pinch_shape_from_curl_only, "the pinch shape needs a curled index, so a light fingertip pinch isn't seen")
+BREAK(sfxr_palm_normal_flipped, "the palm normal points out of the back of the hand (palm-up reads as palm-down)")
+BREAK(sfxr_no_joint_hands, "bare hands tracked only as joints (no hand-interaction profile) stay inactive")

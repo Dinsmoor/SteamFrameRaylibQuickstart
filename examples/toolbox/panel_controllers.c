@@ -74,6 +74,18 @@ static void hand_column(Rectangle col, SfxrHandId id)
     DrawTextEx(f, h->curl_from_joints ? "joints" : "touch", (Vector2){ col.x + 200, y + 62 }, 10, 1, st->text_dim);
     y += 74;
 
+    // bare-hand gestures, measured from the joints (sfxr_hand_gestures)
+    const SfxrHandGestures *g = sfxr_hand_gestures(id);
+    if (g->valid) {
+        DrawTextEx(f, TextFormat("pinch %.1f cm", g->pinch_dist[0] * 100), (Vector2){ col.x, y }, 20, 2, st->text);
+        touch_press(col.x + 150, y + 9, g->pinch);
+        DrawTextEx(f, TextFormat("%s%s", g->palm_up ? "palm up " : "", g->palm_to_head ? "palm to face" : ""),
+                   (Vector2){ col.x + 170, y }, 20, 2, st->accent);
+    } else {
+        DrawTextEx(f, "no hand joints", (Vector2){ col.x, y }, 20, 2, st->text_dim);
+    }
+    y += 26;
+
     // every other control on this controller
     for (int c = SFXR_CTL_BUMPER; c < SFXR_CTL_COUNT; c++) {
         if (!sfxr_control_on_hand((SfxrControl)c, id)) continue;
@@ -90,12 +102,12 @@ void panel_controllers(void)
         K.placed = true;
     }
     vrui_panel_capture(VRUI_CAPTURE_LOOK);   // look at it: it owns both controllers
-    if (!vrui_panel_begin(VRUI_ID2(G_CTRL, 0), &K.pose, 0.62f, 0.66f, "Controllers")) return;
+    if (!vrui_panel_begin(VRUI_ID2(G_CTRL, 0), &K.pose, 0.62f, 0.70f, "Controllers")) return;
     Rectangle area = vrui_panel_content();
-    hand_column((Rectangle){ area.x, area.y, area.width * 0.5f - 8, 360 }, SFXR_LEFT);
-    hand_column((Rectangle){ area.x + area.width * 0.5f + 8, area.y, area.width * 0.5f - 8, 360 }, SFXR_RIGHT);
+    hand_column((Rectangle){ area.x, area.y, area.width * 0.5f - 8, 390 }, SFXR_LEFT);
+    hand_column((Rectangle){ area.x + area.width * 0.5f + 8, area.y, area.width * 0.5f - 8, 390 }, SFXR_RIGHT);
 
-    vrui_layout_begin((Rectangle){ area.x, area.y + 368, area.width, area.height - 368 }, 6);
+    vrui_layout_begin((Rectangle){ area.x, area.y + 398, area.width, area.height - 398 }, 6);
     SfxrPose gaze;
     bool gz = sfxr_gaze(&gaze);
     Rectangle cols[2];
@@ -112,6 +124,13 @@ void panel_controllers(void)
     if (vrui_button(5, cols[0], "Buzz left")) sfxr_haptic(SFXR_LEFT, K.amp, K.dur, K.freq);
     if (vrui_button(6, cols[1], "Buzz right")) sfxr_haptic(SFXR_RIGHT, K.amp, K.dur, K.freq);
     vrui_panel_end();
+
+    // a bare hand's steady ray (shoulder through knuckle), for comparing with the aim pose
+    for (int i = 0; i < 2; i++) {
+        const SfxrHandGestures *g = sfxr_hand_gestures((SfxrHandId)i);
+        if (g->valid && sfxr_hand((SfxrHandId)i)->source == SFXR_SOURCE_HAND)
+            vrui_line(g->ray.position, sfxr_pose_apply(g->ray, (Vector3){ 0, 0, -0.6f }), (Color){ 255, 255, 255, 90 });
+    }
 
     if (gz && K.show_gaze) {   // a small cross 1.5 m out along your gaze
         Vector3 p = sfxr_pose_apply(gaze, (Vector3){ 0, 0, -1.5f });

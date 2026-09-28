@@ -105,9 +105,20 @@ static float chain_curl(const SfxrHandJoints *j, int a, int b, int c, int d, flo
     return Clamp(acosf(cosang) * RAD2DEG / full_deg, 0, 1);
 }
 
-static SfxrHandShape shape_from_curl(const float c[5])
+float sfxr__finger_curl(const SfxrHandJoints *j, int f)
+{
+    if (f == SFXR_FINGER_THUMB)
+        return chain_curl(j, SFXR_JOINT_THUMB_METACARPAL, SFXR_JOINT_THUMB_PROXIMAL, SFXR_JOINT_THUMB_DISTAL, SFXR_JOINT_THUMB_TIP, 70.0f);
+    int m = SFXR_JOINT_INDEX_METACARPAL + (f - 1) * 5;
+    return chain_curl(j, m, m + 1, m + 3, m + 4, 150.0f);
+}
+
+// `pinching`: thumb and index tips are touching (joints only). A light
+// fingertip pinch barely curls the index, so the distance decides, not curl.
+static SfxrHandShape shape_from_curl(const float c[5], bool pinching)
 {
     float others = (c[2] + c[3] + c[4]) / 3.0f;
+    if (pinching && others < 0.35f && !SFXR_BREAK(sfxr_pinch_shape_from_curl_only)) return SFXR_SHAPE_PINCH;
     bool index_out = c[1] < 0.35f, index_in = c[1] > 0.55f;
     bool others_out = others < 0.35f, others_in = others > 0.55f;
     bool thumb_in = c[0] > 0.4f, thumb_out = c[0] < 0.3f;
@@ -132,11 +143,7 @@ static void derive_shapes(void)
         float c[5];
         if (j->valid && !SFXR_BREAK(sfxr_shapes_from_values_only)) {
             // measured: bend from the first to the last bone of each finger
-            c[0] = chain_curl(j, SFXR_JOINT_THUMB_METACARPAL, SFXR_JOINT_THUMB_PROXIMAL, SFXR_JOINT_THUMB_DISTAL, SFXR_JOINT_THUMB_TIP, 70.0f);
-            for (int f = 1; f < 5; f++) {
-                int m = SFXR_JOINT_INDEX_METACARPAL + (f - 1) * 5;
-                c[f] = chain_curl(j, m, m + 1, m + 3, m + 4, 150.0f);
-            }
+            for (int f = 0; f < 5; f++) c[f] = sfxr__finger_curl(j, f);
             h->curl_from_joints = true;
         } else {
             // estimated from the touch sensors: a finger resting on its control
@@ -152,7 +159,8 @@ static void derive_shapes(void)
         }
         for (int f = 0; f < 5; f++) h->curl[f] = c[f];
         // debounce: a new shape must hold for 3 frames
-        SfxrHandShape now = r->active ? shape_from_curl(c) : SFXR_SHAPE_RELAXED;
+        bool pinching = j->valid && S.gestures[i].pinch.down;
+        SfxrHandShape now = r->active ? shape_from_curl(c, pinching) : SFXR_SHAPE_RELAXED;
         if (now == h->shape) S.shape_frames[i] = 0;
         else if (now == S.shape_pending[i]) { if (++S.shape_frames[i] >= 3) { h->shape = now; S.shape_frames[i] = 0; } }
         else { S.shape_pending[i] = now; S.shape_frames[i] = 1; }
@@ -161,6 +169,7 @@ static void derive_shapes(void)
 
 void sfxr__derive_input(void)
 {
+    sfxr__hands_update();   // gestures; hands known only as joints get raw input first
     SfxrPose rig = sfxr_rig_pose();
     for (int i = 0; i < 2; i++) {
         const SfxrRawHand *r = &S.raw[i];

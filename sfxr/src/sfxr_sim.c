@@ -12,19 +12,23 @@
 //   1..5          right: A / B / menu / X / Y   left: D-pad down / up / view / left / right
 //   6             bumper
 //   arrows        thumbstick             Space        stick click
+//   H             bare hands on/off (then LMB pinches, F/MMB/G makes a fist, P points)
 //   F1            toggle this help
 //
-// Env: SFXR_SIM_POS="x,y,z" and SFXR_SIM_LOOK="yaw_deg,pitch_deg" set the start pose.
+// Env: SFXR_SIM_POS="x,y,z" and SFXR_SIM_LOOK="yaw_deg,pitch_deg" set the start pose;
+// SFXR_SIM_BARE=1 starts with bare hands.
 
 #include "sfxr_internal.h"
 #include "sfxr_gl.h"
 
 #include <math.h>
+#include <stdio.h>
 #include <string.h>
 
 #define S sfxr_state
 
 void sfxr_texture_skip_srgb_decode(unsigned tex);
+static void sim_bare_hand(int h, SfxrRawHand *o);
 
 static struct {
     float yaw, pitch;          // head
@@ -34,6 +38,7 @@ static struct {
     float hand_dist;
     float hand_roll;
     bool grip_latch[2];
+    bool bare;                 // H: bare hands (a procedural skeleton, like a runtime with a hand profile)
     SfxrPose prev_grip[2];
     bool have_prev;
     // render target
@@ -92,6 +97,7 @@ static bool sim_init(void)
     }
     M.active = 1;
     M.hand_dist = 0.45f;
+    M.bare = sfxr_env_flag("SFXR_SIM_BARE", false);   // start with bare hands (screenshots)
     snprintf(S.runtime_name, sizeof(S.runtime_name), "sfxr simulator");
     snprintf(S.system_name, sizeof(S.system_name), "Desktop (mouse + keyboard)");
     for (int h = 0; h < 2; h++)
@@ -161,6 +167,7 @@ static bool sim_frame_begin(void)
 
     // --- hands
     if (IsKeyPressed(KEY_TAB)) M.active ^= 1;
+    if (IsKeyPressed(KEY_H)) M.bare = !M.bare;
     float wheel = GetMouseWheelMove();
     if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT)) M.hand_roll += wheel * 0.2f;
     else M.hand_dist = Clamp(M.hand_dist + wheel * 0.05f, 0.15f, 2.0f);
@@ -210,6 +217,8 @@ static bool sim_frame_begin(void)
         }
         M.prev_grip[h] = o->grip;
 
+        if (M.bare) { sim_bare_hand(h, o); continue; }
+        memset(&S.sig.joints[h], 0, sizeof S.sig.joints[h]);
         if (h != M.active) {
             if (M.grip_latch[h]) { o->squeeze = 1.0f; }
             continue;
@@ -244,6 +253,34 @@ static bool sim_frame_begin(void)
     return true;
 }
 
+// A bare hand: the skeleton from the grip pose and a shape picked with the
+// mouse and keys, and the input a runtime's hand profile would give (pinch
+// strength as the trigger, grasp as the grip, the index tip as the poke).
+// SFXR_HANDS=joints makes sfxr ignore this and build it from the joints.
+static void sim_bare_hand(int h, SfxrRawHand *o)
+{
+    float curl[5] = { 0.15f, 0.1f, 0.15f, 0.2f, 0.25f }, pinch = 0;   // relaxed open hand
+    if (h == M.active) {
+        if (IsKeyPressed(KEY_G)) M.grip_latch[h] = !M.grip_latch[h];
+        if (IsKeyDown(KEY_F) || IsMouseButtonDown(MOUSE_BUTTON_MIDDLE) || M.grip_latch[h])
+            for (int f = 0; f < 5; f++) curl[f] = f ? 1.0f : 0.7f;
+        else if (IsKeyDown(KEY_P)) { curl[0] = 0.7f; curl[1] = 0; curl[2] = curl[3] = curl[4] = 1; }
+        else if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) { curl[0] = curl[1] = 0.3f; pinch = 1; }
+    }
+    SfxrHandJoints *j = &S.sig.joints[h];
+    sfxr__hand_model(h, o->grip, curl, pinch, j);
+    o->source = SFXR_SOURCE_HAND;
+    snprintf(o->profile, sizeof o->profile, "/interaction_profiles/ext/hand_interaction_ext");
+    o->pose_valid |= RAW_POSE_POKE | RAW_POSE_PINCH | RAW_POSE_PALM;
+    o->poke = j->joint[SFXR_JOINT_INDEX_TIP];
+    o->pinch = (SfxrPose){ Vector3Lerp(j->joint[SFXR_JOINT_INDEX_TIP].position, j->joint[SFXR_JOINT_THUMB_TIP].position, 0.5f),
+                           o->aim.orientation };
+    o->palm = j->joint[SFXR_JOINT_PALM];
+    float d = Vector3Distance(j->joint[SFXR_JOINT_INDEX_TIP].position, j->joint[SFXR_JOINT_THUMB_TIP].position);
+    o->trigger = Clamp((0.045f - d) / 0.03f, 0, 1);
+    o->squeeze = Clamp(((curl[2] + curl[3] + curl[4]) / 3.0f - 0.25f) / 0.5f, 0, 1);
+}
+
 static bool sim_acquire(unsigned *fbo, unsigned *tex)
 {
     if (!M.fbo) return false;
@@ -270,6 +307,7 @@ void sfxr_sim_draw_help(int x, int y)
         "Mouse: aim hand    Wheel: hand distance   Shift+Wheel: twist",
         "Tab: switch hand   LMB: trigger   F/MMB: grip   G: grip latch",
         "1-5: A/B/menu/X/Y (left: D-pad dn/up/view/lt/rt)   6: bumper   Arrows: stick   Space: stick click",
+        "H: bare hands (LMB pinch, F/MMB fist, P point)",
     };
     int n = (int)(sizeof lines / sizeof lines[0]);
     DrawRectangle(x - 4, y - 4, 520, n * 16 + 26, (Color){ 0, 0, 0, 150 });
@@ -277,7 +315,7 @@ void sfxr_sim_draw_help(int x, int y)
     const char *hand = M.active ? "RIGHT" : "LEFT";
     float now = (float)GetTime();
     bool buzz = now < haptic_until[M.active];
-    DrawText(TextFormat("active hand: %s  dist %.2fm%s%s", hand, M.hand_dist,
+    DrawText(TextFormat("active hand: %s%s  dist %.2fm%s%s", hand, M.bare ? " (bare)" : "", M.hand_dist,
                         M.grip_latch[M.active] ? "  [grip latched]" : "", buzz ? "  ~BUZZ~" : ""),
              x, y + n * 16 + 2, 10, buzz ? ORANGE : SKYBLUE);
 }

@@ -26,6 +26,9 @@ typedef struct {
     float    haptic_max;    // strongest amplitude since sfxt_haptic_reset
     Vector3  prev_pos;
     bool     have_prev;
+    SfxtHandKind kind;      // controller, or a bare hand (two kinds of runtime)
+    float    curl[5];       // bare hands: finger curls (SFXR_FINGER_*)
+    float    pinch;         // bare hands: thumb tip toward the index tip
 } Hand;
 
 static struct {
@@ -56,6 +59,35 @@ static float noisy01(float v)
 
 // --- feeding sfxr --------------------------------------------------------------
 
+// A bare hand: joints always; the controller-like input only when the runtime
+// has a hand-interaction profile (SFXT_BARE). Its values are the runtime's
+// own idea of pinch and grasp, deliberately not sfxr's formulas.
+static void fill_bare(int h, Hand *H, SfxrPose g, SfxrRawHand *o)
+{
+    SfxrHandJoints *j = &S.sig.joints[h];
+    sfxr__hand_model(h, g, H->curl, H->pinch, j);
+    if (H->kind == SFXT_BARE_JOINTS_ONLY) { H->have_prev = false; return; }
+    o->active = true;
+    o->source = SFXR_SOURCE_HAND;
+    snprintf(o->profile, sizeof o->profile, "/interaction_profiles/ext/hand_interaction_ext");
+    o->pose_valid = RAW_POSE_GRIP | RAW_POSE_AIM | RAW_POSE_POKE | RAW_POSE_PINCH | RAW_POSE_PALM;
+    o->grip = g;
+    o->aim = (SfxrPose){ j->joint[SFXR_JOINT_INDEX_PROXIMAL].position, g.orientation };
+    o->poke = j->joint[SFXR_JOINT_INDEX_TIP];
+    o->pinch = (SfxrPose){ Vector3Lerp(j->joint[SFXR_JOINT_INDEX_TIP].position, j->joint[SFXR_JOINT_THUMB_TIP].position, 0.5f),
+                           g.orientation };
+    o->palm = j->joint[SFXR_JOINT_PALM];
+    float d = Vector3Distance(j->joint[SFXR_JOINT_INDEX_TIP].position, j->joint[SFXR_JOINT_THUMB_TIP].position);
+    o->trigger = noisy01(Clamp((0.045f - d) / 0.03f, 0, 1));
+    o->squeeze = noisy01(Clamp(((H->curl[2] + H->curl[3] + H->curl[4]) / 3.0f - 0.25f) / 0.5f, 0, 1));
+    if (H->have_prev) {
+        o->velocity = Vector3Scale(Vector3Subtract(g.position, H->prev_pos), 72.0f);
+        o->has_velocity = true;
+    }
+    H->prev_pos = g.position;
+    H->have_prev = true;
+}
+
 static void fill(void)
 {
     S.head_stage = T.head;
@@ -67,6 +99,7 @@ static void fill(void)
         Hand *H = &T.hand[h];
         SfxrRawHand *o = &S.raw[h];
         memset(o, 0, sizeof *o);
+        memset(&S.sig.joints[h], 0, sizeof S.sig.joints[h]);
         snprintf(o->profile, sizeof o->profile, "/interaction_profiles/sfxt/script");
         if (!H->active) { H->have_prev = false; continue; }
         SfxrPose g = H->grip;
@@ -75,6 +108,7 @@ static void fill(void)
             Vector3 ax = Vector3Normalize((Vector3){ rnd(), rnd(), rnd() + 0.001f });
             g.orientation = QuaternionMultiply(QuaternionFromAxisAngle(ax, rnd() * T.n_rot * DEG2RAD), g.orientation);
         }
+        if (H->kind != SFXT_CONTROLLER) { fill_bare(h, H, g, o); continue; }
         o->active = true;
         o->source = SFXR_SOURCE_CONTROLLER;
         o->pose_valid = RAW_POSE_GRIP | RAW_POSE_AIM;
@@ -179,6 +213,31 @@ SfxrPose sfxt_tip_pose(Vector3 point, Vector3 dir)
     p.orientation = QuaternionFromMatrix(m);
     p.position = Vector3Subtract(point, Vector3Scale(dir, 0.01f));   // the tip is 1 cm ahead of the aim point
     return p;
+}
+
+// --- bare hands ---------------------------------------------------------------------
+
+void sfxt_hand_kind(SfxrHandId h, SfxtHandKind kind) { T.hand[h == SFXR_RIGHT].kind = kind; }
+
+void sfxt_fingers(SfxrHandId h, float thumb, float index, float middle, float ring, float little)
+{
+    Hand *H = &T.hand[h == SFXR_RIGHT];
+    H->curl[0] = thumb; H->curl[1] = index; H->curl[2] = middle; H->curl[3] = ring; H->curl[4] = little;
+}
+
+void sfxt_pinch(SfxrHandId h, float amount) { T.hand[h == SFXR_RIGHT].pinch = amount; }
+
+void sfxt_shape(SfxrHandId h, SfxrHandShape shape)
+{
+    sfxt_pinch(h, 0);
+    switch (shape) {
+    case SFXR_SHAPE_OPEN:      sfxt_fingers(h, 0, 0, 0, 0, 0); break;
+    case SFXR_SHAPE_POINT:     sfxt_fingers(h, 0.7f, 0, 1, 1, 1); break;
+    case SFXR_SHAPE_FIST:      sfxt_fingers(h, 0.7f, 1, 1, 1, 1); break;
+    case SFXR_SHAPE_THUMBS_UP: sfxt_fingers(h, 0, 1, 1, 1, 1); break;
+    case SFXR_SHAPE_PINCH:     sfxt_fingers(h, 0.3f, 0.3f, 0, 0, 0); sfxt_pinch(h, 1); break;
+    default:                   sfxt_fingers(h, 0.3f, 0.3f, 0.3f, 0.3f, 0.3f); break;
+    }
 }
 
 // --- controls ---------------------------------------------------------------------
