@@ -773,6 +773,7 @@ typedef struct {
     float   bounce;      // 0..1
     float   max_throw;   // m/s: the fastest it can leave your hand
     float (*ground)(Vector3 at);   // the surface height under a point (NULL: the floor, y = 0)
+    bool    own_physics; // held by nobody, it's yours to move (a belt slot, your own physics): vrui leaves *pose alone
 } VruiWieldSpec;
 
 VruiWieldSpec vrui_wield_spec(VruiWeight weight);   // tested defaults for a thing of that weight

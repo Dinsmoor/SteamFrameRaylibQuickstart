@@ -1,0 +1,28 @@
+# tests/toolbox/rack.sfxt - Wielding and Weights: weapons come off the rack by their handles; an anvil needs two hands.
+app   toolbox
+rate  72
+
+case take-the-sword-off-the-rack
+  expect  app sword_hands == 0
+  stand   at rack.sword back 0.5
+  look    at rack.sword/handle over 0.3s
+  hand    R to rack.sword/handle over 0.5s
+  grip    R 1
+  wait    10f
+  expect  app sword_hands == 1
+  hand    R move 0,0.3,0.2 over 0.4s
+  wait    20f
+  expect  app sword_hands == 1                  # it came along
+  grip    R 0
+  wait    2s
+  expect  app sword_hands == 0
+
+case one-hand-drags-the-anvil
+  stand   at weights.anvil back 0.5
+  look    at weights.anvil over 0.3s
+  hand    R to weights.anvil over 0.5s
+  grip    R 1
+  wait    10f
+  hand    R move 0,0.5,0 over 0.5s
+  wait    30f
+  expect  app anvil_y < 0.2                     # still on the floor

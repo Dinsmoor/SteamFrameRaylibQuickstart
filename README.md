@@ -142,6 +142,8 @@ on its own:
 | `panels.c` | the Toolbox panel (settings) |
 | `station_menus.c` | hand menus (watch, palm buttons, a tablet in your hand, a radial menu) and the Menus & HUD station |
 | `hud.c` | visor HUD templates: head-locked, lazy follow, on your belt |
+| `station_weights.c` | Weights: feather, ball, brick, kettlebell, anvil (`vrui_wield_spec` presets), and a lane to throw them down |
+| `station_wield.c` | Wielding: a sword, Daddy's hammer, a spear and a dagger held by their handles (`vrui_wield`), a sandbag to hit |
 | `station_sound.c`, `sounds.c` | Sound: point, cone, line, box and ambient emitters with a switch each, and what each ear gets; the toolbox's sounds made in code |
 | `station_voice.c` | Voice commands: one set of orders bound four ways (point + bumper, point + A ring menu, a TALK button, hands-free with a wake word) |
 | `station_smoothing.c` | Smoothing: a sword and five ghosts following it, one per smoothing mode; easing curves |
@@ -163,7 +165,8 @@ on its own:
 - `ONBOARDING.md`: fitting the controls to the player by watching them
 - `MOVEMENT.md`: moving the player comfortably: teleport, pads, surfaces, climbing
 - `ATTACHING.md`: making one thing ride on another, text in the world, HUDs, hand menus
-- `AUDIO.md`: positional sound, sounds made in code, the microphone, voice commands (Whisper)
+- `AUDIO.md`: sound you can place (each ear's level, time and tone), emitters, sounds made in code, voice commands (Whisper) and ways to bind them
+- `WIELDING.md`: weapons and tools held by their handles (Blade & Sorcery style): two hands, sliding, weight, throwing
 - `SMOOTHING.md`: how held things follow (snap, lag, spring, heavy, steady), springs, easing
 - `DADDY_BUG_SMASHER.md`: Daddy Bug Smasher, the toolbox's third part: a small game made from these pieces
 - `STEAM.md`: optional Steamworks (achievements, stats, overlay) without the SDK in the repo
@@ -179,7 +182,8 @@ on its own:
 | Read the controllers | `sfxr_hand()` in `sfxr.h`: `button[]` has every control with press *and* touch; `trigger_at[]` has the pull levels; `shape` and `curl[]` give hand shape |
 | A knob, lever, slider or button that feels right | `docs/MECHANISMS.md`, then copy one from `examples/toolbox/bench_mechanisms.c`; set `spec.draw = false` and draw your model at the result's `part` |
 | Menus | the panel functions in `vrui.h` (section 3) and `examples/toolbox/panels.c`; menus you carry on your hands: `docs/ATTACHING.md` and `examples/toolbox/station_menus.c` |
-| A weapon or tool that follows the hand with weight (or snaps, springs, steadies) | `docs/SMOOTHING.md`, `vrui_smooth_pose()`, `examples/toolbox/station_smoothing.c` |
+| A weapon or tool held by its handle, with weight (Blade & Sorcery style): two hands, sliding, throwing | `docs/WIELDING.md`, `vrui_wield()`, `examples/toolbox/station_wield.c` and `station_weights.c` |
+| Smoothing a pose that follows a hand or bone (snap, lag, spring, heavy, steady) | `docs/SMOOTHING.md`, `vrui_smooth_pose()`, `examples/toolbox/station_smoothing.c` |
 | See it all in a game | `docs/DADDY_BUG_SMASHER.md` and `examples/toolbox/garden.c` |
 | Labels, signs, a HUD, something riding on something | `docs/ATTACHING.md` (`sfxr_pose_mul` / `sfxr_pose_relative`, `vrui.h` sections 9 and 10) and `examples/toolbox/station_attach.c`, `hud.c` |
 | Keep the stick from teleporting people while they use your UI | "input ownership" in `docs/INPUT.md`: `vrui_claim_input()` / `vrui_input_claimed()` |

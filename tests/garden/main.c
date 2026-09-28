@@ -27,14 +27,18 @@ static void setup(void)
     CHECK(garden_active(), "in the garden (are the models in examples/toolbox/resources/garden?)");
 }
 
-// Take the hammer from Daddy, 20 cm down its handle from the middle,
-// with the hand turned the way the hammer is (so hand and hammer then turn
-// together).
+// The hand turned to hold a hammer turned `q`: the hammer's handle runs out
+// of the thumb side of the fist (the grip pose's -Z), so the fist is the
+// hammer's turn plus a quarter turn about X (docs/WIELDING.md).
+static Quaternion fist(Quaternion q) { return QuaternionMultiply(q, QuaternionFromAxisAngle((Vector3){ 1, 0, 0 }, PI / 2)); }
+
+// Take the hammer off its stump, 20 cm down its handle from the middle,
+// with the fist lined up with it (so hand and hammer then turn together).
 static void take_hammer(void)
 {
     GardenState g = garden_state();
     Vector3 down = Vector3RotateByQuaternion((Vector3){ 0, -0.2f, 0 }, g.hammer.orientation);
-    SfxrPose at = { stage_of(Vector3Add(g.hammer.position, down)), g.hammer.orientation };
+    SfxrPose at = { stage_of(Vector3Add(g.hammer.position, down)), fist(g.hammer.orientation) };
     sfxt_hand_to(SFXR_RIGHT, at, 0.3f);
     at.position = stage_of(Vector3Add(garden_state().hammer.position, down));   // he sways a little
     sfxt_hand_set(SFXR_RIGHT, at);
@@ -47,13 +51,13 @@ static void take_hammer(void)
 }
 
 // The hand held `back` behind a bug, the hammer turned `deg` about X from
-// upright (-90: its head pointing straight at the bug, 57 cm out).
+// upright (-90: its head pointing straight at the bug, 68 cm out).
 static SfxrPose swing_pose(Vector3 bug, float back, float deg)
 {
-    return (SfxrPose){ stage_of(Vector3Add(bug, (Vector3){ 0, 0, back })), QuaternionFromAxisAngle((Vector3){ 1, 0, 0 }, deg * DEG2RAD) };
+    return (SfxrPose){ stage_of(Vector3Add(bug, (Vector3){ 0, 0, back })), fist(QuaternionFromAxisAngle((Vector3){ 1, 0, 0 }, deg * DEG2RAD)) };
 }
 
-// A real swing: the hand stays 75 cm from the bug, the head (57 cm out
+// A real swing: the hand stays 75 cm from the bug, the head (68 cm out
 // along the handle) whips down through it.
 static void swing_smashes_with_the_head(void)
 {
@@ -80,7 +84,7 @@ static void resting_on_a_bug_does_nothing(void)
     garden_test_bug(0, feet.x, feet.z - 1.6f);   // a red one: one hit would do it
     sfxt_frames(1);
     Vector3 bug = garden_state().first_bug;
-    sfxt_hand_to(SFXR_RIGHT, swing_pose(bug, 1.2f, -90), 0.8f);
+    sfxt_hand_to(SFXR_RIGHT, swing_pose(bug, 1.2f, -90), 2.5f);   // slowly: this long hammer's head sweeps fast
     sfxt_hand_to(SFXR_RIGHT, swing_pose(garden_state().first_bug, 0.57f, -90), 1.5f);   // slowly in
     sfxt_wait(1.0f);
     GardenState g = garden_state();
@@ -105,7 +109,7 @@ static void hammer_rides_the_belt(void)
     setup();
     take_hammer();
     GardenState g = garden_state();
-    SfxrPose at = { stage_of(g.belt.position), g.belt.orientation };
+    SfxrPose at = { stage_of(g.belt.position), fist(g.belt.orientation) };
     at.position = Vector3Add(at.position, Vector3RotateByQuaternion((Vector3){ 0, -0.2f, 0 }, g.belt.orientation));
     sfxt_hand_to(SFXR_RIGHT, at, 0.5f);
     sfxt_grip(SFXR_RIGHT, 0);

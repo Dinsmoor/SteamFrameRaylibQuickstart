@@ -425,14 +425,14 @@ VruiWield vrui_wield(VruiId id, SfxrPose *pose, const VruiWieldSpec *sp)
                 hands = 1;
             }
         }
-    } else if (ws->loose) {
+    } else if (ws->loose && !sp->own_physics) {
         ws->loose = loose_step(ws, &shown, sp, dt);
     }
 
     // released by the last hand: loose, with the swing it had (capped)
     if (before > 0 && hands == 0 && ws->fly_hand < 0) {
         out.released = true;
-        ws->loose = true;
+        ws->loose = !sp->own_physics;
         ws->vel = ws->v_est;
         float v = Vector3Length(ws->vel);
         if (v > sp->max_throw && v > 0) ws->vel = Vector3Scale(ws->vel, sp->max_throw / v);

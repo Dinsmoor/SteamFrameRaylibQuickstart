@@ -28,7 +28,8 @@ their callouts say how many are left.
 |---|---|---|
 | the hammer rests on its stump (the world), then rides your hand, then your belt (let go at your right hip), or nothing (drop or throw it: it tumbles) | attaching: `sfxr_pose_mul`, changing parents | [ATTACHING.md](ATTACHING.md) |
 | the Bugmaster's lines from the top of his tower, smashes and bites from where they happen; say "hammer" or "restart" | positional sound, push-to-talk voice | [AUDIO.md](AUDIO.md) |
-| how the hammer follows whatever holds it: Snap, Lag, Spring, Heavy, Steady | the pose smoother | [SMOOTHING.md](SMOOTHING.md) |
+| the hammer settles into your fist by its handle, head up, however you grab it; loosen your grip to slide along the shaft, put your other hand on it, point and grip to pull it back when it's out of reach | wielding: `vrui_wield` | [WIELDING.md](WIELDING.md) |
+| how the hammer follows your hand: its weight (the default), or Snap, Lag, Spring, Heavy, Steady | wielding's weight, or the pose smoother | [WIELDING.md](WIELDING.md), [SMOOTHING.md](SMOOTHING.md) |
 | walking on the hills, tree trunks and the Bugmaster's tower being solid (your head in one fades the view), teleporting | locomotion: `ground_height`, `solid_depth` | [MOVEMENT.md](MOVEMENT.md) |
 | your health and score on the HUD, arrows to bugs behind you, a red flash when bitten | HUDs, `vrui_offscreen_arrow`, `vrui_tint` | [ATTACHING.md](ATTACHING.md) |
 | Restart / Recall hammer / Leave / HUD style / Hammer feel on your hands | hand menus (the Menus & HUD station's choices apply) | [ATTACHING.md](ATTACHING.md) |
@@ -56,7 +57,9 @@ models (made in Blender), its sounds, its music (made by the author and their ki
 menu, combat, win and lose tunes, as OGG) and the Bugmaster's lines. Its animated Daddy stayed
 behind, since in VR you are Daddy; the animation and bone code that held a hammer in his
 hand is in the git history (`garden_anim.c`). Its units were about 1.4 to the meter, so everything is scaled by
-`GARDEN_SCALE` (0.7) on the way in.
+`GARDEN_SCALE` (0.7) on the way in. The hammer is stretched along its shaft to 0.95 m
+(`HAMMER_Y`): the flat game's was too short for VR, where you swing it at bugs on the ground
+and want room for two hands.
 
 ### Things worth knowing, learned porting it
 

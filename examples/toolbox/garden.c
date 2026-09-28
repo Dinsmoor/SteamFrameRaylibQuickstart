@@ -66,9 +66,14 @@
 #define SWING_SPEED  1.3f     // the hammer's head must move this fast to hit (m/s)
 
 // The hammer, in its own frame: the handle along +Y from its end at the
-// origin; we keep the pose of the handle's middle (where it's held).
-#define HANDLE_MID   (0.40f * GARDEN_SCALE)
-#define HEAD_UP      (0.93f * GARDEN_SCALE - HANDLE_MID)   // handle middle -> head center
+// origin; we keep the pose of the handle's middle. The flat game's model is
+// stretched along the shaft for VR (0.86 m of handle: two hands fit, and a
+// swing has reach), its head only a little bigger.
+#define HAMMER_XZ    GARDEN_SCALE
+#define HAMMER_Y     0.95f
+#define HANDLE_MID   (0.45f * HAMMER_Y)
+#define HEAD_UP      (0.95f * HAMMER_Y - HANDLE_MID)   // handle middle -> head center
+#define FEEL_WEIGHT  VRUI_SMOOTH_COUNT                  // GD.feel: vrui_wield's weight (the other values: a smoothing mode)
 #define HEAD_REACH   0.16f
 
 // The gate at the right end of the row (the toolbox side), and where you
@@ -135,7 +140,7 @@ static struct {
     // the original game's recordings, when copied in (0 = not there: use the made-in-code ones)
     SfxrSound smash[3], scurry, ding_hi, ding_lo, bm_intro, bm_win, bm_lose, taunt[4];
     bool sounds_loaded, talking;
-} GD = { .rng = 12345, .feel = VRUI_SMOOTH_LAG };
+} GD = { .rng = 12345, .feel = FEEL_WEIGHT };
 
 bool garden_active(void) { return GD.active; }
 Color garden_sky(void) { return gw_sky(); }
@@ -403,14 +408,27 @@ static void hammer(void)
         rb_step(&GD.hammer_body, sfxr_dt(), 9.8f, gw_ground(GD.hammer_body.pos.x, GD.hammer_body.pos.z));
         GD.hammer = rb_pose(&GD.hammer_body);
         break;
-    case IN_HAND: break;    // vrui_grab_region moves it with the hand
+    case IN_HAND: break;    // vrui_wield moves it with the hands
     }
 
-    VruiGrab g = vrui_grab_region(ID(1), &GD.hammer, (Vector3){ 0.04f, HANDLE_MID, 0.04f });
-    if (g.grabbed) {
+    // Held, it's wielded (vrui_wield, docs/WIELDING.md): take it anywhere on
+    // the handle and it settles into your fist, head up and a face forward;
+    // loosen your grip to slide along the shaft, or add your other hand. The
+    // game moves it the rest of the time (own_physics): stump, belt, falling.
+    VruiWieldSpec ws = vrui_wield_spec(VRUI_WEIGHT_HEAVY);
+    ws.mass = GD.feel == FEEL_WEIGHT ? 2.5f : 0.0f;
+    ws.grip[0] = (VruiGrip){ { 0, -HANDLE_MID + 0.03f, 0 }, { 0, HEAD_UP - 0.13f, 0 }, { 1, 0, 0 }, 2, false };
+    ws.ngrips = 1;
+    ws.center = (Vector3){ 0, HEAD_UP - 0.05f, 0 };
+    ws.half = (Vector3){ 0.16f, HANDLE_MID + 0.12f, 0.08f };
+    ws.box_center = (Vector3){ 0, 0.1f, 0 };
+    ws.own_physics = true;
+    VruiWield w = vrui_wield(ID(1), &GD.hammer, &ws);
+    vrui_name_widget(ID(1), "hammer");
+    if (w.grabbed) {
         sfxr_event("hammer", "taken %s", HAMMER_WORDS[GD.hammer_at]);
         GD.hammer_at = IN_HAND;
-        GD.hammer_hand = g.hand;
+        GD.hammer_hand = w.hand;
         if (GD.round == WAITING) {
             GD.round = PLAYING;
             GD.t = 0;
@@ -418,24 +436,25 @@ static void hammer(void)
             bugmaster_says("You there! You've been smashing my bugs for too long. This time, they will smash YOU!", GD.bm_intro);
         }
     }
-    if (g.released) {
+    if (w.hands > 0) GD.hammer_hand = w.hand;
+    if (w.released) {
         // on your hip: it rides on your belt; anywhere else: it falls (or flies)
         if (Vector3Distance(GD.hammer.position, belt().position) < 0.25f) {
             GD.hammer_at = ON_BELT;
         } else {
             GD.hammer_at = LOOSE;
-            GD.hammer = GD.shown;   // it leaves your hand where you SAW it
             rb_init(&GD.hammer_body, GD.hammer.position, (Vector3){ 0.05f, HANDLE_MID + 0.08f, 0.05f }, GD.hammer.orientation, 1.0f);
-            GD.hammer_body.vel = Vector3Scale(g.release_velocity, 1.2f);
-            GD.hammer_body.ang_vel = g.release_angular_velocity;
+            GD.hammer_body.vel = w.velocity;
+            GD.hammer_body.ang_vel = w.angular_velocity;
         }
         sfxr_event("hammer", "let go: %s", HAMMER_WORDS[GD.hammer_at]);
     }
-    // How the hammer follows its parent: the chosen smoothing mode (the Smoothing
-    // station's settings). It rides the player while in your hand or on your
-    // belt, so teleports don't smear it; on the stump it's in the world
-    // in the world. Loose, its rigid body already moves it smoothly.
-    VruiSmoothSpec feel = *smoothing_spec(GD.hammer_at == LOOSE ? VRUI_SMOOTH_SNAP : (VruiSmoothMode)GD.feel);
+    // How the hammer follows its parent: its weight (vrui_wield, above), or
+    // one of the Smoothing station's modes. It rides the player while in your
+    // hand or on your belt, so teleports don't smear it; on the stump it's in
+    // the world. Loose, its rigid body already moves it smoothly.
+    bool smoothing = GD.feel != FEEL_WEIGHT && GD.hammer_at != LOOSE;
+    VruiSmoothSpec feel = *smoothing_spec(smoothing ? (VruiSmoothMode)GD.feel : VRUI_SMOOTH_SNAP);
     feel.with_player = GD.hammer_at == IN_HAND || GD.hammer_at == ON_BELT;
     GD.shown = vrui_smooth_pose(&GD.smooth, GD.hammer, &feel);
 
@@ -444,6 +463,14 @@ static void hammer(void)
         vrui_box(belt(), (Vector3){ 0.08f, 0.2f, 0.08f }, (Color){ 120, 200, 255, 90 });
     if (GD.hammer_at == LOOSE && Vector3Distance(GD.hammer.position, sfxr_head().position) > 8.0f)
         vrui_offscreen_arrow(GD.hammer.position, "hammer", (Color){ 255, 220, 120, 230 });
+}
+
+// "Recall hammer": out of whatever hand has it, onto your belt.
+static void recall_hammer(void)
+{
+    if (GD.hammer_at == ON_STUMP) return;
+    vrui_wield_drop(ID(1));
+    GD.hammer_at = ON_BELT;
 }
 
 // --- the gate (in the toolbox) --------------------------------------------------------------
@@ -521,10 +548,10 @@ void garden_update(const VruiLocoConfig *toolbox_loco)
     // hand menus: the Menus & HUD station's choices apply here too
     switch (menus_update(MENU, 5, TextFormat("HP %d/%d  smashed %d", GD.hp, MAX_HP, GD.score))) {
     case 0: round_reset(); break;
-    case 1: if (GD.hammer_at != ON_STUMP) GD.hammer_at = ON_BELT; break;
+    case 1: recall_hammer(); break;
     case 2: garden_leave(); return;
     case 3: menus_set_hud_style((HudStyle)((menus_hud_style() + 1) % HUD_COUNT)); break;
-    case 4: GD.feel = (GD.feel + 1) % VRUI_SMOOTH_COUNT; break;
+    case 4: GD.feel = (GD.feel + 1) % (VRUI_SMOOTH_COUNT + 1); break;
     default: break;
     }
 
@@ -536,7 +563,7 @@ void garden_update(const VruiLocoConfig *toolbox_loco)
     char said[128];
     if (sfxr_voice_result(said, sizeof said)) {
         int c = sfxr_voice_match(said, SAY, 2);
-        if (c == 0 && GD.hammer_at != ON_STUMP) { GD.hammer_at = ON_BELT; sound_play_here(SND_WHOOSH, 0.7f); }
+        if (c == 0 && GD.hammer_at != ON_STUMP) { recall_hammer(); sound_play_here(SND_WHOOSH, 0.7f); }
         if (c == 1) { round_reset(); }
     }
     if (GD.talking) vrui_tag(Vector3Add(rh->grip.position, (Vector3){ 0, 0.12f, 0 }), "listening: hammer / restart", 0.015f, RAYWHITE,
@@ -550,10 +577,11 @@ void garden_update(const VruiLocoConfig *toolbox_loco)
         vrui_label(vrui_row(24), SAY[GD.round]);
         vrui_label(vrui_row(24), TextFormat("health %d/%d   smashed %d/%d", GD.hp, MAX_HP, GD.score, SCORE_TO_WIN));
         vrui_label(vrui_row(24), TextFormat("hammer: %s", HAMMER_WORDS[GD.hammer_at]));
-        static const char *FEEL[VRUI_SMOOTH_COUNT];
+        static const char *FEEL[VRUI_SMOOTH_COUNT + 1];
         for (int m = 0; m < VRUI_SMOOTH_COUNT; m++) FEEL[m] = vrui_smooth_name((VruiSmoothMode)m);
+        FEEL[FEEL_WEIGHT] = "Weight";
         vrui_label(vrui_row(22), "The hammer follows your hand:");
-        vrui_segmented(3, vrui_row(34), FEEL, VRUI_SMOOTH_COUNT, &GD.feel);
+        vrui_segmented(3, vrui_row(34), FEEL, VRUI_SMOOTH_COUNT + 1, &GD.feel);
         Rectangle cols[2];
         vrui_row_cols(36, 2, cols);
         if (vrui_button(1, cols[0], "Restart")) { round_reset(); }
@@ -731,7 +759,7 @@ void garden_draw(void)
     DrawCylinder(Vector3Subtract(stump_top(), (Vector3){ 0, 0.01f, 0 }), 0.19f, 0.19f, 0.012f, 12, (Color){ 190, 160, 110, 255 });
     // the hammer model: its origin is the handle's end, below the pose we keep
     sfxr_push_pose(sfxr_pose_mul(GD.shown, (SfxrPose){ { 0, -HANDLE_MID, 0 }, QuaternionIdentity() }));
-    DrawModel(GD.hammer_model, (Vector3){ 0 }, GARDEN_SCALE, WHITE);
+    DrawModelEx(GD.hammer_model, (Vector3){ 0 }, (Vector3){ 0, 1, 0 }, 0, (Vector3){ HAMMER_XZ, HAMMER_Y, HAMMER_XZ }, WHITE);
     sfxr_pop_pose();
     for (int i = 0; i < MAX_BUGS; i++)
         if (GD.bugs[i].alive) draw_bug(&GD.bugs[i]);

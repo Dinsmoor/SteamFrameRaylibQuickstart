@@ -9,6 +9,8 @@
 //   panel_controllers.c  every controller input live, finger curl, a haptics tester
 //   panel_headset.c      worn state, refresh rate, passthrough, batteries, joints, counters
 //   onboarding.c         the hands-on setup station (learns the player's habits)
+//   station_weights.c    Weights: feather, ball, brick, kettlebell, anvil, and a lane to throw them down
+//   station_wield.c      Wielding: sword, hammer, spear, dagger held by their handles; a sandbag to hit
 //   station_sound.c      Sound: point, cone, line, box and ambient emitters, and what your ears get
 //   station_voice.c      Voice commands: one command, bound every way (context button, radial, world button, hands-free)
 //   station_hinges.c     Hinges & cords: a door, a chest lid, a bell cord, a radio dial, a valve, a key switch
@@ -36,6 +38,8 @@
 // sign above it (vrui_sign) saying what it is.
 //
 //      x   station                       file
+//  -18.8   Weights                       station_weights.c (feather to anvil: how heavy should feel)
+//  -15.4   Wielding                      station_wield.c (weapons held by their handles, Blade & Sorcery style)
 //  -12.2   Voice commands                station_voice.c (ways to bind a command: button, menu, hands-free)
 //   -9.8   Sound                         station_sound.c (emitters: point, cone, line, box, ambient)
 //   -8.0   Menus & HUD                   station_menus.c (hand menus, visor HUDs)
@@ -80,7 +84,7 @@ static inline void station_sign(float x, const char *title, const char *body)
 
 // Widget id groups: VRUI_ID2(group, index).
 enum { G_TABLE = 1, G_PANEL, G_WRIST, G_BLOCKS, G_BENCH, G_CTRL, G_HEADSET, G_LINK, G_YARD, G_HINGE,
-       G_ATTACH, G_MENUS, G_HUD, G_GARDEN, G_SMOOTH, G_VOICE, G_SOUND };
+       G_ATTACH, G_MENUS, G_HUD, G_GARDEN, G_SMOOTH, G_VOICE, G_SOUND, G_WIELD, G_WEIGHTS };
 
 // World settings, changed by the workbench controls and the Toolbox panel.
 typedef struct {
@@ -129,6 +133,8 @@ void sound_play_here(SoundId id, float volume);          // not positional
 void sound_pitch(SoundId id, float pitch);
 int  sound_handle(SoundId id);                           // its SfxrSound
 void sounds_vrui(VruiSound kind, Vector3 at, float strength);
+void station_wield(void);                                // station_wield.c: Wielding (a weapon rack, a sandbag)
+void station_weights(void);                              // station_weights.c: Weights (feather to anvil, a throwing lane)
 void station_sound(void);                                // station_sound.c: Sound (emitters)
 void station_voice(void);                                // station_voice.c: Voice commands
 
