@@ -430,4 +430,5 @@ const SfxrXrGfx sfxr_xr_gfx_vk = {
     vk_create_binding, vk_choose_format, vk_setup_images,
     vk_image_target, vk_image_rendered, vk_destroy,
     XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT,
+    NULL, NULL, NULL,   // no depth submission yet (it would need a depth copy like the color one)
 };

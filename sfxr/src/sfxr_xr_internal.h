@@ -25,6 +25,9 @@ typedef struct {
     bool    floor_fix_logged;
     XrSwapchain swapchain;
     int sc_width, sc_height;
+    XrSwapchain depth_swapchain;         // XR_KHR_composition_layer_depth (null: not submitting depth)
+    uint32_t depth_index;
+    bool depth_acquired;
     XrSessionState state;
     bool running, exit_requested, frame_began;
     XrFrameState frame_state;
@@ -34,6 +37,7 @@ typedef struct {
 
     bool ext_frame_ctrl, ext_eye_gaze, ext_refresh, ext_local_floor;
     bool ext_hand_interaction, ext_palm_pose;
+    bool ext_depth;
     bool ext_presence, ext_hand_tracking, ext_hand_source, ext_battery, ext_perf, ext_render_model;
 
     // headset signals

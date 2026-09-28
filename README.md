@@ -144,6 +144,8 @@ with a table of contents.
   controller when, and haptics as feedback
 - `ONBOARDING.md`: fitting the controls to the player by watching them
 - `MOVEMENT.md`: moving the player comfortably: teleport, pads, surfaces, climbing
+- `PERFORMANCE.md`: the frame budget, depth submission, what's known about foveated
+  rendering, and the experiments that will settle it
 - `TESTING.md`: how and why things are tested
 
 ## Where to look when you build your own Frame app
@@ -163,7 +165,7 @@ with a table of contents.
 | Work without wearing the headset | `make sim` (the simulator), `scripts/frame.sh shot` (a picture from the headset), and replays |
 | Fit different players (handedness, how hard they pull...) | `docs/ONBOARDING.md` and `examples/toolbox/onboarding.c` |
 | Test your app | `docs/TESTING.md`, `tests/mech/` as an example, `make test`, and recording and replaying sessions |
-| Check performance | the heartbeat line in the log (fps), the Headset panel's performance counters, and replaying a session on the headset's GPU |
+| Check performance | `docs/PERFORMANCE.md`; `scripts/frame-perf.sh <app>` (a table of settings, measured on the headset); the heartbeat line in the log (fps, CPU ms), `SFXR_PERF_LOG=1`, the Headset panel's counters, and replaying a session on the headset's GPU |
 
 ## What you need
 

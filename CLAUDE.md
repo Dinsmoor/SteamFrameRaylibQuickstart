@@ -685,7 +685,8 @@ must never prevent use.
 - The `vk` backend and 90/120 Hz on hardware; the Performance Assessment overlay; eye
   gaze and `XR_EXT_hand_tracking` on the device.
 - Steamworks SDK (ARM64 libs, ≥ 1.63): achievements, overlay, depots.
-- Depth submission (`XR_KHR_composition_layer_depth`) for better reprojection.
+- Depth submission: done for the GL path (`SFXR_DEPTH=0` off); the VK path still lacks it.
+  Foveation and the on-device experiments: `docs/PERFORMANCE.md`, `scripts/frame-perf.sh`.
 - A virtual keyboard widget and a `vrui_scroll_panel`.
 - An Android APK target (raylib's Android backend + `XR_KHR_opengl_es_enable`) as a
   fallback path.

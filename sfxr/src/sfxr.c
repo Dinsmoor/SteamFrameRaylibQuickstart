@@ -10,6 +10,7 @@
 #include <math.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <time.h>
 
@@ -24,6 +25,7 @@ static void shot_target(void);
 // whether frames flow, what state the session is in and if controllers track.
 static double   hb_time;
 static unsigned hb_loops, hb_rendered;
+static double hb_cpu, frame_t0;   // app CPU time per frame: frame_begin returning .. frame_end
 static void heartbeat(double now)
 {
     hb_loops++;
@@ -32,11 +34,28 @@ static void heartbeat(double now)
     if (span < 5.0) return;
     const char *state = S.backend == SFXR_BACKEND_SIM ? "sim" :
                         S.backend == SFXR_BACKEND_REPLAY ? "replay" : sfxr_xr_session_state();
-    SFXR_LOG("heartbeat: loop %.1f fps, rendered %.1f fps, session=%s, should_render=%d, hands L=%d R=%d, profile=%s",
-             hb_loops / span, hb_rendered / span, state, S.should_render,
+    SFXR_LOG("heartbeat: loop %.1f fps, rendered %.1f fps, cpu %.2f ms/frame, session=%s, should_render=%d, hands L=%d R=%d, profile=%s",
+             hb_loops / span, hb_rendered / span, hb_loops ? 1000.0 * hb_cpu / hb_loops : 0.0, state, S.should_render,
              S.hands[0].active, S.hands[1].active, S.raw[1].profile[0] ? S.raw[1].profile : "-");
+    // SFXR_PERF_LOG=1: the runtime's own counters (GPU time...) with every heartbeat
+    static int perf_log = -1;
+    if (perf_log < 0) perf_log = sfxr_env_flag("SFXR_PERF_LOG", false);
+    if (perf_log) {
+        if (!sfxr_perf_count()) sfxr_perf_enable(true);
+        char line[1024];
+        int len = 0;
+        for (int i = 0; i < sfxr_perf_count() && len < (int)sizeof line - 96; i++) {
+            float v;
+            const char *unit;
+            if (!sfxr_perf_value(i, &v, &unit)) continue;
+            const char *name = strrchr(sfxr_perf_name(i), '/');
+            len += snprintf(line + len, sizeof line - (size_t)len, " %s=%.2f%s", name ? name + 1 : sfxr_perf_name(i), v, unit);
+        }
+        if (len) SFXR_LOG("perf:%s", line);
+    }
     hb_time = now;
     hb_loops = hb_rendered = 0;
+    hb_cpu = 0;
 }
 
 // EXT_texture_sRGB_decode: sample sRGB swapchain images without decoding so
@@ -332,6 +351,7 @@ bool sfxr_frame_begin(void)
     sfxr_record_frame();
     sfxr__derive_input();
     S.rendered_this_frame = false;
+    frame_t0 = GetTime();
 
     if (IsKeyPressed(KEY_F1)) S.show_help = !S.show_help;
     BeginDrawing();
@@ -516,6 +536,7 @@ static void shot_target(void)
 void sfxr_frame_end(void)
 {
     if (S.in_draw) sfxr_draw_end();
+    hb_cpu += GetTime() - frame_t0;
     S.vt->frame_end(S.rendered_this_frame);
     if (S.backend == SFXR_BACKEND_SIM && S.show_help) sfxr_sim_draw_help(10, 10);
     shot_window();

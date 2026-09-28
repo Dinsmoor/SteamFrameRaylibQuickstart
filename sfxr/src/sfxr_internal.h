@@ -183,6 +183,13 @@ typedef struct {
     void (*image_rendered)(uint32_t index);
     void (*destroy)(void);
     uint64_t swapchain_usage;         // XrSwapchainUsageFlags
+    // Optional depth submission (XR_KHR_composition_layer_depth); NULL = not
+    // supported by this graphics path. Pick a depth format, wrap the depth
+    // swapchain's images, and each frame attach depth image `depth_index` to
+    // color image `color_index`'s framebuffer (before drawing).
+    int64_t (*choose_depth_format)(const int64_t *formats, uint32_t count);
+    bool (*setup_depth_images)(void *xr_swapchain);
+    void (*attach_depth)(uint32_t color_index, uint32_t depth_index);
 } SfxrXrGfx;
 
 extern const SfxrXrGfx sfxr_xr_gfx_gl;

@@ -142,6 +142,31 @@ static bool create_space(void)
     return XR_CHECK(xrCreateReferenceSpace(X.session, &ci, &X.view_space));
 }
 
+// A depth swapchain the same size as the color one. Failing here only means
+// no depth submission: the app keeps its private depth buffer.
+static void create_depth_swapchain(const int64_t *formats, uint32_t n)
+{
+    int64_t fmt = X.gfx->choose_depth_format(formats, n);
+    if (fmt == 0) { SFXR_LOG("depth submission: the runtime offers no usable depth format"); return; }
+    XrSwapchainCreateInfo ci = { XR_TYPE_SWAPCHAIN_CREATE_INFO };
+    ci.usageFlags = XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    ci.format = fmt;
+    ci.sampleCount = 1;
+    ci.width = (uint32_t)X.sc_width;
+    ci.height = (uint32_t)X.sc_height;
+    ci.faceCount = 1;
+    ci.arraySize = 1;
+    ci.mipCount = 1;
+    if (!XR_CHECK(xrCreateSwapchain(X.session, &ci, &X.depth_swapchain))) { X.depth_swapchain = XR_NULL_HANDLE; return; }
+    if (!X.gfx->setup_depth_images((void *)X.depth_swapchain)) {
+        xrDestroySwapchain(X.depth_swapchain);
+        X.depth_swapchain = XR_NULL_HANDLE;
+        SFXR_LOG("depth submission: couldn't use the depth swapchain's images");
+        return;
+    }
+    SFXR_LOG("depth submission on (format %lld): the compositor gets per-pixel depth", (long long)fmt);
+}
+
 static bool create_swapchain(void)
 {
     uint32_t n = 0;
@@ -166,7 +191,9 @@ static bool create_swapchain(void)
     X.sc_width = (int)ci.width;
     X.sc_height = (int)ci.height;
     SFXR_LOG("swapchain %dx%d format %lld", X.sc_width, X.sc_height, (long long)fmt);
-    return X.gfx->setup_images((void *)X.swapchain, X.sc_width, X.sc_height);
+    if (!X.gfx->setup_images((void *)X.swapchain, X.sc_width, X.sc_height)) return false;
+    if (X.ext_depth) create_depth_swapchain(formats, n);
+    return true;
 }
 
 bool sfxr_xr_init(const SfxrXrGfx *gfx)
@@ -197,6 +224,11 @@ bool sfxr_xr_init(const SfxrXrGfx *gfx)
     if ((X.ext_eye_gaze = has_ext(props, n, XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME))) exts[ne++] = XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME;
     if ((X.ext_refresh = has_ext(props, n, XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME))) exts[ne++] = XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME;
     if ((X.ext_local_floor = has_ext(props, n, XR_EXT_LOCAL_FLOOR_EXTENSION_NAME))) exts[ne++] = XR_EXT_LOCAL_FLOOR_EXTENSION_NAME;
+    // Depth lets the compositor reproject (and synthesize) frames per pixel
+    // instead of as a flat image at one distance. SFXR_DEPTH=0 turns it off.
+    if (gfx->choose_depth_format && sfxr_env_flag("SFXR_DEPTH", true) &&
+        (X.ext_depth = has_ext(props, n, XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME)))
+        exts[ne++] = XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME;
     if ((X.ext_hand_interaction = has_ext(props, n, "XR_EXT_hand_interaction"))) exts[ne++] = "XR_EXT_hand_interaction";
     if ((X.ext_palm_pose = has_ext(props, n, "XR_EXT_palm_pose"))) exts[ne++] = "XR_EXT_palm_pose";
     if ((X.ext_presence = has_ext(props, n, XR_EXT_USER_PRESENCE_EXTENSION_NAME))) exts[ne++] = XR_EXT_USER_PRESENCE_EXTENSION_NAME;
@@ -324,6 +356,7 @@ void sfxr_xr_shutdown(void)
     sfxr_xr_unload_render_models();
     for (int h = 0; h < 2; h++) if (X.tracker[h] && X.xrDestroyHandTrackerEXT) X.xrDestroyHandTrackerEXT(X.tracker[h]);
     if (X.gfx && X.gfx->destroy) X.gfx->destroy();
+    if (X.depth_swapchain) xrDestroySwapchain(X.depth_swapchain);
     if (X.swapchain) xrDestroySwapchain(X.swapchain);
     if (X.action_set) xrDestroyActionSet(X.action_set);
     if (X.app_space) xrDestroySpace(X.app_space);
@@ -498,6 +531,13 @@ bool sfxr_xr_acquire(unsigned *fbo, unsigned *tex)
     wi.timeout = XR_INFINITE_DURATION;
     if (!XR_CHECK(xrWaitSwapchainImage(X.swapchain, &wi))) return false;
     X.image_acquired = true;
+    if (X.depth_swapchain) {
+        if (XR_CHECK(xrAcquireSwapchainImage(X.depth_swapchain, &ai, &X.depth_index)) &&
+            XR_CHECK(xrWaitSwapchainImage(X.depth_swapchain, &wi))) {
+            X.depth_acquired = true;
+            X.gfx->attach_depth(X.image_index, X.depth_index);
+        }
+    }
     return X.gfx->image_target(X.image_index, fbo, tex);
 }
 
@@ -508,6 +548,10 @@ void sfxr_xr_release(void)
     XrSwapchainImageReleaseInfo ri = { XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO };
     XR_CHECK(xrReleaseSwapchainImage(X.swapchain, &ri));
     X.image_acquired = false;
+    if (X.depth_acquired) {
+        XR_CHECK(xrReleaseSwapchainImage(X.depth_swapchain, &ri));
+        X.depth_acquired = false;
+    }
 }
 
 void sfxr_xr_frame_end(bool rendered)
@@ -516,6 +560,7 @@ void sfxr_xr_frame_end(bool rendered)
     if (X.image_acquired) sfxr_xr_release();
 
     XrCompositionLayerProjectionView pv[2];
+    XrCompositionLayerDepthInfoKHR depth[2];
     XrCompositionLayerProjection layer = { XR_TYPE_COMPOSITION_LAYER_PROJECTION };
     const XrCompositionLayerBaseHeader *layers[1];
     uint32_t nl = 0;
@@ -531,6 +576,17 @@ void sfxr_xr_frame_end(bool rendered)
             pv[e].subImage.imageRect.extent.width = S.eye_w;
             pv[e].subImage.imageRect.extent.height = S.eye_h;
             pv[e].subImage.imageArrayIndex = 0;
+            if (X.depth_swapchain) {
+                // The same GL-style projection sfxr draws with: window depth 0..1 from near to far.
+                depth[e] = (XrCompositionLayerDepthInfoKHR){ XR_TYPE_COMPOSITION_LAYER_DEPTH_INFO_KHR };
+                depth[e].subImage = pv[e].subImage;
+                depth[e].subImage.swapchain = X.depth_swapchain;
+                depth[e].minDepth = 0.0f;
+                depth[e].maxDepth = 1.0f;
+                depth[e].nearZ = S.cfg.near_clip;
+                depth[e].farZ = S.cfg.far_clip;
+                pv[e].next = &depth[e];
+            }
         }
         layer.space = X.app_space;
         if (S.blend == SFXR_BLEND_ALPHA && X.blend_alpha) layer.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;

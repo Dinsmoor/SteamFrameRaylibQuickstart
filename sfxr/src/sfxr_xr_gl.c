@@ -27,6 +27,9 @@ static struct {
     unsigned fbo[MAX_IMAGES];
     uint32_t count;
     unsigned depth_rb;
+    XrSwapchainImageOpenGLKHR depth[MAX_IMAGES];   // depth submission (XR_KHR_composition_layer_depth)
+    uint32_t depth_count;
+    int attached[MAX_IMAGES];                      // depth image currently on each color FBO (-1: our renderbuffer)
 } G;
 
 static bool gl_create_binding(void *instance, uint64_t system, const void **binding)
@@ -94,9 +97,49 @@ static bool gl_setup_images(void *swapchain, int width, int height)
         sfxr_texture_skip_srgb_decode(G.images[i].image);
         G.fbo[i] = sfxr_make_fbo(G.images[i].image, G.depth_rb);
         if (!G.fbo[i]) return false;
+        G.attached[i] = -1;
     }
     SFXR_LOG("GL swapchain: %u images", n);
     return true;
+}
+
+static int64_t gl_choose_depth_format(const int64_t *formats, uint32_t count)
+{
+    const int64_t prefs[] = { SGL_DEPTH_COMPONENT24, 0x8CAC /* GL_DEPTH_COMPONENT32F */, 0x81A5 /* GL_DEPTH_COMPONENT16 */ };
+    for (size_t p = 0; p < sizeof prefs / sizeof prefs[0]; p++)
+        for (uint32_t i = 0; i < count; i++)
+            if (formats[i] == prefs[p]) return formats[i];
+    return 0;
+}
+
+static bool gl_setup_depth_images(void *swapchain)
+{
+    uint32_t n = 0;
+    xrEnumerateSwapchainImages((XrSwapchain)swapchain, 0, &n, NULL);
+    if (n == 0 || n > MAX_IMAGES) return false;
+    for (uint32_t i = 0; i < n; i++) G.depth[i] = (XrSwapchainImageOpenGLKHR){ XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR };
+    if (XR_FAILED(xrEnumerateSwapchainImages((XrSwapchain)swapchain, n, &n, (XrSwapchainImageBaseHeader *)G.depth)))
+        return false;
+    G.depth_count = n;
+    return true;
+}
+
+// Swap the runtime's depth image in for our renderbuffer on this frame's FBO
+// (the two swapchains cycle independently, so the pairing changes).
+static void gl_attach_depth(uint32_t color_index, uint32_t depth_index)
+{
+    if (color_index >= G.count || depth_index >= G.depth_count || G.attached[color_index] == (int)depth_index) return;
+    sgl.BindFramebuffer(SGL_FRAMEBUFFER, G.fbo[color_index]);
+    sgl.FramebufferTexture2D(SGL_FRAMEBUFFER, SGL_DEPTH_ATTACHMENT, SGL_TEXTURE_2D, G.depth[depth_index].image, 0);
+    sgl_enum st = sgl.CheckFramebufferStatus(SGL_FRAMEBUFFER);
+    if (st != SGL_FRAMEBUFFER_COMPLETE) {   // fall back to our own depth buffer for this image
+        SFXR_WARN("depth image %u doesn't fit framebuffer %u (0x%x); using a private depth buffer", depth_index, color_index, st);
+        sgl.FramebufferRenderbuffer(SGL_FRAMEBUFFER, SGL_DEPTH_ATTACHMENT, SGL_RENDERBUFFER, G.depth_rb);
+        G.attached[color_index] = -1;
+    } else {
+        G.attached[color_index] = (int)depth_index;
+    }
+    sgl.BindFramebuffer(SGL_FRAMEBUFFER, 0);
 }
 
 static bool gl_image_target(uint32_t index, unsigned *fbo, unsigned *tex)
@@ -121,4 +164,5 @@ const SfxrXrGfx sfxr_xr_gfx_gl = {
     gl_create_binding, gl_choose_format, gl_setup_images,
     gl_image_target, gl_image_rendered, gl_destroy,
     0,
+    gl_choose_depth_format, gl_setup_depth_images, gl_attach_depth,
 };
