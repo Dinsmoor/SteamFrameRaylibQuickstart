@@ -4,3 +4,5 @@ BREAK(toolbox_sky_unwired,       "the SKY lever moves, but the sky doesn't follo
 BREAK(toolbox_spawn_any_pull,    "SPAWN presses with any pull of the trigger (its FULL-pull override is lost)")
 BREAK(toolbox_reset_keeps_blocks, "Reset blocks adds the four new blocks but leaves the old ones")
 BREAK(toolbox_valve_unwired,     "the valve turns, but the pressure gauge doesn't follow it")
+BREAK(toolbox_lid_weightless,    "the chest lid stays wherever it's let go (no gravity)")
+BREAK(toolbox_lid_no_friction,   "the chest lid falls shut however far it was opened")

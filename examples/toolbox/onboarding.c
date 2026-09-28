@@ -141,14 +141,13 @@ static bool task_dial(void)
     tray();
     instruction_panel("Setup 2/4", "Turn the dial to the green mark.", "grab it, then twist your wrist or drag your hand around it");
     VruiMechSpec s = vrui_knob_spec();
-    s.size = 0.04f;
     SfxrPose base = on_tray(0, 0, 0.02f);
     VruiMech m = vrui_rotary(ID(11), base, &s, &OB.dial);
     // the target mark at 0.8
     float a = -0.8f * s.travel;
     Quaternion q = QuaternionMultiply(base.orientation, QuaternionFromAxisAngle((Vector3){ 0, 1, 0 }, a));
-    Vector3 p0 = Vector3Add(base.position, Vector3RotateByQuaternion((Vector3){ 0, 0.001f, -0.05f }, q));
-    Vector3 p1 = Vector3Add(base.position, Vector3RotateByQuaternion((Vector3){ 0, 0.001f, -0.065f }, q));
+    Vector3 p0 = Vector3Add(base.position, Vector3RotateByQuaternion((Vector3){ 0, 0.001f, -s.size * 1.2f }, q));
+    Vector3 p1 = Vector3Add(base.position, Vector3RotateByQuaternion((Vector3){ 0, 0.001f, -s.size * 1.2f - 0.015f }, q));
     vrui_box((SfxrPose){ Vector3Lerp(p0, p1, 0.5f), q }, (Vector3){ 0.006f, 0.004f, 0.02f }, (Color){ 80, 220, 110, 255 });
     // observe: wrist twist vs hand dragging around the dial
     if (m.held) {

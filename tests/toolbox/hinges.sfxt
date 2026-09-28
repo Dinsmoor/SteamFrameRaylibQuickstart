@@ -19,3 +19,29 @@ case valve-drives-the-gauge
   wait    5f
   expect  value hinges.valve > 0.02
   expect  app pressure > 0.1
+
+case lid-falls-shut-when-let-go-part-open
+  fails-if toolbox_lid_weightless
+  stand   at hinges.lid back 0.6
+  look    at hinges.lid over 0.3s
+  hand    R to hinges.lid/handle over 0.5s
+  grip    R 1
+  wait    3f
+  hand    R move 0,0.2,0 over 0.6s              # lift the front edge about 30 degrees
+  expect  value hinges.lid > 0.2
+  grip    R 0
+  wait    1s
+  expect  value hinges.lid == 0
+
+case lid-stays-when-opened-most-of-the-way
+  fails-if toolbox_lid_no_friction
+  stand   at hinges.lid back 0.6
+  look    at hinges.lid over 0.3s
+  hand    R to hinges.lid/handle over 0.5s
+  grip    R 1
+  wait    3f
+  hand    R move 0,0.38,-0.3 over 1s            # swing it up past 70 degrees
+  expect  value hinges.lid > 0.7
+  grip    R 0
+  wait    1s
+  expect  value hinges.lid > 0.7

@@ -1,6 +1,7 @@
 // station_voice.c - Sound & voice, at the left end of the row (docs/AUDIO.md).
 //
-//   The speaker   it chimes every second or so (while you're near it), from where it is: pick it up
+//   The speaker   flip its switch on and it chimes every second or so (while
+//                 you're near it), from where it is: pick it up
 //                 and carry it round your head. Left, right, behind, far:
 //                 you hear where it is (sfxr_sound_play at a position).
 //   The bugs      three little bugs, and a cardboard Daddy. Point at a bug
@@ -38,6 +39,7 @@ static struct {
     bool init;
     SfxrPose speaker, panel;
     bool speaker_held;
+    bool chime_on;          // the switch beside it (off to start: a sound that repeats wears thin)
     float chime_t;
     Minion bug[3];
     int selected;           // the bug the laser was on when you started talking (-1 none)
@@ -202,14 +204,19 @@ void station_voice(void)
     VruiGrab g = vrui_grabbable(VRUI_ID2(G_VOICE, 1), &VO.speaker, (Vector3){ 0.05f, 0.07f, 0.05f }, (Color){ 50, 50, 56, 255 });
     vrui_name_widget(VRUI_ID2(G_VOICE, 1), "speaker");
     if (g.released && VO.speaker.position.y < 0.2f) VO.speaker.position.y = TABLE_Y + 0.08f;   // dropped: back on the table
-    // it only chimes while you're near it (or carrying it): a sound that
-    // repeats forever becomes noise everywhere else in the toolbox
+    // it chimes only while its switch is on, and only while you're near it
+    // (or carrying it): a sound that repeats forever becomes noise
+    // everywhere else in the toolbox
+    if (vrui_switch(VRUI_ID2(G_VOICE, 3), (SfxrPose){ { X0 - 0.62f, TABLE_Y, ROW_Z + 0.1f }, QuaternionIdentity() },
+                    &VO.chime_on, "chime"))
+        VO.chime_t = 0;   // switched on: chime right away
+    vrui_name_widget(VRUI_ID2(G_VOICE, 3), "chime switch");
     bool near = g.held || Vector3Distance(sfxr_head().position, VO.speaker.position) < 3.0f;
-    if (near && (VO.chime_t -= sfxr_dt()) <= 0) {
+    if (VO.chime_on && near && (VO.chime_t -= sfxr_dt()) <= 0) {
         VO.chime_t = 1.2f;
         sound_play(SND_CHIME, VO.speaker.position, 0.9f);
     }
-    vrui_text3d(Vector3Add(VO.speaker.position, (Vector3){ 0, 0.11f, 0 }), "speaker: carry me around", 0.018f, RAYWHITE);
+    vrui_text3d(Vector3Add(VO.speaker.position, (Vector3){ 0, 0.11f, 0 }), VO.chime_on ? "speaker: carry me around" : "speaker: switch me on", 0.018f, RAYWHITE);
 
     minions();
     talk();

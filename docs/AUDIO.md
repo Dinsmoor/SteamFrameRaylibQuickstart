@@ -99,7 +99,8 @@ and the status line says how to get it.
 - **A short window for short clips.** Whisper works on 30-second windows. The shim tells it
   the clip is short, which makes it about three times faster, but below 512 encoder
   positions the tiny model starts repeating itself ("attack attack attack..."), so 512 is
-  the floor.
+  the floor. It still loops now and then on the Frame ("return return return return"), so
+  sfxr keeps one of each run of repeated words or short phrases before you see the text.
 - **A shim, loaded at run time.** whisper.cpp's parameter struct changes between releases, so
   sfxr talks to a three-function C shim (`tools/speech/sfq_speech.c`) compiled against the
   whisper.h it ships with, and loads it with `dlopen`.
@@ -137,7 +138,8 @@ Also watch which source is the default. On a machine without a microphone, the d
 ## In the toolbox and the game
 
 - **Sound & voice station:**
-  - the speaker chimes from wherever you carry it
+  - the speaker chimes from wherever you carry it, while its switch is on (it starts off: a
+    sound that repeats wears thin)
   - the TALK button is push-to-talk in the world: hold it, speak, and the transcript shows on
     the board above it
   - three little bugs and a cardboard Daddy: point at a bug with the right laser, hold the

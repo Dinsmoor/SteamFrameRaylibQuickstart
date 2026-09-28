@@ -55,6 +55,21 @@ static void push_to_talk_recognizes(void)
     CHECK(samples >= 17600, "a half-second clip is padded to over a second for Whisper (%d samples)", samples);
 }
 
+// Whisper sometimes loops on a short clip ("return return return..."): the
+// text that comes back has each repeat once.
+static void repeats_are_collapsed(void)
+{
+    if (!start_voice("Return return return, return. Go to the tower go to the tower")) return;
+    sfxr_voice_listen_begin();
+    sfxr_voice_listen_end();
+    char said[256] = "";
+    bool got = false;
+    for (int f = 0; f < 72 && !got; f++) { sfxt_frames(1); got = sfxr_voice_result(said, sizeof said); }
+    CHECK(got, "a result within a second");
+    CHECK(strncmp(said, "Return Go to the tower [prompt]", 26) == 0 || strncmp(said, "Return Go to the tower (", 24) == 0,
+          "one of each: \"%s\"", said);
+}
+
 // The ways a command comes back slightly wrong, and ones that aren't commands.
 static void match_is_forgiving(void)
 {
@@ -86,6 +101,7 @@ static void sound_from_the_left_is_on_the_left(void)
 
 static const SfxtCase CASES[] = {
     { "voice/push-to-talk-recognizes",       push_to_talk_recognizes,           "sfxr_voice_no_prompt" },
+    { "voice/repeats-are-collapsed",          repeats_are_collapsed,             "sfxr_voice_keeps_repeats" },
     { "voice/match-is-forgiving",             match_is_forgiving,                "sfxr_voice_match_exact" },
     { "voice/sound-from-the-left-is-on-the-left", sound_from_the_left_is_on_the_left, "sfxr_audio_pan_flipped" },
 };

@@ -176,7 +176,7 @@ void world_workbench(void)
     vrui_switch(VRUI_ID2(G_TABLE, 2), on_table(-0.3f, 0.1f), &world.show_grid, "GRID");
     static float unwired;
     vrui_lever(VRUI_ID2(G_TABLE, 3), on_table(-0.1f, 0.0f), 0.18f, SFXR_BREAK(toolbox_sky_unwired) ? &unwired : &world.sky, "SKY");
-    vrui_knob(VRUI_ID2(G_TABLE, 4), on_table(0.12f, 0.12f), 0.035f, &world.block_size, 0.5f, 2.0f, 0.75f, "SIZE");
+    vrui_knob(VRUI_ID2(G_TABLE, 4), on_table(0.12f, 0.12f), 0.05f, &world.block_size, 0.5f, 2.0f, 0.75f, "SIZE");
     vrui_slider3d(VRUI_ID2(G_TABLE, 5), on_table(0.4f, 0.2f), 0.3f, &world.lift, "LIFT");
 
     for (int i = 0; i < MAX_BLOCKS; i++) {

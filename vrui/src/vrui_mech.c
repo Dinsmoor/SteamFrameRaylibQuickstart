@@ -105,7 +105,8 @@ VruiMechSpec vrui_knob_spec(void)
 {
     VruiMechSpec s = base_spec();
     s.travel = 0.75f * 2.0f * PI;      // 3/4 turn end to end: no regrip needed
-    s.size = 0.035f;
+    s.size = 0.055f;                   // a fat knob: easy to find and take in a glove-sized hand
+    s.reach = 0.07f;
     s.slop = 2.0f * DEG2RAD;
     s.twist = true;
     s.max_speed = 3.0f * 2.0f * PI;      // 3 turns/s by hand
@@ -121,7 +122,7 @@ VruiMechSpec vrui_dial_spec(void)
     s.max = 100.0f;
     s.travel = 300.0f * DEG2RAD;       // most of a turn, like a radio's tuning dial
     s.detents = 21;                    // a tick every 5 units; it rests anywhere (no snap)
-    s.size = 0.045f;
+    s.size = 0.065f;
     s.value_format = "%s %.0f";
     return s;
 }
@@ -133,10 +134,10 @@ VruiMechSpec vrui_hinge_spec(float width)
     s.size = width;                    // hinge to handle
     s.reach = 0.08f;
     s.slop = 1.0f * DEG2RAD;
-    s.max_speed = 150.0f * DEG2RAD;    // a door, not a flywheel
-    s.far_max_speed = 60.0f * DEG2RAD;
-    s.weight = 0.15f;                  // heavy: it trails a fast yank, and strains
-    s.slip = 20.0f * DEG2RAD;
+    s.max_speed = 220.0f * DEG2RAD;    // a door, not a flywheel
+    s.far_max_speed = 90.0f * DEG2RAD;
+    s.weight = 0.08f;                  // some weight: it trails a fast yank, and strains
+    s.slip = 30.0f * DEG2RAD;
     s.haptic_stop = 0.5f;              // the frame / the stop at full open
     s.color = (Color){ 200, 170, 90, 255 };
     s.value_format = "%s %.0f%%";

@@ -112,11 +112,13 @@ static void labels_gallery(void)
     vrui_box(on_bench(0.15f, 0.04f, 0.05f), (Vector3){ 0.06f, 0.08f, 0.06f }, (Color){ 200, 170, 90, 255 });
     vrui_text3d(sfxr_pose_apply(origin(), (Vector3){ 0.15f, 0.15f, 0.05f }), "vrui_text3d\n(turns to face you)", 0.016f, ink);
 
-    // a tag over a busy background: the plate keeps it readable
+    // a tag above a thing, on a plate: the plate keeps it readable whatever
+    // is behind it (here, a checkerboard on a stand, when you look down at it)
+    vrui_box(on_bench(0.465f, 0.022f, -0.2f), (Vector3){ 0.01f, 0.044f, 0.01f }, (Color){ 90, 90, 96, 255 });
     for (int i = 0; i < 16; i++)
         vrui_box(on_bench(0.42f + 0.03f * (float)(i % 4), 0.06f + 0.03f * (float)(i / 4), -0.2f),
                  (Vector3){ 0.03f, 0.03f, 0.01f }, (i + i / 4) % 2 ? (Color){ 240, 240, 240, 255 } : (Color){ 30, 30, 30, 255 });
-    vrui_tag(sfxr_pose_apply(origin(), (Vector3){ 0.465f, 0.1f, -0.18f }), "vrui_tag: on a plate", 0.016f, ink,
+    vrui_tag(sfxr_pose_apply(origin(), (Vector3){ 0.465f, 0.21f, -0.2f }), "vrui_tag: a checkerboard", 0.016f, ink,
              (Color){ 20, 22, 28, 220 });
 
     // a callout pointing at one small screw; walk away and it stays readable

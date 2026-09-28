@@ -11,3 +11,4 @@ BREAK(sfxr_steam_claims_success, "without Steam, unlocking an achievement report
 BREAK(sfxr_voice_no_prompt, "the command words are never passed to the recognizer, so short commands get misheard")
 BREAK(sfxr_voice_match_exact, "a command only matches if heard exactly: \"attach\" isn't taken as \"attack\"")
 BREAK(sfxr_audio_pan_flipped, "positional sounds come from the wrong side (left and right swapped)")
+BREAK(sfxr_voice_keeps_repeats, "Whisper's repetition loops (\"return return return\") come through as heard")

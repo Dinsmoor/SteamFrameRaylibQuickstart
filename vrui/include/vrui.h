@@ -381,7 +381,7 @@ bool vrui_lever(VruiId id, SfxrPose base, float length, float *value, const char
 // handle when closed, +Z out of the front (it opens toward +Z). *open 0..1.
 // The result's `part` is the door: on the hinge, +X toward the handle, so
 // draw your door there. A lid is a door on its side (hinge +Y horizontal).
-VruiMechSpec vrui_hinge_spec(float width);     // heavy, 100 deg, `width` from hinge to handle
+VruiMechSpec vrui_hinge_spec(float width);     // weighty, 100 deg, `width` from hinge to handle
 VruiMech vrui_hinge(VruiId id, SfxrPose hinge, const VruiMechSpec *spec, float *open);
 // A plain door: hinge_bottom is the bottom of the hinge line; handle at 1 m (or mid-height).
 bool vrui_door(VruiId id, SfxrPose hinge_bottom, float width, float height, float *open, const char *label);

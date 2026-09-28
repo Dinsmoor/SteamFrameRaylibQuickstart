@@ -167,6 +167,41 @@ void sfxr_voice_feed(const float *pcm, int n)
     for (int i = 0; i < n && V.nclip < MAX_CLIP; i++) V.clip[V.nclip++] = pcm[i];
 }
 
+// Whisper sometimes gets stuck in a loop on a short clip and says a word (or
+// a few) over and over: "return return return return". Keep the first of
+// each run of repeats -- a word or a phrase of up to four words, ignoring
+// case and punctuation -- so a looped "return" is still just "return".
+static void collapse_repeats(char *text)
+{
+    enum { MAXW = 48 };
+    char *word[MAXW], key[MAXW][32];
+    int n = 0;
+    char buf[256];
+    snprintf(buf, sizeof buf, "%s", text);
+    for (char *t = strtok(buf, " "); t && n < MAXW; t = strtok(NULL, " ")) {
+        word[n] = t;
+        int k = 0;
+        for (const char *c = t; *c && k < 31; c++)
+            if (isalnum((unsigned char)*c)) key[n][k++] = (char)tolower((unsigned char)*c);
+        key[n][k] = 0;
+        n++;
+    }
+    for (int len = 1; len <= 4; len++) {
+        for (int i = 0; i + 2 * len <= n;) {
+            bool same = true;
+            for (int j = 0; j < len && same; j++) same = key[i + j][0] && strcmp(key[i + j], key[i + len + j]) == 0;
+            if (!same) { i++; continue; }
+            // drop the second copy, and look again from the same place
+            memmove(&word[i + len], &word[i + 2 * len], (size_t)(n - i - 2 * len) * sizeof word[0]);
+            memmove(&key[i + len], &key[i + 2 * len], (size_t)(n - i - 2 * len) * sizeof key[0]);
+            n -= len;
+        }
+    }
+    int at = 0;
+    text[0] = 0;
+    for (int i = 0; i < n; i++) at += snprintf(text + at, (size_t)(256 - at > 0 ? 256 - at : 0), "%s%s", i ? " " : "", word[i]);
+}
+
 static void *recognize(void *arg)
 {
     (void)arg;
@@ -180,6 +215,7 @@ static void *recognize(void *arg)
     const char *t = text;
     while (*t == ' ') t++;
     snprintf(V.text, sizeof V.text, "%s", (*t == '[' || *t == '(') ? "" : t);
+    if (!SFXR_BREAK(sfxr_voice_keeps_repeats)) collapse_repeats(V.text);
     atomic_store(&V.ready, true);
     atomic_store(&V.busy, false);
     return NULL;

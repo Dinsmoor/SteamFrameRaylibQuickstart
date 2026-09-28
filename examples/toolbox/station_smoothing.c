@@ -80,7 +80,11 @@ void station_smoothing(void)
     // --- the sword on its stand at the front, and its five ghosts behind it
     SfxrPose stand = on_bench(0, 0.07f, 0.2f);
     vrui_box(on_bench(0, 0.005f, 0.2f), (Vector3){ 0.08f, 0.01f, 0.08f }, (Color){ 60, 60, 70, 255 });
-    if (!SM.held) SM.sword = vrui_smooth_pose(&SM.home, stand, smoothing_spec(VRUI_SMOOTH_SPRING));   // springs home
+    // (with_player off: the stand is part of the world, so a teleport mustn't
+    // carry the returning sword along with you)
+    VruiSmoothSpec home = *smoothing_spec(VRUI_SMOOTH_SPRING);
+    home.with_player = false;
+    if (!SM.held) SM.sword = vrui_smooth_pose(&SM.home, stand, &home);   // springs home
     VruiGrab g = vrui_grab_region(VRUI_ID2(G_SMOOTH, 10), &SM.sword, (Vector3){ 0.03f, 0.08f, 0.03f });
     SM.held = g.held;
     if (g.released) vrui_smooth_reset(&SM.home, SM.sword);
@@ -92,7 +96,11 @@ void station_smoothing(void)
         // each ghost's target is the sword, moved sideways to its own lane
         float dx = 0.26f * (float)(m - 2);
         SfxrPose target = { Vector3Add(SM.sword.position, (Vector3){ dx, 0, -0.35f }), SM.sword.orientation };
-        SfxrPose p = vrui_smooth_pose(&SM.ghost[m], target, &SM.spec[m]);
+        // the ghosts ride with you only while the sword is in your hand; left
+        // on the bench, they're world things and stay put when you teleport
+        VruiSmoothSpec spec = SM.spec[m];
+        spec.with_player = SM.held;
+        SfxrPose p = vrui_smooth_pose(&SM.ghost[m], target, &spec);
         draw_sword(p, GHOST[m]);
         vrui_text_at((SfxrPose){ { X0 + dx, TABLE_Y + 0.002f, ROW_Z - 0.28f }, QuaternionFromAxisAngle((Vector3){ 1, 0, 0 }, -PI / 2) },
                      vrui_smooth_name((VruiSmoothMode)m), 0.025f, GHOST[m]);

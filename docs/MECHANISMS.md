@@ -121,7 +121,7 @@ have to hold their hand perfectly still over the axis.
 | Setting | Default |
 |---|---|
 | Travel | 3/4 turn (270°) end to end, so no regripping |
-| Radius | 3.5 cm |
+| Radius | 5.5 cm (a radio dial 6.5 cm): big enough to find and take without looking hard. The first headset tries with 3.5 cm knobs were fiddly |
 | Break-in | 2°, or 3 mm of hand travel at the grab radius, whichever is larger |
 | Speed limit | 3 turns/s by hand, **1 turn/s by laser** (circling the laser can't spin it) |
 | Weight | 0.03 s; slip after 45° of lag |
@@ -240,7 +240,7 @@ sixth of a second). While you hold it out, the tension hum grows with the distan
 **Players expect:**
 - to take the handle and walk it round
 - to pull a door toward themselves, and lift a lid
-- the door to feel heavy
+- the door to have some weight, but not to fight them
 - leaning on the handle not to open anything
 
 **Behavior:**
@@ -249,15 +249,23 @@ sixth of a second). While you hold it out, the tension hum grows with the distan
 - Only motion **around** the hinge counts. Pushing along the hinge (leaning down on a
   door handle) or toward the hinge does nothing.
 - It opens 100°, from closed to a little past square, with a bump at each end.
-- It's heavy: 0.15 s of weight, 150°/s at most (60°/s by laser). A fast yank makes it
-  trail and strain.
+- It has some weight: 0.08 s of it, 220°/s at most (90°/s by laser). A fast yank makes it
+  trail and strain. (0.15 s and 150°/s felt like too much resistance in the headset.)
 - The result's `part` is the door itself, posed on the hinge with +X toward the handle.
   Draw your own door there.
 
 **A lid is a door on its side.** Turn the hinge pose so its +Y runs along the back edge of
 the chest and its +Z points up. *Hinges & cords* shows both.
 
-**Tests:** `door-pull-open`, `door-lean-on-handle-ignored`.
+**A lid has weight.** A hinge stays wherever it's let go; a chest lid shouldn't. The chest
+in *Hinges & cords* (`lid()` in `station_hinges.c`) adds gravity after release, in a dozen
+lines: the pull is strongest with the lid flat and nothing when it's upright, and a stiff
+hinge's friction holds it where the pull is weak. So let go most of the way open (past
+about 70%) and it stays; any less and it drops shut, with a thump as loud as it was fast.
+
+**Tests:** `door-pull-open`, `door-lean-on-handle-ignored`; the lid's in
+`tests/toolbox/hinges.sfxt`: `lid-falls-shut-when-let-go-part-open`,
+`lid-stays-when-opened-most-of-the-way`.
 
 ### Pull cord (`vrui_pull_cord_spec`, short form `vrui_pull_cord`)
 **Players expect:** to pull a cord all the way down and have it do its thing **once**:

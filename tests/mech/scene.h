@@ -136,9 +136,12 @@ static inline void let_go(void)
     sfxt_frames(3);
 }
 
+// where the hand takes a knob or selector to drag it round: near its rim
+#define RIM (knob_s.size * 0.85f)
+
 static inline float knob_after(float deg, float grip_r)
 {
-    float slop_deg = grip_r > 0.035f * 0.25f ? fmaxf(2.0f, 0.003f / grip_r * RAD2DEG) : 2.0f;
+    float slop_deg = grip_r > knob_s.size * 0.25f ? fmaxf(2.0f, 0.003f / grip_r * RAD2DEG) : 2.0f;
     return 0.5f + (deg - slop_deg) / 270.0f;
 }
 
