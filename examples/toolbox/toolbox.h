@@ -16,6 +16,7 @@
 #include "sfxr.h"
 #include "vrui.h"
 
+#include <math.h>
 #include <stddef.h>
 
 // Layout (meters; the player starts at the origin facing -Z).
@@ -23,6 +24,25 @@
 #define TABLE_Z -0.75f          // the workbench, straight ahead
 #define TABLE_W  1.4f
 #define TABLE_D  0.7f
+
+// The stations stand on a ring around the spawn point, each turned to face
+// the middle, with a walkable gap (1 m or more) between neighbours so you can
+// step around a bench to look at it from the side. Angle 0 is straight ahead
+// (-Z); positive angles are to the right.
+//
+//   station          angle   radius
+//   workbench            0   0.75 (the table in world.c, right in front)
+//   Toolbox panel      -55   1.3
+//   Mechanisms bench    60   2.4
+//   Linkage bench      125   2.6
+//   Controllers panel -110   2.2
+//   Headset panel     -160   2.2
+//   Setup station      165   2.2
+static inline SfxrPose station_pose(float angle_deg, float radius, float y)
+{
+    float a = angle_deg * DEG2RAD;
+    return vrui_facing((Vector3){ radius * sinf(a), y, -radius * cosf(a) }, (Vector3){ 0, y, 0 });
+}
 
 // Widget id groups: VRUI_ID2(group, index).
 enum { G_TABLE = 1, G_PANEL, G_WRIST, G_BLOCKS, G_BENCH, G_CTRL, G_HEADSET, G_LINK };

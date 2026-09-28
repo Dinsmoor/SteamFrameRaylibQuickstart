@@ -1,6 +1,6 @@
 # Mechanisms: reference physical controls for VR
 
-The toolbox's **Mechanisms bench** (to your right in `examples/toolbox`) has one of every
+The toolbox's **Mechanisms bench** (ahead right in `examples/toolbox`) has one of every
 physical control vrui provides: knob, selector, crank, lever, sprung lever, joystick,
 slider, plunger, button, latching button, rocker switch. Each one is meant to be copied
 into your own app. The idea: *"here is a toggle switch that already feels right. Give it

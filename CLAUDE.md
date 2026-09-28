@@ -657,7 +657,7 @@ must never prevent use.
   camera-tracked joints
 
 **Next steps, in order**
-1. A headset session (try the hands-on setup station, behind you on the right):
+1. A headset session (try the hands-on setup station, right behind you):
    - try the bench, the Controllers panel, pull levels and bare hands
    - check the emulation notice
    - keep sessions as regression recordings (`frame.sh keep`)

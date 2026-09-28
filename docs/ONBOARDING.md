@@ -5,8 +5,8 @@ adapt, often badly. This is "left-handedness for VR": the app should fit the pla
 the other way round. A settings menu is the wrong tool, because players don't know their
 own habits in VR terms ("do I grab with the grip or the trigger?").
 
-The toolbox's **hands-on setup** station (`examples/toolbox/onboarding.c`, behind you on
-the right: start it from its panel) does two jobs at once:
+The toolbox's **hands-on setup** station (`examples/toolbox/onboarding.c`, right behind
+you: start it from its panel) does two jobs at once:
 
 1. **It teaches.** A few hands-on tasks: pick up a cube, turn a dial to a mark, press a
    button, click a far target. A hint appears only if the player seems stuck (no success

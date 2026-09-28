@@ -17,7 +17,7 @@ static struct {
 void panels_toolbox(VruiLocoConfig *loco)
 {
     if (!P.placed) {
-        P.pose = vrui_facing((Vector3){ -0.95f, 1.35f, -0.55f }, (Vector3){ 0, 1.5f, 0.2f });
+        P.pose = station_pose(-55, 1.3f, 1.35f);
         P.placed = true;
     }
     if (!vrui_panel_begin(VRUI_ID2(G_PANEL, 0), &P.pose, 0.46f, 0.78f, "Toolbox")) return;

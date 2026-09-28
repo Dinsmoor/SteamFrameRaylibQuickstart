@@ -1,4 +1,4 @@
-// bench_mechanisms.c - the Mechanisms bench, to your right: one of every
+// bench_mechanisms.c - the Mechanisms bench, ahead right: one of every
 // reference mechanism with its default feel (docs/MECHANISMS.md).
 //
 // To use one in your app: copy its few lines, set spec.draw = false, and draw
@@ -16,11 +16,8 @@ static struct {
 #define BENCH_W 1.4f
 #define BENCH_D 0.6f
 
-// The bench stands to the player's right, turned to face them.
-static SfxrPose bench_origin(void)
-{
-    return (SfxrPose){ { 1.3f, TABLE_Y, -0.15f }, QuaternionFromAxisAngle((Vector3){ 0, 1, 0 }, 75.0f * DEG2RAD) };
-}
+// The bench stands front-right on the station ring (see toolbox.h).
+static SfxrPose bench_origin(void) { return station_pose(60, 2.4f, TABLE_Y); }
 
 static SfxrPose on_bench(float x, float z)
 {

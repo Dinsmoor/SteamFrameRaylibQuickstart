@@ -25,7 +25,7 @@ static const char *joint_source(const SfxrHandJoints *j)
 void panel_headset(void)
 {
     if (!HS.placed) {
-        HS.pose = vrui_facing((Vector3){ -1.05f, 1.35f, 0.95f }, (Vector3){ 0, 1.5f, 0 });
+        HS.pose = station_pose(-160, 2.2f, 1.35f);
         HS.placed = true;
     }
     bool present = sfxr_user_present();

@@ -7,9 +7,10 @@
 //   Ahead left:   the Toolbox panel -- world settings, pull level, grab style
 //   Left:         the Controllers panel -- every Steam Frame input, live
 //   Behind left:  the Headset panel -- worn, refresh rate, passthrough, ...
-//   Right:        the Mechanisms bench -- every reference mechanism
-//   Ahead right:  the Linkage bench -- controls wired to mechanical displays
-//   Behind right: the Hands-on setup station (docs/ONBOARDING.md)
+//   Ahead right:  the Mechanisms bench -- every reference mechanism
+//   Behind right: the Linkage bench -- controls wired to mechanical displays
+//   Behind:       the Hands-on setup station (docs/ONBOARDING.md)
+//   The stations stand on a ring with room to walk around each (toolbox.h).
 //   On your wrist: fps, hand shapes, trigger level
 //   Moving:       stick forward = teleport arc, stick sideways = snap turn
 //
@@ -36,7 +37,7 @@ int main(void)
 
     world_init();
     VruiLocoConfig loco = vrui_loco_default();
-    SfxrPose setup_pose = vrui_facing((Vector3){ 1.05f, 1.35f, 0.95f }, (Vector3){ 0, 1.5f, 0 });
+    SfxrPose setup_pose = station_pose(165, 2.2f, 1.35f);
 
     while (sfxr_frame_begin()) {
         vrui_begin();

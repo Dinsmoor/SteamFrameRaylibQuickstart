@@ -29,6 +29,7 @@ void sfxr_texture_skip_srgb_decode(unsigned tex);
 static struct {
     float yaw, pitch;          // head
     Vector3 head_pos;          // stage space
+    float max_y;               // Q/E ceiling: 2.5 m, or higher when SFXR_SIM_POS starts above it (overhead shots)
     int active;                // active hand index
     float hand_dist;
     float hand_roll;
@@ -83,6 +84,7 @@ static bool sim_init(void)
     //   SFXR_SIM_POS="x,y,z"   SFXR_SIM_LOOK="yaw_deg,pitch_deg"
     const char *pos = sfxr_env_str("SFXR_SIM_POS");
     if (pos) sscanf(pos, "%f,%f,%f", &M.head_pos.x, &M.head_pos.y, &M.head_pos.z);
+    M.max_y = fmaxf(2.5f, M.head_pos.y);
     const char *look = sfxr_env_str("SFXR_SIM_LOOK");
     if (look) {
         float yd = 0, pd = 0;
@@ -144,7 +146,7 @@ static bool sim_frame_begin(void)
     if (IsKeyDown(KEY_A)) M.head_pos = Vector3Subtract(M.head_pos, Vector3Scale(right, speed));
     if (IsKeyDown(KEY_E)) M.head_pos.y += speed;
     if (IsKeyDown(KEY_Q)) M.head_pos.y -= speed;
-    M.head_pos.y = Clamp(M.head_pos.y, 0.3f, 2.5f);
+    M.head_pos.y = Clamp(M.head_pos.y, 0.3f, M.max_y);
 
     S.head_stage.position = M.head_pos;
     S.head_stage.orientation = yaw_pitch_roll(M.yaw, M.pitch, 0);

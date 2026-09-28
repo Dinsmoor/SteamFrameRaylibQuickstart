@@ -86,7 +86,7 @@ static void hand_column(Rectangle col, SfxrHandId id)
 void panel_controllers(void)
 {
     if (!K.placed) {
-        K.pose = vrui_facing((Vector3){ -1.4f, 1.35f, 0.1f }, (Vector3){ 0, 1.5f, 0 });
+        K.pose = station_pose(-110, 2.2f, 1.35f);
         K.placed = true;
     }
     vrui_panel_capture(VRUI_CAPTURE_LOOK);   // look at it: it owns both controllers

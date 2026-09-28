@@ -1,4 +1,4 @@
-// bench_linkage.c - the Linkage bench, ahead right: controls wired to
+// bench_linkage.c - the Linkage bench, behind you on the right: controls wired to
 // mechanical displays. The point is the wiring: each control's value is read
 // and fed into something else, in plain code, every frame.
 //
@@ -25,7 +25,7 @@ static struct {
 #define LINK_D 0.6f
 #define BOARD_Z (-LINK_D * 0.5f + 0.04f)   // the display board at the back
 
-static SfxrPose origin(void) { return vrui_facing((Vector3){ 1.55f, TABLE_Y, -1.75f }, (Vector3){ 0, TABLE_Y, 0 }); }
+static SfxrPose origin(void) { return station_pose(125, 2.6f, TABLE_Y); }
 
 static SfxrPose on_link(float x, float y, float z)
 {
