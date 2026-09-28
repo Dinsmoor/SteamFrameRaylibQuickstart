@@ -32,6 +32,7 @@
 //                  The original game's sounds play if you copy them into
 //                  resources/garden/sfx/ and voice/ (they aren't in the repo);
 //                  otherwise the toolbox's sounds made in code
+//   music          the original game's menu, combat, win and lose tunes
 //   voice          hold the right bumper and say "hammer" (it comes back to
 //                  your belt) or "restart"
 //   Steam          winning unlocks an achievement when Steam is there
@@ -265,6 +266,14 @@ static void bugmaster_says(const char *line, SfxrSound voice)
     play_sound(voice, SND_TRILL, tower_top(), 1.0f);   // no recording: a made-in-code trill
 }
 
+// The original game's music (made by the author and their kids): the menu
+// tune while you pick up the hammer, combat while the bugs come, win or
+// lose at the end. Quieter while the Bugmaster speaks.
+static void music(const char *track, bool loop)
+{
+    sfxr_music_play(gw_path(TextFormat("music/%s.ogg", track)), loop, 0.35f);
+}
+
 static void round_reset(void)
 {
     memset(GD.bugs, 0, sizeof GD.bugs);
@@ -276,6 +285,7 @@ static void round_reset(void)
     GD.hammer_at = ON_STUMP;
     GD.rng = 12345;
     gw_reset();
+    music("menu", true);
 }
 
 static void hit_bugs(void)
@@ -365,6 +375,7 @@ static void play(float dt)
     if (GD.score >= SCORE_TO_WIN) {
         GD.round = WON;
         sfxr_event("round", "won in %.0f s with %d/%d left", GD.t, GD.hp, MAX_HP);
+        music("win", false);
         bugmaster_says("No, my precious bugs! My precious bugs! You may have defeated my bugs this time...", GD.bm_win);
         play_sound(GD.ding_hi, SND_BELL, sfxr_head().position, 1.0f);
         // Spacewar's (app 480) test achievement; your game's would be yours
@@ -373,6 +384,7 @@ static void play(float dt)
         GD.hp = 0;
         GD.round = LOST;
         sfxr_event("round", "lost after %.0f s, %d smashed", GD.t, GD.score);
+        music("lose", false);
         bugmaster_says("Yes, yes! My wonderful bugs have won!", GD.bm_lose);
         play_sound(GD.ding_lo, SND_STOP, sfxr_head().position, 1.0f);
     }
@@ -401,6 +413,7 @@ static void hammer(void)
         if (GD.round == WAITING) {
             GD.round = PLAYING;
             GD.t = 0;
+            music("combat", true);
             bugmaster_says("You there! You've been smashing my bugs for too long. This time, they will smash YOU!", GD.bm_intro);
         }
     }
@@ -483,6 +496,7 @@ void garden_leave(void)
 {
     if (!GD.active) return;
     GD.active = false;
+    sfxr_music_stop();
     // back out through the gate, facing the row
     Vector3 f = sfxr_pose_forward(sfxr_head());
     sfxr_rig_turn(-(-PI / 2 - atan2f(f.x, -f.z)));
@@ -576,6 +590,7 @@ void garden_update(const VruiLocoConfig *toolbox_loco)
     vrui_tag(top, wrapped, 0.4f, GD.shout_t > 0 ? (Color){ 255, 220, 120, 255 } : RAYWHITE,
              (Color){ 60, 20, 70, 220 });
     GD.shout_t -= dt;
+    sfxr_music_volume(GD.shout_t > 0 ? 0.15f : 0.35f);   // duck the music under his voice
 
     // labels on tough bugs: how many hits they have left
     for (int i = 0; i < MAX_BUGS; i++) {

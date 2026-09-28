@@ -26,6 +26,10 @@ sfxr_sound_play_here(click, 0.5f);                  // not positional: UI, the p
 - **Voices:** each sound gets a few copies (raylib sound aliases sharing one buffer), so a
   click can overlap itself. The oldest is reused when all are busy.
 
+**Music.** `sfxr_music_play(path, loop, volume)` streams one track at a time (ogg, mp3,
+wav), fading it in over half a second; `sfxr_music_volume` ducks it (Daddy Bug Smasher
+lowers it under the Bugmaster's voice). Music isn't positional: it's not *in* the world.
+
 **Sounds made in code.** `sfxr_sound_synth(&(SfxrSynth){ freq, freq_end, seconds, attack,
 decay, noise, harmonic, volume }, voices)` makes a tone or noise burst with an envelope:
 - a click is a short, noisy high blip
@@ -141,6 +145,8 @@ Also watch which source is the default. On a machine without a microphone, the d
   - the original game's recordings: the bugs' death splats, scurrying, dings, and the
     Bugmaster's voice (`resources/garden/sfx/` and `voice/`, converted to mono so they can be
     positioned). The subtitles over his tower are what Whisper heard in his lines.
+  - its music, made by the author and their kids: the menu tune while you pick up the
+    hammer, combat while the bugs come, win or lose at the end
 
 ## Tests
 

@@ -25,6 +25,7 @@
 
 #include <math.h>
 #include <stdatomic.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -46,6 +47,10 @@ static struct {
     bool on;
     float master;
     Snd snd[MAX_SOUNDS];
+    Music music;
+    bool music_on, music_loop;
+    float music_volume, music_fade;
+    char music_path[256];
 } A = { .master = 1.0f };
 
 bool sfxr_audio_on(void) { return A.on; }
@@ -65,6 +70,7 @@ void sfxr_audio_shutdown(void)
 {
     sfxr_mic_stop();
     if (!A.on) return;
+    sfxr_music_stop();
     for (int i = 1; i < MAX_SOUNDS; i++) {
         Snd *s = &A.snd[i];
         if (!s->used) continue;
@@ -158,9 +164,53 @@ static void start(SfxrSound id, bool positional, Vector3 at, float volume)
 void sfxr_sound_play(SfxrSound s, Vector3 at, float volume) { start(s, true, at, volume); }
 void sfxr_sound_play_here(SfxrSound s, float volume) { start(s, false, (Vector3){ 0 }, volume); }
 
+// --- music -----------------------------------------------------------------------
+
+void sfxr_music_stop(void)
+{
+    if (!A.music_on) return;
+    StopMusicStream(A.music);
+    UnloadMusicStream(A.music);
+    A.music_on = false;
+    A.music_path[0] = 0;
+}
+
+bool sfxr_music_play(const char *path, bool loop, float volume)
+{
+    if (!A.on || !path || !FileExists(path)) return false;
+    if (A.music_on && !strcmp(A.music_path, path) && IsMusicStreamPlaying(A.music)) {   // already playing it
+        A.music_volume = volume;
+        return true;
+    }
+    sfxr_music_stop();
+    A.music = LoadMusicStream(path);
+    if (!A.music.frameCount) return false;
+    A.music.looping = loop;
+    A.music_on = true;
+    A.music_loop = loop;
+    A.music_volume = volume;
+    A.music_fade = 0;
+    snprintf(A.music_path, sizeof A.music_path, "%s", path);
+    SetMusicVolume(A.music, 0);
+    PlayMusicStream(A.music);
+    return true;
+}
+
+void sfxr_music_volume(float volume) { A.music_volume = volume; }
+
+static void music_update(void)
+{
+    if (!A.music_on) return;
+    UpdateMusicStream(A.music);   // streams keep playing only if fed every frame
+    A.music_fade = fminf(1, A.music_fade + sfxr_dt() / 0.5f);
+    SetMusicVolume(A.music, A.music_volume * A.music_fade * A.master);
+    if (!A.music_loop && !IsMusicStreamPlaying(A.music)) sfxr_music_stop();
+}
+
 void sfxr_audio_update(void)
 {
     if (!A.on) return;
+    music_update();
     for (int i = 1; i < MAX_SOUNDS; i++) {
         Snd *s = &A.snd[i];
         if (!s->used) continue;

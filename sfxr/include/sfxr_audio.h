@@ -48,6 +48,13 @@ void sfxr_audio_spatial(Vector3 at, float *pan, float *gain);
 
 void sfxr_audio_update(void);        // called by sfxr_frame_begin: re-pans playing sounds
 
+// --- music ------------------------------------------------------------------------
+// One track at a time, streamed from its file (ogg, mp3, wav), not positional.
+// A new track replaces the old one and fades in over half a second.
+bool sfxr_music_play(const char *path, bool loop, float volume);   // false: no file / no audio
+void sfxr_music_stop(void);
+void sfxr_music_volume(float volume);   // e.g. duck it while someone speaks
+
 // --- sounds made in code --------------------------------------------------------
 // A tone or a noise burst with an envelope: clicks, ticks, thumps, bells,
 // squishes, without shipping a single file.

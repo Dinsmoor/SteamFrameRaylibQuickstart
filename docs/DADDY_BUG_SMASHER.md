@@ -44,14 +44,15 @@ their callouts say how many are left.
 - `garden_world.c`: the level as a table, terrain heights, the sun shader, colliders,
   loose props.
 - `garden_rigidbody.c`: a box rigid body: tips, bounces, settles, sleeps.
-- `resources/garden/`: the models (glTF, made in Blender), the sounds (`sfx/`) and the
-  Bugmaster's voice (`voice/`), from the original game. A package carries them
+- `resources/garden/`: the models (glTF, made in Blender), the sounds (`sfx/`), the music
+  (`music/`) and the Bugmaster's voice (`voice/`), from the original game. A package carries them
   (`resources/` is copied next to the app). The sounds are converted to mono 22 kHz:
   positional sound needs a mono source, since panning a stereo file only shifts its
   balance.
 
 The engine parts came from the flat-screen game's 3D mode, along with its level, its
-models (made in Blender), its sounds and the Bugmaster's lines. Its animated Daddy stayed
+models (made in Blender), its sounds, its music (made by the author and their kids: the
+menu, combat, win and lose tunes, as OGG) and the Bugmaster's lines. Its animated Daddy stayed
 behind, since in VR you are Daddy; the animation and bone code that held a hammer in his
 hand is in the git history (`garden_anim.c`). Its units were about 1.4 to the meter, so everything is scaled by
 `GARDEN_SCALE` (0.7) on the way in.
