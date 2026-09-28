@@ -1,6 +1,6 @@
 // hud.c - visor HUD templates: four ways to keep a readout with the player
 // (docs/ATTACHING.md, "HUDs"). The Menus & HUD station switches between them,
-// and the garden uses the same code for its health and score.
+// and Daddy Bug Smasher uses the same code for its health and score.
 //
 //   HEAD     locked to the head, low in the view. Always readable, but it
 //            swims with every head movement and can't be looked at "properly"

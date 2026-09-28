@@ -18,7 +18,7 @@
 >   - `tests/hands`: bare hands
 >   - `tests/attach`: menus, HUDs, the body estimate, smoothing
 >   - `tests/steam`: Steamworks
->   - `tests/garden`: the garden game
+>   - `tests/garden`: Daddy Bug Smasher
 >   - `tests/toolbox`: scenario files against the whole toolbox
 > - the event log (`SFXR_EVENTS`)
 >

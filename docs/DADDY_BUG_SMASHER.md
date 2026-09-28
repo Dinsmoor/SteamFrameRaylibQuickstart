@@ -1,22 +1,34 @@
-# The garden: part three of the toolbox
+# Daddy Bug Smasher: part three of the toolbox
 
-The toolbox's stations show one thing each. The garden puts them together in a small,
-real game, the kind of thing you'd build with this quickstart. Walk to the right end of
-the row, through the garden gate (or pick "Garden" from a hand menu).
+The toolbox's stations show one thing each. **Daddy Bug Smasher** puts them together in a
+small, playable game, so you can see the pieces working as a whole: the kind of thing
+you'd build with this quickstart. Walk to the right end of the row, through the garden
+gate (or pick "Bug Smasher" from a hand menu).
 
-**The game.** The gardener is holding a hammer. Take it from his hand and the bugs
-come, crawling at you from all sides of a hilly garden. Swing the hammer at them: it's
-the speed of the hammer's *head* that counts, so tapping or resting it on a bug does
-nothing. Smash 8 before they bite you 10 times. Green bugs take three hits; their
-callouts say how many are left.
+**Where it comes from.** Daddy Bug Smasher is a flat-screen raylib game the author made
+with their kids, from the kids' drawings: Daddy smashes the bugs that the **Bugmaster**
+sends from his tower. Its 3D mode was already C and raylib, so it ported to VR easily.
+Here it stays a very basic port. Its job is to be a working example of the VR parts, not a
+finished game.
+
+**The game.** Daddy is holding his hammer. Take it and the Bugmaster's bugs come,
+crawling out from his tower and from all sides of the hilly garden. Swing the hammer at
+them: it's the speed of the hammer's *head* that counts, so tapping or resting it on a
+bug does nothing. Smash 8 before they bite you 10 times. Green bugs take three hits;
+their callouts say how many are left.
+
+> **Coming later: Revenge of the Bugmaster.** The same world from the other side: you're
+> the Bugmaster on his tower, pointing at Daddy and telling your bugs to *attack* (or
+> *return*). It's being built on this quickstart, with the voice commands in
+> [AUDIO.md](AUDIO.md), and may come to Steam.
 
 ## What it's made of, and where each piece is explained
 
-| In the garden | The piece | Read |
+| In the game | The piece | Read |
 |---|---|---|
-| the hammer rides the gardener's hand bone, then your hand, then your belt (let go at your right hip), or nothing (drop or throw it: it tumbles) | attaching: `sfxr_pose_mul`, a bone as a parent (`anim_bone_pose`) | [ATTACHING.md](ATTACHING.md) |
+| the hammer rides Daddy's hand bone, then your hand, then your belt (let go at your right hip), or nothing (drop or throw it: it tumbles) | attaching: `sfxr_pose_mul`, a bone as a parent (`anim_bone_pose`) | [ATTACHING.md](ATTACHING.md) |
 | how the hammer follows whatever holds it: Snap, Lag, Spring, Heavy, Steady | the pose smoother | [SMOOTHING.md](SMOOTHING.md) |
-| walking on the hills, tree trunks and the tower being solid (your head in one fades the view), teleporting | locomotion: `ground_height`, `solid_depth` | [MOVEMENT.md](MOVEMENT.md) |
+| walking on the hills, tree trunks and the Bugmaster's tower being solid (your head in one fades the view), teleporting | locomotion: `ground_height`, `solid_depth` | [MOVEMENT.md](MOVEMENT.md) |
 | your health and score on the HUD, arrows to bugs behind you, a red flash when bitten | HUDs, `vrui_offscreen_arrow`, `vrui_tint` | [ATTACHING.md](ATTACHING.md) |
 | Restart / Recall hammer / Leave / HUD style / Hammer feel on your hands | hand menus (the Menus & HUD station's choices apply) | [ATTACHING.md](ATTACHING.md) |
 | a thump per hit, stronger the harder you swung | haptics | [INPUT.md](INPUT.md) |
@@ -35,8 +47,8 @@ callouts say how many are left.
 - `resources/garden/`: the models (glTF, made in Blender). A package carries them
   (`resources/` is copied next to the app).
 
-The engine parts came from an earlier flat-screen raylib game's 3D mode, along with its
-level and models. Its units were about 1.4 to the meter, so everything is scaled by
+The engine parts came from the flat-screen game's 3D mode, along with its level and its
+models (made in Blender). Its units were about 1.4 to the meter, so everything is scaled by
 `GARDEN_SCALE` (0.7) on the way in.
 
 ### Things worth knowing, learned porting it

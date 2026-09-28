@@ -5,7 +5,7 @@
 //               copy it, each following through a different mode of
 //               vrui_smooth_pose -- Snap, Lag, Spring, Heavy, Steady. Let go
 //               and it springs back to its stand (a Spring smoother too).
-//   The panel   each mode's setting; the garden's hammer uses the same ones
+//   The panel   each mode's setting; Daddy Bug Smasher's hammer uses the same ones
 //               (smoothing_spec), so tune here, then go and smash bugs.
 //   The balls   the easing curves (vrui_ease), each ball riding its curve
 //               up its rail every two seconds.
@@ -70,7 +70,7 @@ static void panel(void)
 void station_smoothing(void)
 {
     if (!SM.init) init();
-    station_sign(X0, "Smoothing", "wave the sword: five ghosts follow it, one per\nmode (the garden's hammer uses these)");
+    station_sign(X0, "Smoothing", "wave the sword: five ghosts follow it, one per\nmode (Daddy Bug Smasher's hammer uses these)");
     Color wood = { 120, 92, 66, 255 };
     vrui_box(on_bench(0, -0.025f, 0), (Vector3){ 1.4f, 0.05f, 0.6f }, wood);
     for (int i = 0; i < 4; i++)

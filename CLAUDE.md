@@ -295,7 +295,7 @@ docs/ONBOARDING.md   the hands-on setup station that learns the player's habits 
 docs/MOVEMENT.md     teleport, pads, surfaces, falling, climbing (examples/toolbox/yard.c)
 docs/ATTACHING.md    attaching things to things, world labels, HUDs, hand menus
 docs/SMOOTHING.md    how held things follow (snap/lag/spring/heavy/steady), springs, easing
-docs/GARDEN.md       the toolbox's part three: a small game (examples/toolbox/garden*.c, tests/garden)
+docs/DADDY_BUG_SMASHER.md       the toolbox's part three: a small game (examples/toolbox/garden*.c, tests/garden)
 tests/mech, tests/input  C test suites (make test); tests/regress/ golden replays (make regress)
 scripts/             frame.sh (headset remote control), shot-sim.sh, test-xr.sh, frame-build.sh, package.sh, new-app.sh
 tools/devkit-utils/  Valve's device-side devkit helper scripts (MIT, pinned copy; see VERSION)
@@ -441,8 +441,8 @@ while (sfxr_frame_begin()) {              // wait for runtime, sample poses and 
   `vrui_damp*`, `vrui_spring*`, `vrui_move_toward3`/`vrui_turn_toward`, `vrui_ease`, and
   `vrui_smooth_pose` with modes Snap / Lag / Spring / Heavy / Steady (a 1-euro jitter
   filter); `with_player` keeps held things riding the rig. The toolbox's Smoothing station
-  tunes them; the garden's hammer uses them (hits come from the smoothed pose).
-- **The garden** (`docs/GARDEN.md`): the toolbox's part three, a small game through the
+  tunes them; Daddy Bug Smasher's hammer uses them (hits come from the smoothed pose).
+- **Daddy Bug Smasher** (`docs/DADDY_BUG_SMASHER.md`): the toolbox's part three, a small game through the
   gate at the right end of the row. It's a separate scene: `garden_update` replaces the
   stations while you're in it. Models in `examples/toolbox/resources/garden/`.
 - **Adding a widget:** follow the existing ones. Compute hit distance/proximity, call
@@ -734,8 +734,8 @@ Feedback from the session, and what was done about it:
 | world labels with documented primitives; attaching shown | `vrui_text_at`, `vrui_tag`, `vrui_callout`, `vrui_sign` (vrui.h section 9); `sfxr_pose_relative` and the attaching rule in `sfxr.h`; the **Attach & label** bench (turntable, a lever mounted on it, a flag on the lever, blocks that go on the table / in your hand / on your belt / drop); `docs/ATTACHING.md` |
 | menus attached to the hands | watch (turn the wrist), palm buttons, a tablet held in the hand, `vrui_radial_menu`; the **Menus & HUD** station switches them |
 | visor HUD examples | head-locked, lazy follow (`vrui_follow`), on the belt (`vrui_body`); `vrui_offscreen_arrow`, `vrui_tint`, `vrui_on_top_begin/end`, `vrui_panel_passive` |
-| port the 3D world and engine of the earlier raylib game as part three | **the garden** (`garden*.c`, `docs/GARDEN.md`): terrain, props, a sun shader, a box rigid body, animation clips, the gardener with the hammer on his hand bone; take it, smash 8 bugs. Gate at the right end of the row |
-| weapon control modes and interpolation tools, shown with the weapons | `vrui_smooth.c`: damping, springs, speed limits, easing, and `vrui_smooth_pose` (Snap / Lag / Spring / Heavy / Steady); the **Smoothing** station (a sword and five ghosts, the settings, easing rails); the garden's hammer follows through the chosen mode (board or hand menu); `docs/SMOOTHING.md` |
+| port the 3D world and engine of the earlier raylib game as part three | **the garden** (`garden*.c`, `docs/DADDY_BUG_SMASHER.md`): terrain, props, a sun shader, a box rigid body, animation clips, Daddy with the hammer on his hand bone; take it, smash 8 bugs. Gate at the right end of the row |
+| weapon control modes and interpolation tools, shown with the weapons | `vrui_smooth.c`: damping, springs, speed limits, easing, and `vrui_smooth_pose` (Snap / Lag / Spring / Heavy / Steady); the **Smoothing** station (a sword and five ghosts, the settings, easing rails); Daddy Bug Smasher's hammer follows through the chosen mode (board or hand menu); `docs/SMOOTHING.md` |
 | the remaining CLAUDE.md items | two-handed valve (`vrui_valve`) and key switch (`vrui_key_switch`) on Hinges & cords; the head-in-wall fade (`solid_depth`); the widget registry, `.sfxt` scenario files (`tests/toolbox`), failure `fail.png` + `run.sfxrec`, `scripts/clips.sh` |
 
 `make test`: 92 cases, every break switch proven except 12 listed unproven cases, audit
@@ -743,7 +743,7 @@ clean, goldens pass, Frame build and package clean (the package carries
 `resources/garden/`).
 
 **Next headset session, in addition to the checklist above**
-1. **The garden**, the biggest untested thing:
+1. **Daddy Bug Smasher**, the biggest untested thing:
    - does the lighting shader render in stereo under Zink?
    - is 72 fps held?
    - does the hammer feel right in each smoothing mode? Hits come from the smoothed pose, so Heavy should need a real swing.

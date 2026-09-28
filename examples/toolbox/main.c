@@ -17,7 +17,7 @@
 //                      heavy, steady; easing curves
 //   Hinges & cords     a door, a chest lid, a bell cord, a radio dial,
 //                      a two-handed valve, a key switch
-// Past the right end: the gate to the Garden, part three: a small game
+// Past the right end: the gate to Daddy Bug Smasher, part three: a small game
 // made from these pieces (garden.c).
 // Behind you: the LIFT platform and the Movement yard (teleport pads,
 // stairs, climbing wall, monkey bars).
@@ -39,7 +39,7 @@ static void toolbox_hud(void)
     static const struct { float x; const char *name; } ROW[] = {
         { -8.0f, "Menus & HUD" }, { -6.4f, "Hands-on setup" }, { -4.8f, "Headset" }, { -3.2f, "Controllers" },
         { -1.6f, "Toolbox" }, { 0, "Workbench" }, { 2.5f, "Mechanisms" }, { 5.2f, "Linkage bench" },
-        { 7.9f, "Attach & label" }, { 10.9f, "Smoothing" }, { 15.3f, "Hinges & cords" }, { 19.5f, "the garden gate" },
+        { 7.9f, "Attach & label" }, { 10.9f, "Smoothing" }, { 15.3f, "Hinges & cords" }, { 19.5f, "Daddy Bug Smasher" },
     };
     Vector3 me = sfxr_head().position;
     const char *near = "the yard";
@@ -90,7 +90,7 @@ void toolbox_logic(void)
 {
     // What the hand menus offer here (every menu shows the same list; the
     // palm shows the first three).
-    static const char *const MENU[] = { "Grid", "Day / dusk", "Go home", "Reset blocks", "HUD style", "Hints", "Garden" };
+    static const char *const MENU[] = { "Grid", "Day / dusk", "Go home", "Reset blocks", "HUD style", "Hints", "Bug Smasher" };
     const int NMENU = (int)(sizeof MENU / sizeof MENU[0]);
 
     if (garden_active()) {

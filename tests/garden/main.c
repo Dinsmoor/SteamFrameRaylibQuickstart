@@ -1,4 +1,4 @@
-// tests/garden - the Garden keeps its promises (docs/GARDEN.md): it's the
+// tests/garden - the Garden keeps its promises (docs/DADDY_BUG_SMASHER.md): it's the
 // swing of the hammer's HEAD that smashes a bug, a hammer resting on a bug
 // does nothing, a bug bites once a second (not every frame), and a hammer
 // put on your belt goes where you go. The toolbox's own garden code is
@@ -27,7 +27,7 @@ static void setup(void)
     CHECK(garden_active(), "in the garden (are the models in examples/toolbox/resources/garden?)");
 }
 
-// Take the hammer from the gardener, 20 cm down its handle from the middle,
+// Take the hammer from Daddy, 20 cm down its handle from the middle,
 // with the hand turned the way the hammer is (so hand and hammer then turn
 // together).
 static void take_hammer(void)

@@ -160,9 +160,30 @@ VruiMech vrui_valve(VruiId id, SfxrPose base, const VruiMechSpec *sp, float *val
             vrui__cylinder(sfxr_pose_apply(m.part, (Vector3){ R * sinf(a0), 0, -R * cosf(a0) }),
                            sfxr_pose_apply(m.part, (Vector3){ R * sinf(a1), 0, -R * cosf(a1) }), 0.014f, col);
         }
-        for (int i = 0; i < 4; i++) {     // spokes
-            float a = (float)i * PI * 0.5f;
+        for (int i = 0; i < 4; i++) {     // spokes (diagonal, leaving room for the words)
+            float a = (float)i * PI * 0.5f + PI * 0.25f;
             vrui__cylinder(m.part.position, sfxr_pose_apply(m.part, (Vector3){ R * sinf(a), 0, -R * cosf(a) }), 0.008f, col);
+        }
+        // Needs both hands: say so before anyone tries. Two hand-sized grip
+        // pads on opposite sides of the rim (they don't turn: they show where
+        // hands go), amber until a hand holds that side, then green; and the
+        // words across the wheel's face.
+        if (sp->hands >= 2) {
+            bool side[2] = { false, false };   // 0: -X, 1: +X
+            for (int h = 0; h < 2; h++) {
+                if (!vs->hold[h]) continue;
+                float x = sfxr_pose_apply_inv(plane, sfxr_hand((SfxrHandId)h)->grip.position).x;
+                side[x > 0] = true;
+            }
+            for (int k = 0; k < 2; k++) {
+                SfxrPose pad = sfxr_pose_mul(plane, (SfxrPose){ { k ? R : -R, 0, 0 }, QuaternionIdentity() });
+                vrui_box(pad, (Vector3){ 0.035f, 0.035f, 0.1f }, side[k] ? (Color){ 90, 220, 110, 230 } : (Color){ 245, 180, 50, 230 });
+            }
+            SfxrPose face = sfxr_pose_mul(plane, (SfxrPose){ { 0, 0.02f, 0 }, QuaternionFromAxisAngle((Vector3){ 1, 0, 0 }, -PI / 2) });
+            int n_on = (int)side[0] + (int)side[1];
+            vrui_text_at(sfxr_pose_mul(face, (SfxrPose){ { 0, R * 0.5f, 0 }, QuaternionIdentity() }), "BOTH", R * 0.16f, RAYWHITE);
+            vrui_text_at(sfxr_pose_mul(face, (SfxrPose){ { 0, -R * 0.5f, 0 }, QuaternionIdentity() }), n_on == 1 ? "HANDS (1 of 2)" : "HANDS",
+                         R * 0.16f, RAYWHITE);
         }
         vrui__cylinder(base.position, m.part.position, 0.02f, (Color){ 70, 72, 80, 255 });   // the stem
         vrui__sphere(m.part.position, 0.03f, (Color){ 70, 72, 80, 255 });

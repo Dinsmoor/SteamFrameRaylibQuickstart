@@ -4,12 +4,12 @@
 // per Action, named ("idle", "walk"). raylib 6 loads them with
 // LoadModelAnimations, poses the model with UpdateModelAnimation, and blends
 // two clips with UpdateModelAnimationEx; this adds playing a clip BY NAME and
-// a short cross-fade when switching, so the gardener doesn't pop from
+// a short cross-fade when switching, so Daddy doesn't pop from
 // standing to walking.
 //
 // anim_bone_pose() is attachment to a bone: it takes the bone's animated
 // transform and places it where the model is drawn. The result is a parent
-// pose like any other (docs/ATTACHING.md): the hammer rides the gardener's
+// pose like any other (docs/ATTACHING.md): the hammer rides Daddy's
 // hand through his idle sway. (raylib 6 keeps each bone's current pose in
 // MODEL space already -- the skinning matrix is inverse(bind) * pose -- so
 // there's no walking up the parent chain; doing so applies the parents twice.)

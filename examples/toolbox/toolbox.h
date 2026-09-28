@@ -14,7 +14,7 @@
 //   station_attach.c     Attach & label: things riding on things, every kind of world label
 //   station_smoothing.c  Smoothing: how held things follow the hand, easing curves
 //   station_menus.c, hud.c  hand menus and visor HUDs (with you everywhere)
-//   garden*.c            the Garden: part three, a small real game (garden.h)
+//   garden*.c            Daddy Bug Smasher: part three, a small real game (garden.h)
 
 #ifndef TOOLBOX_H
 #define TOOLBOX_H
@@ -45,7 +45,7 @@
 //    7.9   Attach & label bench          station_attach.c
 //   10.9   Smoothing                     station_smoothing.c
 //   13.9   Hinges & cords (4 m wide)     station_hinges.c
-//   19.5   the garden gate               garden.c: part three, a small game
+//   19.5   Daddy Bug Smasher's gate      garden.c: part three, a small game
 //
 // Behind you (+Z): the Movement yard (yard.c), and the LIFT platform on the
 // way to it.
@@ -113,10 +113,10 @@ void panel_headset(void);
 void station_hinges(void);
 void station_attach(void);
 void station_smoothing(void);
-// the smoothing settings tuned at the Smoothing station (the garden's hammer uses them)
+// the smoothing settings tuned at the Smoothing station (Daddy Bug Smasher's hammer uses them)
 const VruiSmoothSpec *smoothing_spec(VruiSmoothMode mode);
 
-// hud.c: visor HUD templates (the garden uses them too)
+// hud.c: visor HUD templates (Daddy Bug Smasher uses them too)
 typedef enum { HUD_OFF, HUD_HEAD, HUD_FOLLOW, HUD_BODY, HUD_COUNT } HudStyle;
 extern const char *const HUD_STYLE_NAMES[HUD_COUNT];
 void hud_show(HudStyle style, const char *text, Color accent);

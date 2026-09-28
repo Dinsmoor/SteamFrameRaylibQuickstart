@@ -118,7 +118,7 @@ With `solid_depth` set:
   a wall at the target.
 
 In the yard, the climbing wall and the platforms are solid (`yard_solid` in `yard.c`): walk
-into the wall to see the fade. In the garden, tree trunks, rocks and the tower are.
+into the wall to see the fade. In Daddy Bug Smasher's garden, tree trunks, rocks and the Bugmaster's tower are.
 `vrui_faded()` says how dark the view is this frame, if your app wants to pause or mute
 while the player can't see.
 

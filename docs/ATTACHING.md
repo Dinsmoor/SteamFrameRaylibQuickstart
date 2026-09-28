@@ -49,7 +49,7 @@ table turns, because its base pose is simply different each frame.
 | the body | `vrui_body()` | a belt, holsters, a readout at your waist |
 | the rig | `sfxr_rig_position()` / `sfxr_rig_yaw()` | things that travel with you but don't turn with your head |
 | a mechanism | the result's `.part` | things on a turntable, a door's handle, a lever's knob |
-| an animated bone | the bone's world matrix | a sword in a character's hand (the garden's gardener) |
+| an animated bone | the bone's world matrix | a sword in a character's hand (Daddy's hammer in Daddy Bug Smasher) |
 
 **The body is a guess.** The headset tracks your head and hands, not your torso.
 `vrui_body()` stands on the floor under your head, a little behind your eyes, and
@@ -127,7 +127,7 @@ and brief: a strong full-view flash is unpleasant in a headset.
 
 Four ways to carry a menu. They can all be on at once because each has its own cue
 (`station_menus.c`); every one offers the same list of choices, which the caller
-passes in (the toolbox and the garden each have their own).
+passes in (the toolbox and Daddy Bug Smasher each have their own).
 
 | Menu | Cue | Good for |
 |---|---|---|

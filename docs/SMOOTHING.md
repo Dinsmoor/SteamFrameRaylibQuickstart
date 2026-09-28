@@ -53,7 +53,7 @@ your hand's own motion is smoothed. Turn it off for things attached to the *worl
 such as a character's hand bone, which don't move when you do.
 
 **Changing parents.** Keep one `VruiSmooth` per thing, not per parent. When the
-garden's hammer goes from the gardener's hand to yours, the smoother glides it over
+garden's hammer goes from Daddy's hand to yours, the smoother glides it over
 instead of popping. Call `vrui_smooth_reset` when you *want* a jump.
 
 ## Where to see it
@@ -61,7 +61,7 @@ instead of popping. Call `vrui_smooth_reset` when you *want* a jump.
 - **Smoothing station** (on the row, between Attach & label and Hinges & cords): pick
   up the sword and wave it. Five ghost swords copy it, one per mode. The panel tunes each
   mode's setting, and the rails behind show the easing curves.
-- **The garden**: the board by the spawn point (or the hand menus' "Hammer feel")
+- **Daddy Bug Smasher**: the board by the spawn point (or the hand menus' "Hammer feel")
   picks how the hammer follows. It uses the Smoothing station's settings.
 - **Tests** (`tests/attach`): `smooth-lag-halflife`, `smooth-spring-overshoots`,
   `smooth-heavy-speed-limited`, `smooth-steady-quiets-tremble`, and

@@ -290,6 +290,10 @@ turn like a steering wheel once both are on it.
 - 3 turns from shut to open, a tick every quarter turn, a heavy speed limit (half a turn a
   second: more slips, with a strain hum), a hard bump at each end.
 - The result's `holders` says how many hands are on it.
+- **It looks two-handed before anyone tries.** Two hand-sized grip pads sit on opposite
+  sides of the rim, amber until a hand holds that side, then green, and "BOTH HANDS" is
+  printed across the wheel (showing "1 of 2" while only one hand is on it). A player who
+  can see it needs two hands never has to find out by failing.
 
 **Tests:** `valve-two-hands-turn-it`, `valve-one-hand-wont-budge`.
 

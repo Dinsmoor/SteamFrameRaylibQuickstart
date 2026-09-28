@@ -1,18 +1,19 @@
-// garden.h - the Garden: the toolbox's third and last part, a small real
+// garden.h - Daddy Bug Smasher: the toolbox's third and last part, a small real
 // game built from the same pieces as the stations. Walk through the gate at
-// the right end of the row to play it (docs/GARDEN.md).
+// the right end of the row to play it (docs/DADDY_BUG_SMASHER.md).
 //
-//   garden.c            the game: take the hammer from the gardener, smash the
+//   garden.c            the game: take the hammer from Daddy, smash the
 //                       bugs before they get you; the HUD, menus, Steam
 //   garden_world.c      the level: sculpted terrain you walk on, Blender-made
 //                       props, a sun, colliders, a chair you can knock over
 //   garden_rigidbody.c  a small box rigid body (the chair, a thrown hammer)
 //   garden_anim.c       named animation clips with cross-fades, and where a
-//                       bone is (the gardener holds the hammer in his hand)
+//                       bone is (Daddy holds the hammer in his hand)
 //
-// The engine parts (world, rigid body, animation) are ported from an
-// earlier flat-screen raylib game's 3D mode; its level and models came with
-// it. Its units were about 1.4 per meter, so everything is scaled by
+// Daddy Bug Smasher is a flat-screen raylib game the author made with their
+// kids, from the kids' drawings: Daddy smashes the bugs the Bugmaster sends
+// from his tower. The engine parts here (world, rigid body, animation) are
+// ported from its 3D mode, and its level and models came with them. Its units were about 1.4 per meter, so everything is scaled by
 // GARDEN_SCALE on the way in, and all the numbers here are meters.
 
 #ifndef GARDEN_H
@@ -36,7 +37,7 @@ bool  gw_hit_loose(Vector3 at, Vector3 vel, float mass, float reach);       // h
 void  gw_step(float dt);                // loose-prop physics
 void  gw_draw(void);                    // inside sfxr_draw_begin/end
 Color gw_sky(void);
-void  gw_light(Model *m);               // light a model the game loads (the gardener, the hammer)
+void  gw_light(Model *m);               // light a model the game loads (Daddy, the hammer)
 const char *gw_path(const char *file);  // where resources/garden/<file> is (next to the app, or in the source tree)
 
 // --- garden_rigidbody.c -----------------------------------------------------
@@ -95,7 +96,7 @@ void  garden_leave(void);
 typedef struct {
     int round;              // 0 waiting for the hammer, 1 playing, 2 won, 3 lost
     int score, hp;
-    int hammer_at;          // 0 with the gardener, 1 in your hand, 2 on your belt, 3 loose
+    int hammer_at;          // 0 with Daddy, 1 in your hand, 2 on your belt, 3 loose
     SfxrPose hammer;        // the handle's middle
     Vector3 head;           // the hammer's head
     SfxrPose belt;          // the belt slot on your right hip
