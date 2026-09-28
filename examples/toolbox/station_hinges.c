@@ -14,6 +14,11 @@
 // the middle): +X to your right as you face it, +Z toward you.
 
 #include "toolbox.h"
+#include "sfxr_break.h"
+
+#define BREAK SFXR_BREAK_DECLARE
+#include "toolbox_breaks.def"
+#undef BREAK
 
 static struct {
     float door, lid, cord, dial, valve;
@@ -82,7 +87,9 @@ void station_hinges(void)
     VruiMechSpec vs = vrui_valve_spec();
     vs.label = "VALVE";
     vrui_valve(VRUI_ID2(G_HINGE, 5), local(2.6f, 1.15f, -0.07f, facing_you), &vs, &H.valve);
-    vrui_gauge(VRUI_ID2(G_HINGE, 6), local(2.6f, 1.75f, -0.06f, I), H.valve * 8.0f, 0, 8, "bar");
+    float bar = SFXR_BREAK(toolbox_valve_unwired) ? 0 : H.valve * 8.0f;
+    vrui_gauge(VRUI_ID2(G_HINGE, 6), local(2.6f, 1.75f, -0.06f, I), bar, 0, 8, "bar");
+    sfxr_report("pressure", bar);
 
     // --- a key switch on a post, its key hanging on a hook beside it
     SfxrPose hook = local(3.45f, 1.3f, -0.02f, I);   // the key hangs tip down: +Y up
@@ -101,6 +108,8 @@ void station_hinges(void)
     if (!k.held && !k.inserted) H.key = sfxr_pose_lerp(H.key, hook, 1.0f - expf(-sfxr_dt() * 6.0f));
     if (!k.inserted) vrui_line(sfxr_pose_apply(hook, (Vector3){ 0, 0.09f, 0 }), sfxr_pose_apply(H.key, (Vector3){ 0, 0.075f, 0 }),
                                (Color){ 180, 180, 190, 255 });
+    sfxr_report("ignition", (float)H.ignition);
+    sfxr_report("rings", (float)H.rings);
     if (H.ignition == 2) H.running = true;   // START cranks it
     if (H.ignition == 0) H.running = false;
     vrui_lamp(local(3.2f, 1.26f, -0.08f, I), H.running, (Color){ 90, 230, 120, 255 }, H.running ? "running" : "engine");

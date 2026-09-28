@@ -149,6 +149,7 @@ VruiGrab vrui_grab_region(VruiId id, SfxrPose *pose, Vector3 half)
             g.release_velocity = Vector3Add(g.release_velocity, Vector3CrossProduct(hand->angular_velocity, lever));
         }
     }
+    vrui__report(id, "grab", *pose, *pose, g.held ? 1.0f : 0.0f, true);
     return g;
 }
 

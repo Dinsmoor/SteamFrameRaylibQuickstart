@@ -60,6 +60,10 @@ static void fill_frame(RecFrame *f)
     f->raw[0] = S.raw[0];
     f->raw[1] = S.raw[1];
     f->sig = S.sig;
+    if (S.backend == SFXR_BACKEND_SCRIPT) {   // a test run renders nothing itself; its replay should
+        f->should_render = true;
+        f->eye_w = f->eye_h = 960;
+    }
 }
 
 void sfxr_record_start(void)
@@ -85,6 +89,7 @@ static void record_open(void)
     h.eye_w = S.eye_w;
     h.eye_h = S.eye_h;
     h.stereo = S.backend != SFXR_BACKEND_SIM;
+    if (S.backend == SFXR_BACKEND_SCRIPT) h.eye_w = h.eye_h = 960;
     h.source_backend = (uint32_t)S.backend;
     snprintf(h.runtime, sizeof h.runtime, "%s", S.runtime_name);
     snprintf(h.system, sizeof h.system, "%s", S.system_name);
@@ -92,12 +97,16 @@ static void record_open(void)
     fwrite(&h, sizeof h, 1, rec_file);
     fflush(rec_file);
     SFXR_LOG("recording inputs -> %s", path);
+    // the event log's frame numbers match the recording's frame field; this
+    // line says where the recording starts (scripts/clips.sh uses it)
+    sfxr_event("record", "started (frame %llu) %s", (unsigned long long)S.frame, path);
 }
 
 void sfxr_record_frame(void)
 {
-    // someone wearing it (or a runtime that can't tell) and frames wanted
-    bool worn = (!S.sig.presence_known || S.sig.present) && S.should_render;
+    // someone wearing it (or a runtime that can't tell) and frames wanted;
+    // a scripted test run is always "worn" (its run.sfxrec replays the test)
+    bool worn = ((!S.sig.presence_known || S.sig.present) && S.should_render) || S.backend == SFXR_BACKEND_SCRIPT;
     if (!rec_file && rec_path && worn) record_open();
     if (!rec_file) return;
     if (!worn) { rec_skipped++; return; }

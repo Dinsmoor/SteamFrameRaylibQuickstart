@@ -116,6 +116,7 @@ VruiPress vrui_press(VruiId id, SfxrPose base, const VruiPressSpec *sp, bool *la
         vrui__cylinder(a, res.part.position, sp->radius, vrui__hover_tint(col, res.hovered, false));
         vrui__label(base, (Vector3){ 0, CAP_H + 0.04f, 0 }, sp->label);
     }
+    vrui__report(id, "press", base, res.part, latched ? (float)*latched : res.depth, true);
     return res;
 }
 
@@ -190,6 +191,7 @@ VruiPress vrui_rocker(VruiId id, SfxrPose base, const VruiRockerSpec *sp, bool *
         vrui_box(rocker, Vector3Scale(sp->half, 2), vrui__hover_tint(col, res.hovered, false));
         vrui__label(base, (Vector3){ 0, 0.06f, 0 }, sp->label ? TextFormat("%s: %s", sp->label, *on ? "ON" : "OFF") : NULL);
     }
+    vrui__report(id, "rocker", base, res.part, (float)*on, true);
     return res;
 }
 

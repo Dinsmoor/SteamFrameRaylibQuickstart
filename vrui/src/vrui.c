@@ -348,6 +348,7 @@ void vrui_end(void)
         }
     }
     vrui__haptics_flush();
+    vrui__registry_publish();
 }
 
 // ---------------------------------------------------------------------------

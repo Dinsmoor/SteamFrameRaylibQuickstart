@@ -1,20 +1,28 @@
 # Testing VR apps: the spec
 
-> **Status: partly built.** Working today:
+> **Status: built, with a few pieces still planned.** Working today:
 > - input recording and deterministic replay, with golden-image comparison
 >   (`make regress`)
 > - the C test harness (`sfxt/`), with break switches, an automatic red leg and an audit
 >   (`make test`, `make test-audit`)
-> - 59 cases (`make test`):
+> - **scenario files** (`.sfxt`), run against the real toolbox (`tests/toolbox`)
+> - the **widget registry**: tests name widgets (`table.sky/handle`), not coordinates
+> - failing cases keep a **picture** of the failing moment and a **`run.sfxrec`** that
+>   replays them
+> - `scripts/clips.sh`: split a recorded session into its interactions, look at them,
+>   keep one as a regression test
+> - 92 cases (`make test`):
 >   - `tests/mech`: the reference mechanisms
 >   - `tests/input`: trigger input and hand shapes
->   - `tests/move`: movement and climbing
+>   - `tests/move`: movement, climbing, walls
 >   - `tests/hands`: bare hands
+>   - `tests/attach`: menus, HUDs, the body estimate, smoothing
 >   - `tests/steam`: Steamworks
+>   - `tests/garden`: the garden game
+>   - `tests/toolbox`: scenario files against the whole toolbox
 > - the event log (`SFXR_EVENTS`)
 >
-> The scenario language and widget registry are still planned. The "Staging"
-> section at the end tracks what exists.
+> The "Staging" section at the end tracks what's still planned.
 
 This document explains **how** apps built on this quickstart get tested, and **why** it's
 done this way. The quickstart's own `toolbox` example is tested exactly like this, so it
@@ -113,12 +121,23 @@ Not logged yet: hover, and haptics.
 
 ## 5. The widget registry
 
-Tests refer to widgets by name. Every frame, each vrui widget reports
-`{name, kind, pose, value, parts}`. The name comes from its ID group and label
-(`table.lever`), and parts are named sub-poses such as `handle` or `cap`. Scenario
-commands like `hand R to table.lever/handle` look the pose up **each frame**, so moving
-the workbench doesn't break tests, and a widget that moves mid-test (a panel being
-dragged) is followed correctly.
+Tests refer to widgets by name. Every frame, each vrui widget reports its name, kind,
+where it's mounted, its moving part and its value (`vrui.h` section 12,
+`vrui/src/vrui_registry.c`):
+- **The name** is its id's group name plus its label, lower-case, with `_` for spaces and
+  anything from a `(` on dropped. The toolbox names its groups
+  (`vrui_group_name(G_TABLE, "table")`), so its SKY lever is `table.sky` and its
+  "SPAWN (full pull)" button is `table.spawn`.
+- **A panel's widgets** are `<panel title>.<text>`: `toolbox.reset_blocks`.
+- **Unlabelled widgets** are `<group>.#<index>` until named (`vrui_name_widget`).
+- **Parts:** `table.sky` (or `table.sky/base`) is where it's mounted. `table.sky/handle`
+  (any part name) is its moving part: a lever's knob, a door's handle, a button's cap, a
+  slider's knob.
+
+Commands like `hand R to table.sky/handle` look the pose up **each frame**, so moving the
+workbench doesn't break tests. The whole row moved twice while these tests were written,
+and they didn't notice. A widget that moves mid-test is followed. C tests use the same
+lookups: `sfxt_find`, `sfxt_value`, `sfxt_hand_to_target`.
 
 ## 6. Two kinds of test input
 
@@ -163,58 +182,72 @@ One file per topic, many small named cases (in the spirit of SQLite's test suite
 Each case starts from a fresh app state.
 
 ```
-# tests/scenarios/lever.sfxt
+# tests/toolbox/workbench.sfxt - the workbench's controls, wired to the world.
+# Targets are widget names (group.label, see the widget registry in vrui.h):
+# they follow the bench wherever the layout puts it.
 app   toolbox
 rate  72
-noise hand=1mm trigger=0.02
 
-case push-lever-by-hand
-  fails-if vrui_lever_grab                              # red leg: see section 9
-  look    at table.lever
-  hand    R to table.lever/handle over 0.4s
-  grip    R 1.0
-  expect  grab table.lever by R within 3f
-  hand    R move 0,0,-0.20 in table.lever over 0.6s     # along the lever's own axes
+case push-sky-lever
+  fails-if toolbox_sky_unwired
+  hand    R to table.sky/handle over 0.5s
+  grip    R 1
+  expect  grab table.sky by R within 5f
+  hand    R move 0,0,-25cm over 0.8s          # push the knob away from you
   grip    R 0
-  expect  release table.lever by R within 2f
-  expect  value table.lever >= 0.9
-  expect  haptic R count >= 3                         # detent ticks
-  expect  app sky >= 0.9                              # the app reacted
-  snapshot lever-pushed                               # optional visual check
+  expect  release table.sky by R within 3f
+  expect  value table.sky >= 0.8
+  expect  app sky >= 0.8                      # the app followed the lever
 
-case push-lever-by-laser
-  fails-if vrui_lever_grab
-  hand    R point at table.lever/handle
-  trigger R 1.0
-  expect  grab table.lever by R via ray within 3f
-  hand    R aim move 0,0.15,-0.30 in table.lever over 0.6s
+case spawn-wants-a-full-pull
+  fails-if toolbox_spawn_any_pull
+  hand    R point at table.spawn over 0.3s
+  expect  app blocks == 4
+  trigger R 0.7 over 0.1s                     # a firm pull: not enough for SPAWN
+  expect  no press table.spawn for 20f
+  trigger R 0 over 0.1s
+  trigger R 1 over 0.1s                       # all the way
+  expect  press table.spawn within 3f
   trigger R 0
-  expect  value table.lever >= 0.5
+  wait    5f
+  expect  app blocks == 5
 
-case grip-out-of-reach-does-nothing
-  hand    R to table.lever/handle offset 0,0.15,0
-  grip    R 1.0
-  expect  no grab table.lever for 30f
+case poke-grid-switch
+  expect  app grid == 1
+  hand    R poke table.grid
+  expect  flip table.grid within 20f
+  expect  app grid == 0
 ```
 
-**Command set (first version):**
+The scenarios that exist are in `tests/toolbox/*.sfxt` (`workbench`, `panels`, `hinges`),
+run against the real toolbox. `tests/toolbox/main.c` is one line:
+`sfxt_scenario_main(argc, argv, "tests/toolbox", toolbox_logic, toolbox_setup,
+toolbox_draw)`. The toolbox's `main.c` is split into those three functions so a test can
+drive exactly what ships.
+
+**Event expectations look back.** `expect grab ...` matches anything since the previous
+event expectation (or the case start), then waits up to its window. "Poke it over 0.4 s,
+then expect the flip" works even though the flip happened during the poke.
+
+**Command set (built):**
 
 | Command | Meaning |
 |---|---|
-| `app NAME`, `rate HZ`, `noise ...` | file header |
-| `case NAME` | new case; the app restarts from initial state |
-| `look at TARGET` / `look dir YAW,PITCH` | head orientation (default head at 1.6 m) |
-| `hand H to TARGET [offset x,y,z] [over T]` | move the grip to a widget part |
-| `hand H move x,y,z in TARGET [over T]` | relative move in that widget's axes |
-| `hand H point at TARGET` / `hand H aim move ...` | aim the laser |
-| `trigger H V`, `grip H V`, `button H primary|secondary|menu down|up`, `stick H x,y` | controls |
-| `gaze at TARGET` | eye gaze |
-| `session visible|focused|lost`, `controller H lost Nf` | runtime conditions |
-| `wait T` / `wait Nf` | let time pass |
-| `play FILE [from A to B]` | insert a recorded segment |
-| `expect EVENT ... [within T] / expect no EVENT ... for T` | event assertions |
-| `expect value NAME op V` / `expect app KEY op V` | state assertions (`op` = `>= <= == ~=`) |
-| `snapshot NAME` | compare a screenshot with its approved image |
+| `app NAME`, `rate 72`, `noise off` / `noise hand=1mm rot=0.2 trigger=0.01` | file header (or anywhere) |
+| `case NAME`, `fails-if SWITCH` | a new case (a fresh app), and the break switch that must make it fail |
+| `stand at TARGET [back D]` / `teleport x,y,z` | put the player in front of a widget (facing the row) or anywhere |
+| `look at TARGET [over T]` / `look dir YAW,PITCH [over T]` | head orientation (the head starts at 1.6 m) |
+| `hand H to TARGET [offset x,y,z] [over T]` | move the grip to a widget or its part, following it |
+| `hand H move x,y,z [in TARGET] [over T]` | a relative move, in world axes or that widget's own |
+| `hand H point at TARGET [over T]` | aim the laser at it |
+| `hand H poke TARGET` | the fingertip down onto it from above, 1.5 cm in, and back out |
+| `trigger H V [over T]`, `grip H V`, `stick H x,y`, `button H a|b|x|y|menu|view|stick|bumper|dpad_* down|up|press` | controls |
+| `wait T` | let time pass |
+| `expect EVENT TARGET [by H] within T` / `expect no EVENT TARGET for T` | event assertions: grab, release, press, click, toggle, flip, value, fire, insert, turn... |
+| `expect value TARGET op V` / `expect app KEY op V` | state: a widget's value, or what the app reported with `sfxr_report()` (`op`: `>= <= > < == ~=`) |
+| `expect haptic H count|max op V` | haptics sent to that hand |
+
+Still planned: `gaze at`, `session ...`, `controller H lost Nf`, `play FILE`, `snapshot NAME`.
 
 **Low-level tests (layers 1–2)** are plain C and link the real code:
 ```c
@@ -316,13 +349,35 @@ make test T=lever                 # one scenario file (or T=lever/push-lever-by-
 make test-watch T=lever/push-lever-by-hand   # same, in a slowed-down window
 make test-bless T=lever           # approve snapshots
 ```
-The output is a PASS/FAIL table. For each failure the runner prints the failed checks,
-and keeps in `build/host-test/test-artifacts/<case>/`:
+The output is a PASS/FAIL table. For each failure the runner prints the failed checks
+(scenario failures name the `.sfxt` file and line), and keeps in
+`build/host-test/test-artifacts/<case>/`:
 - the case's output
-- its event log, meaning every grab, release, press and teleport it made
+- its event log: every grab, release, press and teleport it made
+- `fail.png`: the app drawn from the head at the first failed check (C suites draw vrui's
+  widgets; `sfxt_set_draw` adds your world)
+- `run.sfxrec`: its exact inputs. `SFXR_REPLAY=run.sfxrec build/host-debug/bin/toolbox`
+  replays a `tests/toolbox` failure in the real app, in a window or a screenshot
+  (`SFXR_SHOT`). A scripted run records as if worn, at 960 px per eye, so its replay
+  renders.
 
-Still planned: the frame where it failed, as a picture, and the exact inputs as a
-`run.sfxrec` to replay.
+### Clips: keeping real sessions as tests
+
+A session recorded on the headset is minutes of everything. `scripts/clips.sh` cuts it
+into its interactions using the event log:
+
+```
+scripts/clips.sh session.sfxrec                   # the list: grab SKY by R, frames 1200-1350, value 0.94 ...
+scripts/clips.sh session.sfxrec --shots DIR       # the start, middle and end of each, as pictures
+scripts/clips.sh session.sfxrec --keep 7 sky-pull # clip 7 becomes tests/regress/sky-pull
+```
+
+A clip is a grab until its release, or a moment with half a second either side (a press,
+a click, a teleport). Recordings store what the hands did *in the room*, not where the
+player stood in the world, so a clip can't be replayed on its own from the middle. Keeping
+one saves the session **up to the clip's end** as the test's input and checks three frames
+inside the clip. The event log's frame numbers match the recording's (a `record` event
+marks where recording began). A failing test's `run.sfxrec` works too.
 
 ## 12. The device layer
 
@@ -363,10 +418,11 @@ Scenario scripts can't move real controllers, so on the headset the tests are:
 | Script backend (`SFXR_BACKEND_SCRIPT`) and the C harness `sfxt/` (`sfxt_hand_to/path`, `sfxt_grip/trigger/button`, `sfxt_wait/frames`, `CHECK`, `CHECK_NEAR`, default noise) | **done** |
 | Break switches (`SFXR_BREAK`, `sfxr/src/sfxr_breaks.def`, `vrui/src/vrui_breaks.def`), automatic red leg, `make test-audit` | **done** (20 switches, all proven) |
 | Mechanism tests (30 cases, `tests/mech`) and input tests (5 cases: pull levels, hand shapes, `tests/input`) | **done** |
-| Parallel one-process-per-case runner, `make test` (headless, private Xvfb) | **done**; failing cases keep their output and event log (screenshots and `run.sfxrec` still planned) |
+| Parallel one-process-per-case runner, `make test` (headless, private Xvfb) | **done**; failing cases keep their output, event log, `fail.png` and `run.sfxrec` |
 | Event log (`SFXR_EVENTS`), `sfxr_event()` | **done** (text lines; headset sessions and failing tests keep one) |
-| Widget registry (names, parts, poses, values); string targets like `"table.lever/handle"` | planned (harness positions are world coordinates today) |
-| `.sfxt` scenario files (a syntax over the `sfxt_*` calls) | planned |
-| Gaze, session and dropout commands, `play` | planned |
-| Split sessions into per-vrui-item clips (from the event log) to review and keep as tests | planned |
+| Widget registry (names, parts, poses, values); string targets like `"table.sky/handle"` | **done** (`vrui_registry.c`; `sfxt_find`, `sfxt_hand_to_target`) |
+| `.sfxt` scenario files (a syntax over the `sfxt_*` calls) | **done** (`sfxt_scenario.c`; `tests/toolbox`) |
+| App state for tests (`sfxr_report`, `expect app ...`) | **done** |
+| Split sessions into per-vrui-item clips (from the event log) to review and keep as tests | **done** (`scripts/clips.sh`) |
+| `snapshot` in scenarios, `play`, gaze / session / dropout commands | planned |
 | Device event-stream comparison | planned |

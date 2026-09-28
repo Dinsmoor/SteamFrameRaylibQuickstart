@@ -16,8 +16,11 @@
 #   passes       still passes         UNTRUSTED  (the test doesn't detect what it claims)
 #
 # Cases without a switch pass as "unproven" and are listed, so gaps stay visible.
-# A failing case leaves its output and event log (SFXR_EVENTS: every grab,
-# press, teleport... it did) in $BUILD/test-artifacts/<case>/.
+# A failing case leaves in $BUILD/test-artifacts/<case>/: its output, its
+# event log (SFXR_EVENTS: every grab, press, teleport... it did), fail.png
+# (the app drawn from the head at the first failed check) and run.sfxrec (its
+# exact inputs: SFXR_REPLAY=run.sfxrec replays them into the app the suite
+# drives, e.g. the toolbox for tests/toolbox).
 # Exit status is non-zero on any FAIL or UNTRUSTED.
 set -uo pipefail
 cd "$(dirname "$0")/.."
@@ -68,9 +71,11 @@ run_one() {   # bin name brk outdir
     local bin=$1 name=$2 brk=$3 o=$4 f
     f="$o/$(echo "$name" | tr '/' '_')"
     local t0=$SECONDS
-    if ! SFXR_BREAK= SFXR_EVENTS="$f.events" "$bin" "$name" >"$f.out" 2>&1; then
+    if ! SFXR_BREAK= SFXR_EVENTS="$f.events" SFXT_SNAPSHOT="$f.png" SFXR_RECORD="$f.sfxrec" "$bin" "$name" >"$f.out" 2>&1; then
         echo "FAIL $name" >"$f.res"
         mkdir -p "$ARTIFACTS/$name" && cp "$f.out" "$f.events" "$ARTIFACTS/$name/" 2>/dev/null
+        [ -f "$f.png" ] && cp "$f.png" "$ARTIFACTS/$name/fail.png"
+        [ -f "$f.sfxrec" ] && cp "$f.sfxrec" "$ARTIFACTS/$name/run.sfxrec"
     elif [ "$brk" = "-" ]; then
         echo "PASS $name (unproven)" >"$f.res"
     elif SFXR_BREAK=$brk "$bin" "$name" >"$f.red" 2>&1; then
@@ -88,7 +93,7 @@ for r in "$out"/*.res; do
     echo "$line"
     case $line in
         FAIL*)      fail=$((fail + 1)); sed 's/^/    /' "${r%.res}.out" | grep -v '^    PASS\|^    FAIL'
-                    echo "    artifacts: $ARTIFACTS/${line#FAIL }/ (output, event log)" ;;
+                    echo "    artifacts: $ARTIFACTS/${line#FAIL }/ (output, event log, fail.png, run.sfxrec)" ;;
         UNTRUSTED*) untrusted=$((untrusted + 1)) ;;
         *unproven*) pass=$((pass + 1)); unproven=$((unproven + 1)) ;;
         PASS*)      pass=$((pass + 1)) ;;

@@ -55,12 +55,15 @@ static void toolbox_hud(void)
     }
 }
 
-int main(void)
+// The toolbox in three parts, so tests can run the real thing: setup once
+// (after sfxr and vrui start), logic every frame (between vrui_begin and
+// vrui_end), and drawing (inside sfxr_draw_begin/end). tests/toolbox runs
+// scenario files against exactly these (docs/TESTING.md).
+static VruiLocoConfig loco;
+static SfxrPose setup_pose;
+
+void toolbox_setup(void)
 {
-    SfxrConfig cfg = sfxr_default_config();
-    cfg.app_name = "sfxr toolbox";
-    if (!sfxr_init(&cfg)) return 1;
-    vrui_init();
     sfxr_steam_init();   // optional: no libsteam_api.so next to the app = no Steam, no harm
 
     // Preferences saved by the hands-on setup station: next to the app (on the
@@ -70,62 +73,95 @@ int main(void)
     SfxrBackend be = sfxr_backend();
     onboarding_init(prefs ? prefs : (be == SFXR_BACKEND_REPLAY || be == SFXR_BACKEND_SCRIPT) ? NULL : "prefs.cfg");
 
-    world_init();
-    VruiLocoConfig loco = vrui_loco_default();
-    yard_setup(&loco);   // surfaces, teleport pads, "only pads inside the yard"
-    SfxrPose setup_pose = row_pose(-6.4f, 1.35f);
+    // names for the widget registry: "table.sky", "mech.knob"... (tests find widgets by these)
+    static const struct { unsigned g; const char *name; } GROUPS[] = {
+        { G_TABLE, "table" }, { G_BLOCKS, "blocks" }, { G_BENCH, "mech" }, { G_LINK, "link" }, { G_YARD, "yard" },
+        { G_HINGE, "hinges" }, { G_ATTACH, "attach" }, { G_MENUS, "menus" }, { G_SMOOTH, "smooth" }, { G_GARDEN, "garden" },
+    };
+    for (size_t i = 0; i < sizeof GROUPS / sizeof GROUPS[0]; i++) vrui_group_name(GROUPS[i].g, GROUPS[i].name);
 
+    world_init();
+    loco = vrui_loco_default();
+    yard_setup(&loco);   // surfaces, walls, teleport pads, "only pads inside the yard"
+    setup_pose = row_pose(-6.4f, 1.35f);
+}
+
+void toolbox_logic(void)
+{
     // What the hand menus offer here (every menu shows the same list; the
     // palm shows the first three).
     static const char *const MENU[] = { "Grid", "Day / dusk", "Go home", "Reset blocks", "HUD style", "Hints", "Garden" };
     const int NMENU = (int)(sizeof MENU / sizeof MENU[0]);
 
+    if (garden_active()) {
+        garden_update(&loco);   // part three: the garden replaces the stations while you're in it
+        return;
+    }
+    panels_toolbox(&loco);
+    station_menus();
+    switch (menus_update(MENU, NMENU, TextFormat("blocks %d", world.spawned))) {
+    case 0: world.show_grid = !world.show_grid; break;
+    case 1: world.sky = world.sky > 0.5f ? 0.0f : 1.0f; break;
+    case 2: sfxr_rig_teleport((Vector3){ 0, 0, 0 }); vrui_fade(1.0f); break;
+    case 3: world_reset_blocks(); break;
+    case 4: menus_set_hud_style((HudStyle)((menus_hud_style() + 1) % HUD_COUNT)); break;
+    case 5: vrui_style()->show_hints = !vrui_style()->show_hints; break;
+    case 6: garden_enter(); break;
+    default: break;
+    }
+    onboarding_update();
+    onboarding_panel(&setup_pose);
+    station_sign(-6.4f, "Hands-on setup", "learns how you like to\ngrab, point and press");
+    world_workbench();
+    bench_mechanisms();
+    bench_linkage();
+    panel_controllers();
+    panel_headset();
+    station_hinges();
+    station_attach();
+    station_smoothing();
+    garden_gate();
+    yard_update();
+    vrui_locomotion(&loco);   // after the handholds (yard_update)
+    toolbox_hud();
+    vrui_text3d((Vector3){ 0, 3.0f, -1.8f }, "sfxr + vrui toolbox", 0.14f, RAYWHITE);
+    world_step(sfxr_dt());
+
+    // what tests check ("expect app sky >= 0.9"): the app's own state
+    sfxr_report("sky", world.sky);
+    sfxr_report("grid", world.show_grid);
+    sfxr_report("blocks", (float)world_block_count());
+    sfxr_report("lift", world.lift);
+}
+
+void toolbox_draw(void)
+{
+    if (garden_active()) {
+        garden_draw();
+    } else {
+        world_draw();
+        yard_draw();
+    }
+}
+
+Color toolbox_sky(void) { return garden_active() ? garden_sky() : world_sky(); }
+
+#ifndef TOOLBOX_NO_MAIN   // (tests/toolbox brings its own main)
+int main(void)
+{
+    SfxrConfig cfg = sfxr_default_config();
+    cfg.app_name = "sfxr toolbox";
+    if (!sfxr_init(&cfg)) return 1;
+    vrui_init();
+    toolbox_setup();
+
     while (sfxr_frame_begin()) {
         vrui_begin();
-        if (garden_active()) {
-            garden_update(&loco);   // part three: the garden replaces the stations while you're in it
-        } else {
-            panels_toolbox(&loco);
-            station_menus();
-            switch (menus_update(MENU, NMENU, TextFormat("blocks %d", world.spawned))) {
-            case 0: world.show_grid = !world.show_grid; break;
-            case 1: world.sky = world.sky > 0.5f ? 0.0f : 1.0f; break;
-            case 2: sfxr_rig_teleport((Vector3){ 0, 0, 0 }); vrui_fade(1.0f); break;
-            case 3: world_reset_blocks(); break;
-            case 4: menus_set_hud_style((HudStyle)((menus_hud_style() + 1) % HUD_COUNT)); break;
-            case 5: vrui_style()->show_hints = !vrui_style()->show_hints; break;
-            case 6: garden_enter(); break;
-            default: break;
-            }
-            onboarding_update();
-            onboarding_panel(&setup_pose);
-            station_sign(-6.4f, "Hands-on setup", "learns how you like to\ngrab, point and press");
-            world_workbench();
-            bench_mechanisms();
-            bench_linkage();
-            panel_controllers();
-            panel_headset();
-            station_hinges();
-            station_attach();
-            station_smoothing();
-            garden_gate();
-            yard_update();
-            vrui_locomotion(&loco);   // after the handholds (yard_update)
-            toolbox_hud();
-            vrui_text3d((Vector3){ 0, 3.0f, -1.8f }, "sfxr + vrui toolbox", 0.14f, RAYWHITE);
-        }
+        toolbox_logic();
         vrui_end();
 
-        bool garden = garden_active();
-        if (!garden) world_step(sfxr_dt());
-
-        if (sfxr_draw_begin(garden ? garden_sky() : world_sky())) {
-            if (garden) {
-                garden_draw();
-            } else {
-                world_draw();
-                yard_draw();
-            }
+        if (sfxr_draw_begin(toolbox_sky())) {
+            toolbox_draw();
             vrui_draw();
             sfxr_draw_end();
         }
@@ -140,3 +176,4 @@ int main(void)
     sfxr_shutdown();
     return 0;
 }
+#endif

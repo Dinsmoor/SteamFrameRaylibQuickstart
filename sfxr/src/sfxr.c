@@ -34,17 +34,42 @@ static void events_open(void)
     fprintf(ev_file, "# sfxr events: seconds, frame, kind, text\n");
 }
 
-bool sfxr_events_on(void) { return ev_file != NULL; }
+static SfxrEventListener ev_listener;
+static void *ev_listener_user;
+
+bool sfxr_events_on(void) { return ev_file != NULL || ev_listener != NULL; }
+void sfxr_event_listen(SfxrEventListener fn, void *user) { ev_listener = fn; ev_listener_user = user; }
 
 void sfxr_event(const char *kind, const char *fmt, ...)
 {
-    if (!ev_file) return;
-    fprintf(ev_file, "%9.3f f%-7llu %-10s ", S.time, (unsigned long long)S.frame, kind);
+    if (!ev_file && !ev_listener) return;
+    char text[512];
     va_list ap;
     va_start(ap, fmt);
-    vfprintf(ev_file, fmt, ap);
+    vsnprintf(text, sizeof text, fmt, ap);
     va_end(ap);
-    fputc('\n', ev_file);
+    if (ev_file) fprintf(ev_file, "%9.3f f%-7llu %-10s %s\n", S.time, (unsigned long long)S.frame, kind, text);
+    if (ev_listener) ev_listener(S.frame, kind, text, ev_listener_user);
+}
+
+// --- app state for tests (sfxr_report) -------------------------------------------
+static struct { char key[24]; float value; } reports[64];
+static int nreports;
+
+void sfxr_report(const char *key, float value)
+{
+    for (int i = 0; i < nreports; i++)
+        if (!strcmp(reports[i].key, key)) { reports[i].value = value; return; }
+    if (nreports >= (int)(sizeof reports / sizeof reports[0])) return;
+    snprintf(reports[nreports].key, sizeof reports[0].key, "%s", key);
+    reports[nreports++].value = value;
+}
+
+bool sfxr_reported(const char *key, float *value)
+{
+    for (int i = 0; i < nreports; i++)
+        if (!strcmp(reports[i].key, key)) { if (value) *value = reports[i].value; return true; }
+    return false;
 }
 static void shot_target(void);
 

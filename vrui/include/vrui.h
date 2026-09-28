@@ -21,7 +21,8 @@
 //   9. Text and labels in the world
 //  10. Things that go with the player: body, HUDs, hand menus
 //  11. Smoothing and interpolation: damping, springs, easing, pose smoothers
-//  12. Queued 3D drawing helpers
+//  12. The widget registry: widgets by name, for tests and tools
+//  13. Queued 3D drawing helpers
 //
 // Naming: short forms are named after the THING and use default behavior
 // (vrui_knob, vrui_lever...). Full forms are named after the MOTION and take
@@ -666,7 +667,35 @@ void           vrui_smooth_reset(VruiSmooth *s, SfxrPose pose);   // jump there 
 const char    *vrui_smooth_name(VruiSmoothMode mode);            // "Snap", "Lag"...
 
 // ===========================================================================
-// 12. Queued 3D drawing helpers (call from logic code; drawn by vrui_draw)
+// 12. The widget registry: widgets by name (vrui_registry.c, docs/TESTING.md)
+// ===========================================================================
+//
+// Every widget reports each frame where it is and what it's set to, under a
+// readable name: the id's group name + "." + its label, lower-case, "_" for
+// spaces, anything from "(" on dropped. VRUI_ID2(G_TABLE, 1) labelled "SKY" in
+// group "table" is "table.sky"; a panel's widgets are "<title>.<text>"
+// ("toolbox.reset_blocks"). Tests find targets by name, so moving a bench
+// doesn't break them; a target may name a part: "table.sky/handle" is the
+// lever's moving part, "table.sky" (or "/base") where it's mounted.
+
+void vrui_group_name(unsigned group, const char *name);   // e.g. vrui_group_name(G_TABLE, "table")
+void vrui_name_widget(VruiId id, const char *label);      // for widgets without a label (a grab region)
+typedef struct {
+    char name[48];          // "table.sky"
+    char label[24];         // as the event log shows it ("SKY")
+    char kind[12];          // rotary, pivot, linear, tilt, hinge, press, rocker, grab, hold, valve, key, panel, button, toggle, slider...
+    VruiId id;
+    SfxrPose pose;          // where it's mounted
+    SfxrPose part;          // its moving part (handle, cap...), or the same as pose
+    float value;            // its value (a bool is 0 / 1; a press: how far in)
+    bool has_value;
+} VruiWidgetInfo;
+int                   vrui_widget_count(void);            // last frame's widgets
+const VruiWidgetInfo *vrui_widget_at(int i);
+const VruiWidgetInfo *vrui_find_widget(const char *target, SfxrPose *pose);   // NULL if not seen last frame
+
+// ===========================================================================
+// 13. Queued 3D drawing helpers (call from logic code; drawn by vrui_draw)
 // ===========================================================================
 
 void vrui_box(SfxrPose pose, Vector3 size, Color color);

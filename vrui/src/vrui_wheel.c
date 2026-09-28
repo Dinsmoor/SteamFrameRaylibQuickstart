@@ -171,5 +171,6 @@ VruiMech vrui_valve(VruiId id, SfxrPose base, const VruiMechSpec *sp, float *val
             vrui__label(plane, (Vector3){ 0, 0.05f, R + 0.05f }, txt);
         }
     }
+    vrui__report(id, "valve", base, m.part, v, true);
     return m;
 }

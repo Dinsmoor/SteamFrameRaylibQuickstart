@@ -1,0 +1,21 @@
+# tests/toolbox/hinges.sfxt - the Hinges & cords station: the app's side of it.
+app   toolbox
+rate  72
+
+case valve-drives-the-gauge
+  fails-if toolbox_valve_unwired
+  expect  app pressure == 0
+  stand   at hinges.valve back 0.55
+  look    at hinges.valve over 0.3s
+  hand    L to hinges.valve/handle offset -0.2,0,0 over 0.5s
+  hand    R to hinges.valve/handle offset 0.2,0,0 over 0.5s
+  grip    L 1
+  grip    R 1
+  wait    3f
+  hand    L move 0,0.2,0 over 1s                # left hand up, right hand down: a quarter turn
+  hand    R move 0,-0.2,0 over 1s
+  grip    L 0
+  grip    R 0
+  wait    5f
+  expect  value hinges.valve > 0.02
+  expect  app pressure > 0.1

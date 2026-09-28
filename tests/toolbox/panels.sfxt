@@ -1,0 +1,18 @@
+# tests/toolbox/panels.sfxt - 2D panels in the world, used with the laser.
+app   toolbox
+rate  72
+
+case reset-blocks-by-laser
+  fails-if toolbox_reset_keeps_blocks
+  hand    R point at table.spawn over 0.3s
+  trigger R 1 over 0.1s
+  expect  press table.spawn within 3f
+  trigger R 0 over 0.1s
+  wait    5f
+  expect  app blocks == 5
+  hand    R point at toolbox.reset_blocks over 0.4s
+  trigger R 1 over 0.1s                       # a panel button clicks when you let go, like a mouse
+  trigger R 0 over 0.1s
+  expect  click toolbox.reset_blocks within 5f
+  wait    3f
+  expect  app blocks == 4

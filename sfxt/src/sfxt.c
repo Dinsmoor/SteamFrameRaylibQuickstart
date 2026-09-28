@@ -39,7 +39,24 @@ static struct {
     int failures;
     float n_pos, n_rot, n_analog;
     uint32_t rng;
+    void (*draw)(void);     // draws the app, for the failure snapshot
+    bool snapped;
 } T;
+
+// Events seen during the case (sfxr_event_listen), for `expect grab ...`.
+#define MAX_EVENTS 2048
+static struct { uint64_t frame; char kind[16]; char text[112]; } EV[MAX_EVENTS];
+static int nev;
+
+static void on_event(uint64_t frame, const char *kind, const char *text, void *user)
+{
+    (void)user;
+    if (nev >= MAX_EVENTS) return;
+    EV[nev].frame = frame;
+    snprintf(EV[nev].kind, sizeof EV[0].kind, "%s", kind);
+    snprintf(EV[nev].text, sizeof EV[0].text, "%s", text);
+    nev++;
+}
 
 // --- deterministic noise -----------------------------------------------------
 
@@ -283,9 +300,116 @@ void sfxt_haptic_reset(SfxrHandId h) { T.hand[h == SFXR_RIGHT].haptic_max = 0; }
 
 // --- checks --------------------------------------------------------------------------
 
+// --- named targets, events, snapshots -----------------------------------------------
+
+static SfxrPose rig_pose(void)
+{
+    return (SfxrPose){ sfxr_rig_position(), QuaternionFromAxisAngle((Vector3){ 0, 1, 0 }, sfxr_rig_yaw()) };
+}
+
+SfxrPose sfxt_to_tracking(SfxrPose world) { return sfxr_pose_relative(rig_pose(), world); }
+
+bool sfxt_find(const char *target, SfxrPose *world)
+{
+    SfxrPose p;
+    if (!vrui_find_widget(target, &p)) return false;
+    if (world) *world = p;
+    return true;
+}
+
+float sfxt_value(const char *widget)
+{
+    const VruiWidgetInfo *w = vrui_find_widget(widget, NULL);
+    return w && w->has_value ? w->value : NAN;
+}
+
+void sfxt_hand_to_target(SfxrHandId h, const char *target, Vector3 offset, float seconds)
+{
+    Hand *H = &T.hand[h == SFXR_RIGHT];
+    SfxrPose from = H->grip;
+    int n = (int)lroundf(seconds * 72.0f);
+    if (n < 1) n = 1;
+    for (int i = 1; i <= n; i++) {
+        SfxrPose w;
+        if (!sfxt_find(target, &w)) { printf("  no widget '%s' (is it on screen? named?)\n", target); T.failures++; return; }
+        // looked up every frame: a target that moves is followed
+        Vector3 goal = sfxt_to_tracking((SfxrPose){ Vector3Add(w.position, offset), w.orientation }).position;
+        H->grip.position = Vector3Lerp(from.position, goal, ease((float)i / (float)n));
+        run_frame();
+    }
+}
+
+void sfxt_point_at(SfxrHandId h, const char *target, float seconds)
+{
+    Hand *H = &T.hand[h == SFXR_RIGHT];
+    SfxrPose from = H->grip, w;
+    if (!sfxt_find(target, &w)) { printf("  no widget '%s'\n", target); T.failures++; return; }
+    Vector3 at = sfxt_to_tracking(w).position;
+    SfxrPose aim = sfxt_tip_pose(Vector3Add(from.position, Vector3Scale(Vector3Normalize(Vector3Subtract(at, from.position)), 0.01f)),
+                                 Vector3Subtract(at, from.position));
+    aim.position = from.position;
+    sfxt_hand_to(h, aim, seconds);
+}
+
+void sfxt_look_at(const char *target, float seconds)
+{
+    SfxrPose w;
+    if (!sfxt_find(target, &w)) { printf("  no widget '%s'\n", target); T.failures++; return; }
+    Vector3 at = sfxt_to_tracking(w).position;
+    SfxrPose look = sfxt_tip_pose(at, Vector3Subtract(at, T.head.position));
+    look.position = T.head.position;
+    sfxt_head_to(look, seconds);
+}
+
+int sfxt_events(const char *kind, const char *label, int hand, uint64_t since_frame)
+{
+    int n = 0;
+    size_t ll = label ? strlen(label) : 0;
+    for (int i = 0; i < nev; i++) {
+        if (EV[i].frame < since_frame || strcmp(EV[i].kind, kind)) continue;
+        const char *t = EV[i].text;
+        if (label && (strncmp(t, label, ll) || (t[ll] && t[ll] != ' '))) continue;
+        if (hand >= 0) {   // "SKY R hand", "SKY L laser+grip", "SKY R"
+            const char *h = t + ll;
+            while (*h == ' ') h++;
+            if (*h != (hand ? 'R' : 'L')) continue;
+        }
+        n++;
+    }
+    return n;
+}
+
+void sfxt_set_draw(void (*draw)(void)) { T.draw = draw; }
+
+// The failing moment as a picture: the app drawn from the head, 960 x 540.
+static void snapshot(void)
+{
+    const char *path = getenv("SFXT_SNAPSHOT");
+    if (!path || !*path || T.snapped) return;
+    T.snapped = true;
+    RenderTexture2D rt = LoadRenderTexture(960, 540);
+    if (!rt.id) return;
+    BeginTextureMode(rt);
+    ClearBackground((Color){ 60, 70, 90, 255 });
+    Camera3D cam = sfxr_head_camera();
+    cam.fovy = 75.0f;
+    BeginMode3D(cam);
+    if (T.draw) T.draw();
+    else sfxr_draw_floor_grid(10, (Color){ 255, 255, 255, 60 }, (Color){ 255, 255, 255, 25 });
+    vrui_draw();
+    EndMode3D();
+    EndTextureMode();
+    Image im = LoadImageFromTexture(rt.texture);
+    ImageFlipVertical(&im);
+    ExportImage(im, path);
+    UnloadImage(im);
+    UnloadRenderTexture(rt);
+}
+
 void sfxt_check(bool ok, const char *expr, const char *file, int line, const char *fmt, ...)
 {
     if (ok) return;
+    snapshot();
     T.failures++;
     char msg[512];
     va_list ap;
@@ -297,6 +421,52 @@ void sfxt_check(bool ok, const char *expr, const char *file, int line, const cha
 
 // --- runner entry --------------------------------------------------------------------
 
+// Start a case: a fresh sfxr + vrui in this process (the runner starts one
+// process per case), hands at the sides, the head at 1.6 m looking ahead.
+void sfxt__begin(const char *name, void (*scene)(void))
+{
+    if (!getenv("SFXT_VERBOSE")) SetTraceLogLevel(LOG_WARNING);
+    memset(&T, 0, sizeof T);
+    nev = 0;
+    T.scene = scene;
+    T.case_name = name;
+    T.rng = 2166136261u;
+    for (const char *p = name; *p; p++) T.rng = (T.rng ^ (uint8_t)*p) * 16777619u;   // seed per case
+    if (!T.rng) T.rng = 1;
+    sfxt_noise(0.001f, 0.2f, 0.01f);
+
+    sfxr_script_fill = fill;
+    sfxr_script_haptic = on_haptic;
+    sfxr_event_listen(on_event, NULL);
+    SfxrConfig cfg = sfxr_default_config();
+    cfg.app_name = name;
+    cfg.backend = SFXR_BACKEND_SCRIPT;
+    cfg.mirror_window = false;
+    cfg.mirror_width = 64;
+    cfg.mirror_height = 64;
+    cfg.msaa_samples = 1;
+    if (!sfxr_init(&cfg)) { printf("FAIL %s\n  sfxr_init failed (no X display? run under Xvfb)\n", name); exit(1); }
+    vrui_init();
+
+    // Hands start active, low at the sides, pointing ahead and down: out of
+    // the way of anything on a table in front of the player.
+    Quaternion ahead_down = QuaternionFromAxisAngle((Vector3){ 1, 0, 0 }, -0.6f);
+    T.hand[0] = (Hand){ .active = true, .grip = { { -0.3f, 0.7f, 0.1f }, ahead_down } };
+    T.hand[1] = (Hand){ .active = true, .grip = { { 0.3f, 0.7f, 0.1f }, ahead_down } };
+    T.head = (SfxrPose){ { 0, 1.6f, 0 }, QuaternionIdentity() };
+}
+
+int sfxt__finish(void)
+{
+    const char *brk = getenv("SFXR_BREAK");
+    printf("%s %s", T.failures ? "FAIL" : "PASS", T.case_name);
+    if (brk && *brk) printf("  [break: %s]", brk);
+    printf("\n");
+    vrui_shutdown();
+    sfxr_shutdown();
+    return T.failures ? 1 : 0;
+}
+
 int sfxt_main(int argc, char **argv, const SfxtCase *cases, int ncases, void (*scene)(void))
 {
     if (argc < 2 || !strcmp(argv[1], "--list")) {
@@ -306,43 +476,8 @@ int sfxt_main(int argc, char **argv, const SfxtCase *cases, int ncases, void (*s
     const SfxtCase *c = NULL;
     for (int i = 0; i < ncases; i++) if (!strcmp(cases[i].name, argv[1])) c = &cases[i];
     if (!c) { fprintf(stderr, "no case '%s' (--list shows them)\n", argv[1]); return 2; }
-
-    if (!getenv("SFXT_VERBOSE")) SetTraceLogLevel(LOG_WARNING);
-    memset(&T, 0, sizeof T);
-    T.scene = scene;
-    T.case_name = c->name;
-    T.rng = 2166136261u;
-    for (const char *p = c->name; *p; p++) T.rng = (T.rng ^ (uint8_t)*p) * 16777619u;   // seed per case
-    if (!T.rng) T.rng = 1;
-    sfxt_noise(0.001f, 0.2f, 0.01f);
-
-    sfxr_script_fill = fill;
-    sfxr_script_haptic = on_haptic;
-    SfxrConfig cfg = sfxr_default_config();
-    cfg.app_name = c->name;
-    cfg.backend = SFXR_BACKEND_SCRIPT;
-    cfg.mirror_window = false;
-    cfg.mirror_width = 64;
-    cfg.mirror_height = 64;
-    cfg.msaa_samples = 1;
-    if (!sfxr_init(&cfg)) { printf("FAIL %s\n  sfxr_init failed (no X display? run under Xvfb)\n", c->name); return 1; }
-    vrui_init();
-
-    // Hands start active, low at the sides, pointing ahead and down: out of
-    // the way of anything on a table in front of the player.
-    Quaternion ahead_down = QuaternionFromAxisAngle((Vector3){ 1, 0, 0 }, -0.6f);
-    T.hand[0] = (Hand){ .active = true, .grip = { { -0.3f, 0.7f, 0.1f }, ahead_down } };
-    T.hand[1] = (Hand){ .active = true, .grip = { { 0.3f, 0.7f, 0.1f }, ahead_down } };
-    T.head = (SfxrPose){ { 0, 1.6f, 0 }, QuaternionIdentity() };
+    sfxt__begin(c->name, scene);
     sfxt_frames(3);
-
     c->run();
-
-    const char *brk = getenv("SFXR_BREAK");
-    printf("%s %s", T.failures ? "FAIL" : "PASS", c->name);
-    if (brk && *brk) printf("  [break: %s]", brk);
-    printf("\n");
-    vrui_shutdown();
-    sfxr_shutdown();
-    return T.failures ? 1 : 0;
+    return sfxt__finish();
 }

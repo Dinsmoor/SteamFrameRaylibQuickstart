@@ -708,6 +708,7 @@ VruiMech vrui_rotary(VruiId id, SfxrPose base, const VruiMechSpec *sp, float *va
         if (hd.held && have_spot) vrui_line(top, spot, C.style.accent);   // the "crank arm" you're turning it with
         vrui__label(base, (Vector3){ 0, height + 0.05f, 0 }, value_label(sp, *value));
     }
+    vrui__report(id, "rotary", base, m.part, *value, true);
     return m;
 }
 
@@ -768,6 +769,8 @@ VruiMech vrui_pivot(VruiId id, SfxrPose base, const VruiMechSpec *sp, float *val
         vrui__sphere(k, knob_r, vrui__hover_tint(sp->color, hd.hovered, hd.held));
         vrui__label(base, (Vector3){ 0, L + 0.1f, 0 }, value_label(sp, *value));
     }
+    // the registry's "part" of a lever is its knob, where a hand takes it
+    vrui__report(id, "pivot", base, sfxr_pose_mul(m.part, (SfxrPose){ { 0, L, 0 }, { 0, 0, 0, 1 } }), *value, true);
     return m;
 }
 
@@ -821,6 +824,7 @@ VruiMech vrui_linear(VruiId id, SfxrPose base, const VruiMechSpec *sp, float *va
         vrui_box(m.part, Vector3Scale(hhalf, 2), vrui__hover_tint(sp->color, hd.hovered, hd.held));
         vrui__label(base, (Vector3){ 0, 0.07f, 0 }, value_label(sp, *value));
     }
+    vrui__report(id, "linear", base, m.part, *value, true);
     return m;
 }
 
@@ -904,6 +908,7 @@ VruiMech vrui_tilt(VruiId id, SfxrPose base, const VruiMechSpec *sp, Vector2 *va
         if (sp->label)
             vrui__label(base, (Vector3){ 0, H + 0.08f, 0 }, TextFormat("%s %+.2f %+.2f", sp->label, value->x, value->y));
     }
+    vrui__report(id, "tilt", base, m.part, value->x, true);
     return m;
 }
 
@@ -977,6 +982,8 @@ VruiMech vrui_hinge(VruiId id, SfxrPose hinge, const VruiMechSpec *sp, float *op
         vrui__cylinder(sfxr_pose_apply(m.part, (Vector3){ sp->size, 0, 0.01f }), handle, 0.006f, (Color){ 150, 150, 155, 255 });
         vrui__sphere(handle, 0.022f, vrui__hover_tint(sp->color, m.hovered, m.held));
     }
+    // a door's "part" is its handle (the width out from the hinge)
+    vrui__report(id, "hinge", hinge, sfxr_pose_mul(m.part, (SfxrPose){ { sp->size, 0, 0 }, { 0, 0, 0, 1 } }), *open, true);
     return m;
 }
 

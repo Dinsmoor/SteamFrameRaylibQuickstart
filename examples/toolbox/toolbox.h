@@ -100,6 +100,7 @@ Color world_sky(void);
 void  world_draw(void);               // inside sfxr_draw_begin/end
 void  world_spawn_block(Vector3 at);
 void  world_reset_blocks(void);
+int   world_block_count(void);
 float world_lift_height(void);        // top of the lift platform (the LIFT slider)
 extern const char *const SPAWN_COLOR_NAMES[6];
 

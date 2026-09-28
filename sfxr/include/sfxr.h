@@ -389,7 +389,16 @@ const SfxrHandGestures *sfxr_hand_gestures(SfxrHandId hand);   // never NULL; ch
 //
 // A line: seconds since start, frame number, kind, text.
 void sfxr_event(const char *kind, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
-bool sfxr_events_on(void);   // an event file is open (skip building expensive text otherwise)
+bool sfxr_events_on(void);   // someone is listening (skip building expensive text otherwise)
+// Tests listen in-process (sfxt's `expect grab ...`): every event, as it happens.
+typedef void (*SfxrEventListener)(uint64_t frame, const char *kind, const char *text, void *user);
+void sfxr_event_listen(SfxrEventListener fn, void *user);
+
+// App state a test can check (`expect app sky >= 0.9` in a scenario): report
+// the values that say your app did the right thing, every frame. Cheap: a
+// small table of named numbers.
+void sfxr_report(const char *key, float value);
+bool sfxr_reported(const char *key, float *value);
 
 // ---------------------------------------------------------------------------
 // Headset and system signals

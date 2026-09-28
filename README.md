@@ -186,7 +186,7 @@ on its own:
 | Comfortable VR design | `CLAUDE.md`, "VR design: what works and what doesn't" |
 | Work without wearing the headset | `make sim` (the simulator), `scripts/frame.sh shot` (a picture from the headset), and replays |
 | Fit different players (handedness, how hard they pull...) | `docs/ONBOARDING.md` and `examples/toolbox/onboarding.c` |
-| Test your app | `docs/TESTING.md`, `tests/mech/` as an example, `make test`, and recording and replaying sessions |
+| Test your app | `docs/TESTING.md`; scenario files like `tests/toolbox/workbench.sfxt` (widgets by name: `hand R to table.sky/handle`), C tests like `tests/mech/`, `make test`; recording sessions and `scripts/clips.sh` to keep their interactions as tests |
 | Check performance | `docs/PERFORMANCE.md`; `scripts/frame-perf.sh <app>` (a table of settings, measured on the headset); the heartbeat line in the log (fps, CPU ms), `SFXR_PERF_LOG=1`, the Headset panel's counters, and replaying a session on the headset's GPU |
 
 ## What you need

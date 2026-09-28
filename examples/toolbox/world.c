@@ -10,8 +10,14 @@
 // Toolbox panel).
 
 #include "toolbox.h"
+#include "sfxr_break.h"
 
 #include <math.h>
+
+// the toolbox's break switches (tests/toolbox proves each one matters)
+#define BREAK SFXR_BREAK_DECLARE
+#include "toolbox_breaks.def"
+#undef BREAK
 
 ToolboxWorld world;
 
@@ -53,9 +59,16 @@ void world_spawn_block(Vector3 at)
     }
 }
 
+int world_block_count(void)
+{
+    int n = 0;
+    for (int i = 0; i < MAX_BLOCKS; i++) n += blocks[i].alive;
+    return n;
+}
+
 void world_reset_blocks(void)
 {
-    for (int i = 0; i < MAX_BLOCKS; i++) blocks[i].alive = false;
+    for (int i = 0; i < MAX_BLOCKS && !SFXR_BREAK(toolbox_reset_keeps_blocks); i++) blocks[i].alive = false;
     int keep = world.color_index;
     for (int i = 0; i < 4; i++) {
         world.color_index = i;
@@ -156,12 +169,13 @@ void world_workbench(void)
     station_sign(0, "Workbench", "controls wired to the world;\npick up and throw the blocks");
     // A per-item pull level: SPAWN wants a deliberate full pull with the
     // laser (poking it with a fingertip works as usual).
-    vrui_push_pull(SFXR_PULL_FULL);
+    if (!SFXR_BREAK(toolbox_spawn_any_pull)) vrui_push_pull(SFXR_PULL_FULL);
     if (vrui_push_button(VRUI_ID2(G_TABLE, 1), on_table(-0.5f, 0.1f), 0.035f, (Color){ 220, 60, 50, 255 }, "SPAWN (full pull)"))
         world_spawn_block((Vector3){ -0.3f + 0.1f * (float)(world.spawned % 5), TABLE_Y + 0.3f, TABLE_Z });
-    vrui_pop_pull();
+    if (!SFXR_BREAK(toolbox_spawn_any_pull)) vrui_pop_pull();
     vrui_switch(VRUI_ID2(G_TABLE, 2), on_table(-0.3f, 0.1f), &world.show_grid, "GRID");
-    vrui_lever(VRUI_ID2(G_TABLE, 3), on_table(-0.1f, 0.0f), 0.18f, &world.sky, "SKY");
+    static float unwired;
+    vrui_lever(VRUI_ID2(G_TABLE, 3), on_table(-0.1f, 0.0f), 0.18f, SFXR_BREAK(toolbox_sky_unwired) ? &unwired : &world.sky, "SKY");
     vrui_knob(VRUI_ID2(G_TABLE, 4), on_table(0.12f, 0.12f), 0.035f, &world.block_size, 0.5f, 2.0f, 0.75f, "SIZE");
     vrui_slider3d(VRUI_ID2(G_TABLE, 5), on_table(0.4f, 0.2f), 0.3f, &world.lift, "LIFT");
 

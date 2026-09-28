@@ -1,0 +1,6 @@
+// The toolbox's own break switches: BREAK(name, "what breaks"). See sfxr/include/sfxr_break.h;
+// the scenarios in tests/toolbox prove each one is caught.
+BREAK(toolbox_sky_unwired,       "the SKY lever moves, but the sky doesn't follow it")
+BREAK(toolbox_spawn_any_pull,    "SPAWN presses with any pull of the trigger (its FULL-pull override is lost)")
+BREAK(toolbox_reset_keeps_blocks, "Reset blocks adds the four new blocks but leaves the old ones")
+BREAK(toolbox_valve_unwired,     "the valve turns, but the pressure gauge doesn't follow it")

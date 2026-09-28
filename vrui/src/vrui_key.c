@@ -209,5 +209,6 @@ VruiKey vrui_key_switch(VruiId id, SfxrPose slot, const VruiKeySpec *sp, SfxrPos
         vrui_box(bow, (Vector3){ 0.03f, BOW_H, 0.006f }, kc);
         if (sp->label) vrui__label(slot, (Vector3){ 0, 0.02f, 0.06f }, sp->label);
     }
+    vrui__report(id, "key", slot, *key, (float)stop, true);
     return r;
 }

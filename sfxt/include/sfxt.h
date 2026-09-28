@@ -114,6 +114,36 @@ int   sfxt_haptic_count(SfxrHandId h);  // haptic updates sent to this hand so f
 float sfxt_haptic_max(SfxrHandId h);    // strongest amplitude since the last reset
 void  sfxt_haptic_reset(SfxrHandId h);
 
+// --- named targets: widgets by their registry name (vrui.h section 12),
+// e.g. "table.sky" (where it's mounted) or "table.sky/handle" (its moving
+// part), looked up from the last frame. Poses are world space; the harness
+// converts to tracking space (sfxt_to_tracking) for the hands.
+bool     sfxt_find(const char *target, SfxrPose *world);
+float    sfxt_value(const char *widget);                       // NAN when not found
+SfxrPose sfxt_to_tracking(SfxrPose world);
+// Move the grip to a target (+ offset, world axes), following it if it moves.
+void     sfxt_hand_to_target(SfxrHandId h, const char *target, Vector3 offset, float seconds);
+void     sfxt_point_at(SfxrHandId h, const char *target, float seconds);   // aim the laser at it
+void     sfxt_look_at(const char *target, float seconds);
+
+// --- events (sfxr_event), for "did it grab / press / click?": how many
+// events of `kind` for the widget labelled `label` (NULL: any) by `hand`
+// (-1: either) since frame `since`.
+int      sfxt_events(const char *kind, const char *label, int hand, uint64_t since);
+
+// --- failure artifacts: at the first failed check the harness draws the app
+// from the head and saves it (SFXT_SNAPSHOT, set by the runner). Give it
+// your app's world drawing; vrui's queue is drawn either way.
+void     sfxt_set_draw(void (*draw)(void));
+
+// --- scenario files (.sfxt): every *.sfxt in `dir` is a set of cases
+// named <file>/<case>; `setup` runs once after sfxr and vrui start (your
+// app's init), `scene` every frame, `draw` for failure snapshots. The
+// language: docs/TESTING.md, "The test language".
+int sfxt_scenario_main(int argc, char **argv, const char *dir, void (*scene)(void), void (*setup)(void), void (*draw)(void));
+void sfxt__begin(const char *name, void (*scene)(void));   // (used by the scenario runner)
+int  sfxt__finish(void);
+
 // --- checks: record a failure and keep going (all failures get reported)
 void sfxt_check(bool ok, const char *expr, const char *file, int line, const char *fmt, ...);
 #define CHECK(cond, ...) sfxt_check((cond), #cond, __FILE__, __LINE__, __VA_ARGS__)

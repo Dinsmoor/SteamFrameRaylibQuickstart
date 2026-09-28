@@ -132,6 +132,7 @@ VruiHold vrui_handhold(VruiId id, Vector3 a, Vector3 b, float radius, Color colo
     Color c = vrui__hover_tint(color, hd.hovered, hd.held);
     if (Vector3Distance(a, b) < 1e-4f) vrui__sphere(a, radius, c);
     else vrui__cylinder(a, b, radius, c);
+    vrui__report(id, "hold", (SfxrPose){ Vector3Lerp(a, b, 0.5f), { 0, 0, 0, 1 } }, (SfxrPose){ Vector3Lerp(a, b, 0.5f), { 0, 0, 0, 1 } }, r.held ? 1.0f : 0.0f, true);
     return r;
 }
 

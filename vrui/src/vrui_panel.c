@@ -11,6 +11,8 @@
 
 #include "vrui_internal.h"
 
+#include <stdio.h>
+
 #define PAD 12
 
 typedef struct {
@@ -163,6 +165,11 @@ bool vrui_panel_begin(VruiId id, SfxrPose *pose, float width_m, float height_m, 
     ps->active_widget = active_widget;
     C.p.active_widget = active_widget;
     C.p.pose = *pose;
+    C.p.slug[0] = 0;
+    if (title) {   // the widget registry: titled panels and their widgets, by name
+        vrui__slug(title, C.p.slug, sizeof C.p.slug);
+        vrui__report_named(C.p.slug, title, id, "panel", *pose, *pose, 0, false);
+    }
 
     // --- chrome
     BeginTextureMode(pt->rt);
@@ -252,6 +259,25 @@ void vrui_space(float height) { C.p.lay_y += height; }
 // Widgets
 // ---------------------------------------------------------------------------
 
+// Where a spot on the panel (in panel pixels) is in the world.
+static SfxrPose panel_spot(Vector2 px)
+{
+    Vector3 local = { px.x / (float)C.p.w_px * C.p.w_m - C.p.w_m * 0.5f, C.p.h_m * 0.5f - px.y / (float)C.p.h_px * C.p.h_m, 0 };
+    return (SfxrPose){ sfxr_pose_apply(C.p.pose, local), C.p.pose.orientation };
+}
+
+// A panel widget in the widget registry: "<panel>.<its text>", posed at its
+// middle (`part`: where its moving bit is, a slider's knob).
+static void report(VruiId local, const char *kind, Rectangle r, Vector2 part, const char *text, float value)
+{
+    if (!C.p.slug[0] || !text) return;
+    char slug[32], name[64];
+    vrui__slug(text, slug, sizeof slug);
+    snprintf(name, sizeof name, "%s.%s", C.p.slug, slug);
+    vrui__report_named(name, text, vrui__widget_item(C.p.id, local)->id, kind,
+                       panel_spot((Vector2){ r.x + r.width * 0.5f, r.y + r.height * 0.5f }), panel_spot(part), value, true);
+}
+
 static bool w_hot(VruiId id, Rectangle r)
 {
     if (C.p.hand < 0) return false;
@@ -295,6 +321,7 @@ bool vrui_button(VruiId id, Rectangle r, const char *text)
     if (hot) DrawRectangleRoundedLinesEx(r, 0.25f, 6, 2, C.style.accent);
     text_in(r, text, C.style.text, true);
     if (click) sfxr_event("click", "%s", text);
+    report(id, "button", r, (Vector2){ r.x + r.width * 0.5f, r.y + r.height * 0.5f }, text, click);
     return click;
 }
 
@@ -312,6 +339,7 @@ bool vrui_toggle(VruiId id, Rectangle r, const char *text, bool *value)
         DrawLineEx((Vector2){ box.x + s * 0.42f, box.y + s * 0.72f }, (Vector2){ box.x + s * 0.78f, box.y + s * 0.28f }, 3, WHITE);
     }
     text_in((Rectangle){ box.x + s + 4, r.y, r.width - s - 10, r.height }, text, C.style.text, false);
+    report(id, "toggle", r, (Vector2){ box.x + s * 0.5f, box.y + s * 0.5f }, text, *value);
     return click;
 }
 
@@ -337,6 +365,7 @@ bool vrui_slider(VruiId id, Rectangle r, const char *label, float *value, float 
     float kr = (hot || active) ? 12.0f : 10.0f;
     DrawCircleV((Vector2){ track.x + track.width * t, track.y + track.height / 2 }, kr, active ? WHITE : C.style.text);
     text_in((Rectangle){ r.x + r.width - 70, r.y, 70, r.height }, TextFormat("%.2f", *value), C.style.text_dim, true);
+    report(id, "slider", r, (Vector2){ track.x + track.width * t, track.y + track.height / 2 }, label, *value);
     return changed;
 }
 
@@ -352,6 +381,7 @@ bool vrui_segmented(VruiId id, Rectangle r, const char *const *items, int count,
         Color bg = (*selected == i) ? C.style.accent : active ? C.style.widget_active : hot ? C.style.widget_hot : C.style.widget;
         DrawRectangleRec(cell, bg);
         text_in(cell, items[i], C.style.text, true);
+        report(cid, "choice", cell, (Vector2){ cell.x + cell.width * 0.5f, cell.y + cell.height * 0.5f }, items[i], *selected == i);
     }
     return changed;
 }

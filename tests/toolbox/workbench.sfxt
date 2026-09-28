@@ -1,0 +1,35 @@
+# tests/toolbox/workbench.sfxt - the workbench's controls, wired to the world.
+# Targets are widget names (group.label, see the widget registry in vrui.h):
+# they follow the bench wherever the layout puts it.
+app   toolbox
+rate  72
+
+case push-sky-lever
+  fails-if toolbox_sky_unwired
+  hand    R to table.sky/handle over 0.5s
+  grip    R 1
+  expect  grab table.sky by R within 5f
+  hand    R move 0,0,-25cm over 0.8s          # push the knob away from you
+  grip    R 0
+  expect  release table.sky by R within 3f
+  expect  value table.sky >= 0.8
+  expect  app sky >= 0.8                      # the app followed the lever
+
+case spawn-wants-a-full-pull
+  fails-if toolbox_spawn_any_pull
+  hand    R point at table.spawn over 0.3s
+  expect  app blocks == 4
+  trigger R 0.7 over 0.1s                     # a firm pull: not enough for SPAWN
+  expect  no press table.spawn for 20f
+  trigger R 0 over 0.1s
+  trigger R 1 over 0.1s                       # all the way
+  expect  press table.spawn within 3f
+  trigger R 0
+  wait    5f
+  expect  app blocks == 5
+
+case poke-grid-switch
+  expect  app grid == 1
+  hand    R poke table.grid
+  expect  flip table.grid within 20f
+  expect  app grid == 0

@@ -153,6 +153,7 @@ typedef struct {
         float w_m, h_m;
         int w_px, h_px;
         bool has_title;
+        char slug[32];         // the registry name of a titled panel ("" untitled: not registered)
         int hand;              // hand pointing at it, -1 none
         Vector2 ptr;           // pointer in panel px
         bool down, pressed, released;
@@ -225,6 +226,13 @@ void vrui__sphere(Vector3 c, float r, Color color);
 void vrui__cylinder(Vector3 a, Vector3 b, float r, Color color);
 void vrui__ring(SfxrPose pose, float r, Color color);
 void vrui__triangle(Vector3 a, Vector3 b, Vector3 c, Color color);   // two-sided
+
+// vrui_registry.c: widgets report themselves every frame (published at vrui_end)
+void vrui__report(VruiId id, const char *kind, SfxrPose base, SfxrPose part, float value, bool has_value);
+void vrui__report_named(const char *name, const char *label, VruiId id, const char *kind, SfxrPose base, SfxrPose part,
+                        float value, bool has_value);
+void vrui__registry_publish(void);
+void vrui__slug(const char *text, char *out, int size);
 
 // vrui_attach.c: the body estimate, updated once per frame at vrui_begin
 void vrui__body_update(void);
