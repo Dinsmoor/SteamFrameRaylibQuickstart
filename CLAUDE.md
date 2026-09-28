@@ -598,7 +598,7 @@ The quickstart's toolbox is the reference implementation of it.
 - **ESC does not quit** (`SetExitKey(KEY_NULL)`), because VR users can't see the keyboard.
   Close the window or let the runtime end the session.
 
-### Current state and next steps (handoff, updated 2026-09-28, third session)
+### Current state and next steps (handoff, updated 2026-09-28, fourth session)
 
 **The goal (from the user):** this quickstart is specifically for the Steam Frame. Every
 bit of the hardware should be exposed in the toolbox with sane defaults, and the toolbox
@@ -726,14 +726,45 @@ Feedback from the session, and what was done about it:
 9. `frame.sh pull toolbox` afterwards: the `.events` file next to each recording says what
    was touched when.
 
+**Fourth session (2026-09-28, no headset): the user's list, and what was done**
+
+| Asked for | Done |
+|---|---|
+| a row of workbenches | the stations stand in one row facing the aisle, a sign over each (`toolbox.h` has the table); the yard and the LIFT moved behind the spawn point |
+| world labels with documented primitives; attaching shown | `vrui_text_at`, `vrui_tag`, `vrui_callout`, `vrui_sign` (vrui.h section 9); `sfxr_pose_relative` and the attaching rule in `sfxr.h`; the **Attach & label** bench (turntable, a lever mounted on it, a flag on the lever, blocks that go on the table / in your hand / on your belt / drop); `docs/ATTACHING.md` |
+| menus attached to the hands | watch (turn the wrist), palm buttons, a tablet held in the hand, `vrui_radial_menu`; the **Menus & HUD** station switches them |
+| visor HUD examples | head-locked, lazy follow (`vrui_follow`), on the belt (`vrui_body`); `vrui_offscreen_arrow`, `vrui_tint`, `vrui_on_top_begin/end`, `vrui_panel_passive` |
+| port the 3D world and engine of the earlier raylib game as part three | **the garden** (`garden*.c`, `docs/GARDEN.md`): terrain, props, a sun shader, a box rigid body, animation clips, the gardener with the hammer on his hand bone; take it, smash 8 bugs. Gate at the right end of the row |
+| weapon control modes and interpolation tools, shown with the weapons | `vrui_smooth.c`: damping, springs, speed limits, easing, and `vrui_smooth_pose` (Snap / Lag / Spring / Heavy / Steady); the **Smoothing** station (a sword and five ghosts, the settings, easing rails); the garden's hammer follows through the chosen mode (board or hand menu); `docs/SMOOTHING.md` |
+| the remaining CLAUDE.md items | two-handed valve (`vrui_valve`) and key switch (`vrui_key_switch`) on Hinges & cords; the head-in-wall fade (`solid_depth`); the widget registry, `.sfxt` scenario files (`tests/toolbox`), failure `fail.png` + `run.sfxrec`, `scripts/clips.sh` |
+
+`make test`: 92 cases, every break switch proven except 12 listed unproven cases, audit
+clean, goldens pass, Frame build and package clean (the package carries
+`resources/garden/`).
+
+**Next headset session, in addition to the checklist above**
+1. **The garden**, the biggest untested thing:
+   - does the lighting shader render in stereo under Zink?
+   - is 72 fps held?
+   - does the hammer feel right in each smoothing mode? Hits come from the smoothed pose, so Heavy should need a real swing.
+   - the belt slot
+   - bug arrows and the red flash (gentle enough?)
+2. **Hand menus with real hands:**
+   - the watch and palm cues (false opens while grabbing? the palm cue on controllers)
+   - the tablet on View/Menu
+   - the radial menu on B, and that its stick never teleports you
+3. **HUD styles worn:**
+   - is the follow HUD's 20 degree glide comfortable?
+   - is the belt HUD readable?
+4. **The Smoothing station:** wave the sword and compare the ghosts. The Steady mode's tremble filtering is best judged on the device.
+5. **Walls:** walk into the climbing wall; is the fade right?
+6. **Pull a session** (`frame.sh pull toolbox`), then `scripts/clips.sh` it and keep a clip or two as regression tests.
+
 **Still to build**
 - Animate the controller models' buttons (`xrGetRenderModelStateEXT` node poses; needs
   the device to verify).
-- Testing:
-  - the widget registry and string targets
-  - `.sfxt` scenario files
-  - failure screenshots and `run.sfxrec`
-  - splitting sessions into clips using the event log
+- Scenario commands still planned: `snapshot`, `play`, gaze / session / controller dropout.
+- The garden: sound (none yet), more bug kinds, a second level.
 - Why one launch failed on the GL path (`xrCreateReferenceSpace` gave `HANDLE_INVALID`) and
   fell back to Vulkan. Watch for it in logs.
 
