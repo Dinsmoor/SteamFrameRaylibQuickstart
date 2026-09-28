@@ -41,9 +41,25 @@ From that it estimates a **curl** per finger and a **shape**:
 | thumbs-up | fist with the thumb lifted |
 | pinch | index and thumb, others open |
 
-When the runtime reports hand joints, whether from bare hands or inferred while holding
-the controllers, the curls are measured from the joints instead. A shape must hold for
-3 frames before it changes, so it doesn't flicker.
+With bare hands, the curls are measured from the hand joints instead. Holding the
+controllers, SteamVR also reports joints (a skeleton inferred from the same sensors), but
+**not for shapes**: in the recordings its index finger stays curled round the trigger
+(0.97 of fully curled) even when the finger is lifted off it, so a point could never show.
+The touch sensors decide while you hold controllers. A shape must hold for 3 frames before
+it changes, so it doesn't flicker.
+
+**Pointing, in practice.** To press a "point to press" button holding a controller: keep
+your middle, ring and little fingers on the grip, lift your index finger off the trigger,
+and push the controller's **tip** into the button. It isn't hand tracking: the controller
+can't see your finger, only that it's off the trigger. vrui draws a green fingertip at the
+tip while your hand reads as pointing, and a point-to-press button you bring your hand near
+says how, and what your hand reads as now ("now: open").
+
+**Where a poke lands.** Holding a controller, the poke point is the controller's tip (where
+the laser starts). SteamVR's own poke pose for the Frame controllers is 12.5 cm *below* the
+grip and 4.6 cm to the side (every recorded session), so the first headset sessions had
+no poke presses at all: every button was pressed by laser. Bare hands poke with the index
+fingertip, as reported.
 
 ```c
 const SfxrHand *h = sfxr_hand(SFXR_RIGHT);
@@ -58,7 +74,9 @@ Use shapes to make physical interaction **conditional**:
 - grabbing by closing the hand
 
 **Tests:** `input/shapes-from-touch-sensors`, `mech/button-point-to-press`,
-`mech/grab-by-closing-hand`.
+`mech/grab-by-closing-hand`; as SteamVR reports the Frame (`SFXT_FRAME_SKELETON`):
+`input/frame-point-from-touch` (break switch `sfxr_shapes_from_controller_skeleton`) and
+`input/frame-poke-at-the-tip` (`sfxr_poke_from_runtime`).
 
 
 **SteamVR's thumb is mirrored.** Holding the Frame controllers, SteamVR also reports a full

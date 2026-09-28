@@ -185,7 +185,7 @@ static void frame_thumb_on_the_right_side(void)
     sfxt_hand_kind(R, SFXT_FRAME_SKELETON);
     SfxrPose g = pose((Vector3){ 0.2f, 1.1f, -0.3f }, rot(X_AXIS, -20));
     sfxt_hand_set(R, g);
-    const float lifted[5] = { 0, 0.6f, 0.8f, 0.8f, 0.8f };
+    const float lifted[5] = { 0, 0.95f, 0.8f, 0.8f, 0.8f };   // (SteamVR's index is always curled)
     sfxt_fingers(R, lifted[0], lifted[1], lifted[2], lifted[3], lifted[4]);
     sfxt_frames(3);
     const SfxrHandJoints *j = sfxr_hand_joints(R);

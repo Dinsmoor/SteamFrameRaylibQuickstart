@@ -8,6 +8,7 @@
 
 #include "sfxt.h"
 
+#include <math.h>
 #include <stdio.h>
 
 #define R SFXR_RIGHT
@@ -116,7 +117,37 @@ static void shapes_from_touch_sensors(void)
     CHECK(h->shape == SFXR_SHAPE_OPEN, "open (got %s)", sfxr_hand_shape_name(h->shape));
 }
 
+// The same, as SteamVR reports Frame controllers: with a skeleton whose
+// index finger never straightens. The touch sensors still decide: lift the
+// index off the trigger and it's a point.
+static void frame_point_from_touch(void)
+{
+    const SfxrHand *h = sfxr_hand(R);
+    sfxt_hand_kind(R, SFXT_FRAME_SKELETON);
+    sfxt_noise(0.001f, 0.2f, 0.0f);
+    sfxt_grip(R, 0.8f);
+    sfxt_touch(R, SFXR_CTL_TRIGGER, false);
+    sfxt_touch(R, SFXR_CTL_STICK, true);
+    sfxt_frames(5);
+    CHECK(sfxr_hand_joints(R)->valid, "SteamVR's skeleton is there");
+    CHECK(h->shape == SFXR_SHAPE_POINT, "index off the trigger, grip held: point (got %s)", sfxr_hand_shape_name(h->shape));
+}
+
+// Holding a Frame controller, the poke point is the controller's tip (where
+// the laser starts), not SteamVR's poke pose 12.5 cm under the grip.
+static void frame_poke_at_the_tip(void)
+{
+    sfxt_hand_kind(R, SFXT_FRAME_SKELETON);
+    sfxt_noise(0, 0, 0);
+    sfxt_frames(3);
+    const SfxrHand *h = sfxr_hand(R);
+    float d = Vector3Distance(h->poke.position, h->aim.position);
+    CHECK(d < 0.02f, "poke at the tip: %.1f cm from it", d * 100.0f);
+}
+
 static const SfxtCase CASES[] = {
+    { "input/frame-point-from-touch",      frame_point_from_touch,     "sfxr_shapes_from_controller_skeleton" },
+    { "input/frame-poke-at-the-tip",       frame_poke_at_the_tip,      "sfxr_poke_from_runtime" },
     { "input/shapes-from-touch-sensors",  shapes_from_touch_sensors,  "sfxr_shapes_from_values_only" },
     { "input/firm-press-once-on-ramps",   firm_press_once_on_ramps,   NULL },
     { "input/no-chatter-near-threshold",  no_chatter_near_threshold,  "sfxr_no_hysteresis" },

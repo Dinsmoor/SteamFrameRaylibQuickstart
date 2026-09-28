@@ -628,6 +628,8 @@ static void draw_controllers(void)
         else if (hand->trigger_at[SFXR_PULL_FIRM].down) tip = YELLOW;
         else if (hand->trigger_at[SFXR_PULL_SOFT].down) tip = (Color){ 255, 245, 170, 255 };
         DrawSphereEx(hand->aim.position, 0.006f, 6, 8, tip);
+        // pointing (read from the touch sensors): a green fingertip where it pokes
+        if (hand->shape == SFXR_SHAPE_POINT) DrawSphereEx(hand->poke.position, 0.009f, 8, 10, (Color){ 90, 230, 120, 255 });
     }
 }
 

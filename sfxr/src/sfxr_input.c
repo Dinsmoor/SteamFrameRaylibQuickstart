@@ -68,17 +68,21 @@ bool sfxr_control_on_hand(SfxrControl c, SfxrHandId hand)
     return (unsigned)c < SFXR_CTL_COUNT && (CONTROLS[c].hands >> (hand == SFXR_RIGHT ? 1 : 0)) & 1;
 }
 
+// The controller's tip: just past the aim point.
+static SfxrPose tip_poke(const SfxrRawHand *r)
+{
+    SfxrPose p = r->aim;
+    p.position = Vector3Add(r->aim.position, Vector3Scale(sfxr_pose_forward(r->aim), 0.01f));
+    return p;
+}
+
 // Poses a backend didn't provide are derived, so apps can always use them:
-// poke = just past the aim point, pinch = aim, palm = grip.
+// poke = the tip, pinch = aim, palm = grip.
 static SfxrPose raw_pose(const SfxrRawHand *r, int bit, SfxrPose given)
 {
     if (r->pose_valid & bit) return given;
     switch (bit) {
-    case RAW_POSE_POKE: {
-        SfxrPose p = r->aim;
-        p.position = Vector3Add(r->aim.position, Vector3Scale(sfxr_pose_forward(r->aim), 0.01f));
-        return p;
-    }
+    case RAW_POSE_POKE: return tip_poke(r);
     case RAW_POSE_PINCH: return r->aim;
     default:             return r->grip;
     }
@@ -141,7 +145,12 @@ static void derive_shapes(void)
         const SfxrRawHand *r = &S.raw[i];
         const SfxrHandJoints *j = &S.sig.joints[i];
         float c[5];
-        if (j->valid && !SFXR_BREAK(sfxr_shapes_from_values_only)) {
+        // Joints give shapes for bare hands. Holding controllers, SteamVR's
+        // skeleton keeps the index curled round the trigger even when the
+        // finger is lifted off it (curl 0.97 with only the grip touched, in the
+        // recordings), so a point never shows: the touch sensors decide.
+        bool from_joints = j->valid && (j->source == SFXR_SOURCE_HAND || SFXR_BREAK(sfxr_shapes_from_controller_skeleton));
+        if (from_joints && !SFXR_BREAK(sfxr_shapes_from_values_only)) {
             // measured: bend from the first to the last bone of each finger
             for (int f = 0; f < 5; f++) c[f] = sfxr__finger_curl(j, f);
             h->curl_from_joints = true;
@@ -206,7 +215,11 @@ void sfxr__derive_input(void)
         h->source = (SfxrInputSource)r->source;
         h->grip  = sfxr_pose_mul(rig, r->grip);
         h->aim   = sfxr_pose_mul(rig, r->aim);
-        h->poke  = sfxr_pose_mul(rig, raw_pose(r, RAW_POSE_POKE, r->poke));
+        // With controllers, poke from the controller's tip. SteamVR's poke pose
+        // for the Frame controllers is 12.5 cm BELOW the grip and 4.6 cm to the
+        // side (recorded, every session): nowhere near a finger or the tip.
+        bool runtime_poke = r->source != SFXR_SOURCE_CONTROLLER || SFXR_BREAK(sfxr_poke_from_runtime);
+        h->poke  = sfxr_pose_mul(rig, runtime_poke ? raw_pose(r, RAW_POSE_POKE, r->poke) : tip_poke(r));
         h->pinch = sfxr_pose_mul(rig, raw_pose(r, RAW_POSE_PINCH, r->pinch));
         h->palm  = sfxr_pose_mul(rig, raw_pose(r, RAW_POSE_PALM, r->palm));
         h->velocity = Vector3RotateByQuaternion(r->velocity, rig.orientation);
