@@ -134,7 +134,7 @@ passes in (the toolbox and Daddy Bug Smasher each have their own).
 | **Watch** | turn the back of your less-used wrist toward your face | status, not choices. Read-only |
 | **Palm** | turn that hand's palm toward your face (held a quarter second): three buttons float above it; poke one with your other hand's finger | the two or three things you do most. Fast, needs both hands |
 | **Tablet** | that hand's menu button (left: View, right: Menu) toggles a panel held in the hand like a clipboard; use it with the other hand's laser | everything. Room for settings |
-| **Radial** | hold the secondary button on your main hand (right: B, left: D-pad up), tilt the stick toward a choice, let go | one hand, no aiming. Quick once the positions are learned: you remember a direction, you don't read a list |
+| **Radial** | hold the primary button on your main hand (right: A, left: D-pad down), tilt the stick toward a choice, let go | one hand, no aiming. Quick once the positions are learned: you remember a direction, you don't read a list |
 
 Why the cues look like this:
 - **"Turn toward your face"** cues (watch, palm) only count within about 35–40

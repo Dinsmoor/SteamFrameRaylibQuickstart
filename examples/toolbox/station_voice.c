@@ -170,7 +170,7 @@ static void panel(void)
 {
     if (!vrui_panel_begin(VRUI_ID2(G_VOICE, 0), &VO.panel, 0.5f, 0.54f, "Sound & voice")) return;
     vrui_layout_begin(vrui_panel_content(), 4);
-    vrui_label(vrui_row(20), sfxr_audio_on() ? "sound: on" : "sound: off (no audio device)");
+    vrui_label(vrui_row(20), sfxr_audio_device() ? "sound: on" : "sound: offline (no audio device)");
     vrui_label(vrui_row(20), sfxr_voice_status());
     Rectangle row = vrui_row(14);
     vrui_progress(row, sfxr_voice_level(), sfxr_voice_level() > 0.6f ? RED : vrui_style()->accent);

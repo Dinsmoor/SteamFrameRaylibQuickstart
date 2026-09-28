@@ -9,22 +9,43 @@ end of the row) shows all of it, and Daddy Bug Smasher uses it.
 ## Positional sound (`sfxr_audio.h`)
 
 ```c
-sfxr_audio_init();                                  // once; false = no audio device, and nothing breaks
-SfxrSound bell = sfxr_sound_load("bell.wav", 4);    // 4 voices: it can overlap itself 4 times
+sfxr_audio_init();                                  // once (no audio device: it runs offline, silently)
+SfxrSound bell = sfxr_sound_load("bell.wav", 4);    // up to 4 at once: it can overlap itself
 sfxr_sound_play(bell, lamp_position, 1.0f);         // heard from the lamp
 sfxr_sound_play_here(click, 0.5f);                  // not positional: UI, the player's own sounds
 ```
 
-- **Where it comes from:** each playing sound is panned by where it is across your view, and
-  faded by distance (full within a meter, then 1/distance). It's a little quieter behind you,
-  where your head is in the way.
-- **Kept up to date:** every frame, as you turn your head. A sound on your left stays on your
-  left when you look away.
-- **Not a full HRTF:** it's a cheap model (no filtering by ear shape, no height cues), but it
-  tells you which way to turn, which is what games need. Pan never goes all the way to one
-  ear, because real sounds reach both.
-- **Voices:** each sound gets a few copies (raylib sound aliases sharing one buffer), so a
-  click can overlap itself. The oldest is reused when all are busy.
+### How you hear where a sound is
+The first version only **panned** sounds (turned one ear down), the way raylib does. In the
+headset, left and right were hard to tell apart even with the sound right beside you. Ears
+use three cues, and sfxr now gives every positional sound all three, separately for each
+ear:
+
+| Cue | A sound straight to your left | sfxr's number |
+|---|---|---|
+| **Level** | the right ear hears it quieter: your head is in the way | far ear a quarter (-12 dB), near ear 30% up |
+| **Time** | the right ear hears it later | up to 0.66 ms (Woodworth's formula, a 8.75 cm head) |
+| **Tone** | the right ear hears it duller: a head blocks high notes more than low ones | far ear muffled above 1.8 kHz |
+
+Time is the strongest of the three for anything with a sharp start (a click, a chime, a
+footstep), and it's the one panning can't give. On top of that:
+- **behind you** it's a little quieter and duller at both ears (above 6 kHz is cut straight
+  behind): the ear flaps face forward
+- **distance** fades it (full within `near`, 1 m by default; half at twice that) and the air
+  dulls it a little at tens of meters
+- **everything is kept up to date** as you turn your head: a sound on your left stays on your
+  left when you look away. The audio thread glides to each new setting across a block, so a
+  sound moving past you never clicks.
+
+It isn't a full HRTF (no ear-shape filtering, so up and down stay weak), but it's cheap: about
+64 sounds at once for a fraction of a millisecond of audio-thread time.
+
+**How it's built.** sfxr keeps each sound's samples itself (mono: a sound comes from one
+place) and mixes them in `sfxr_audio_mix`, which raylib calls on its audio thread as a
+"mixed audio processor"; music still streams through raylib. `sfxr_audio_ears(&emitter)`
+returns what each ear gets (gain, delay, cutoff), for your own debug views and for tests.
+Without an audio device (a test machine) it runs **offline**: sounds load and play, silently,
+and a test can call `sfxr_audio_mix` to hear what you would.
 
 **Music.** `sfxr_music_play(path, loop, volume)` streams one track at a time (ogg, mp3,
 wav), fading it in over half a second; `sfxr_music_volume` ducks it (Daddy Bug Smasher
@@ -48,8 +69,13 @@ license and nothing to ship.
 vrui never plays audio itself, so it stays free of any audio library. The app decides what
 things sound like.
 
-**Tested:** `tests/voice/sound-from-the-left-is-on-the-left`, proved by the break switch
-`sfxr_audio_pan_flipped`, a real bug in every first attempt at panning.
+**Tested** (`tests/voice`):
+- `sound-from-the-left-is-on-the-left`: louder, sooner and brighter in the left ear; a
+  quarter as loud at 4 m as at 1 m; duller behind. Its break switch is
+  `sfxr_audio_pan_flipped`, a real bug in every first attempt at panning.
+- `click-reaches-the-near-ear-first`: renders a click a meter to the left and slides the
+  channels over each other: the right one lags by about 31 frames (0.66 ms at 48 kHz).
+  Break switch `sfxr_audio_no_delay`.
 
 ## Voice commands (`sfxr_voice.h`)
 

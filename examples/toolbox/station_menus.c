@@ -10,9 +10,11 @@
 //   Tablet   press that hand's menu button (left: View, right: Menu): a panel
 //            appears held in the hand like a clipboard; use it with the other
 //            hand's laser. Room for everything; put it away with the button.
-//   Radial   hold the secondary button on your main hand (right: B, left:
-//            D-pad up), tilt the stick toward a choice, let go. One hand, no
-//            aiming; the stick is yours again when you let go.
+//   Radial   hold the primary button on your main hand (right: A, left:
+//            D-pad down), tilt the stick toward a choice, let go. One hand, no
+//            aiming; the stick is yours again when you let go. (It was B:
+//            but B's click never reached the app on the Frame, only its
+//            touch -- docs/INPUT.md, "Buttons that don't arrive".)
 //
 // "Less-used" and "main" hand come from the Hands-on setup (left-handed
 // players get everything mirrored); right-handed until then.
@@ -134,7 +136,7 @@ int menus_update(const char *const *items, int count, const char *watch_text)
     if (M.tablet && (p = tablet(oh, items, count)) >= 0) picked = p;
     if (M.radial) {
         const SfxrHand *hand = sfxr_hand(mh);
-        if ((p = vrui_radial_menu(VRUI_ID2(G_MENUS, 4), mh, &hand->secondary, items, count)) >= 0) picked = p;
+        if ((p = vrui_radial_menu(VRUI_ID2(G_MENUS, 4), mh, &hand->primary, items, count)) >= 0) picked = p;
     }
 
     if (M.flash > 0) {   // the station's demo flash: strong at first, fading out
@@ -164,7 +166,7 @@ void station_menus(void)
     vrui_toggle(4, vrui_row(34), "Tablet", &M.tablet);
     vrui_label(vrui_row(20), TextFormat("  %s hand's %s button", other_name, main_hand() == SFXR_RIGHT ? "View" : "Menu"));
     vrui_toggle(5, vrui_row(34), "Radial", &M.radial);
-    vrui_label(vrui_row(20), TextFormat("  hold %s, tilt the %s stick, let go", main_hand() == SFXR_RIGHT ? "B" : "D-pad up", main_name));
+    vrui_label(vrui_row(20), TextFormat("  hold %s, tilt the %s stick, let go", main_hand() == SFXR_RIGHT ? "A" : "D-pad down", main_name));
 
     vrui_space(6);
     vrui_label(vrui_row(22), "Visor HUD");

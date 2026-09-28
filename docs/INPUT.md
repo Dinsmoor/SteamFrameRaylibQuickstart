@@ -16,6 +16,14 @@ supports all of them, and the toolbox demonstrates each.
 | **Poke** | touches with a fingertip | the poke pose (controller tip, or index fingertip with bare hands) pushing in | push buttons, switches |
 | **Hand shape** | an open palm, a point, a fist... | the Frame's touch sensors, or hand joints | an open hand shoves blocks, a fast fist knocks them, "point to press" buttons |
 
+### Buttons that don't arrive
+Check the recordings before trusting a button. Every headset session so far recorded
+touches on the right controller's **B** (over 300 frames across sessions) but **not one
+click**, while A, X, Y, the bumpers and the D-pad clicks all came through. So the toolbox's
+radial menu, first bound to B, never opened on the Frame; it's on **A** now. To check a
+button yourself, watch it on the *Controllers panel*, or count it in a recording:
+`sfxrec_dump session.sfxrec --summary` lists clicked/touched frames per control.
+
 ### Hand shapes from the touch sensors
 Every Frame control reports **touch** as well as press, so sfxr knows where each finger
 rests:
