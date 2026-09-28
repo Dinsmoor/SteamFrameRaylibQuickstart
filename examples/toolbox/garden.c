@@ -121,6 +121,7 @@ static struct {
     Vector3 head_vel;      // its velocity this frame (world, m/s)
     bool test_mode;        // tests place their own bugs: no timed waves, and bugs stay put (they still bite)
     Model hammer_model;
+    Texture2D bugmaster[2];   // his drawing from the flat game, two frames
     bool models_ok;
 
 
@@ -477,6 +478,10 @@ void garden_enter(void)
     if (!GD.models_ok) {
         GD.hammer_model = LoadModel(gw_path("hammer.glb"));
         gw_light(&GD.hammer_model);
+        for (int i = 0; i < 2; i++) {
+            GD.bugmaster[i] = LoadTexture(gw_path(TextFormat("sprites/bugmaster_%d.png", i + 1)));
+            SetTextureFilter(GD.bugmaster[i], TEXTURE_FILTER_BILINEAR);
+        }
         GD.models_ok = true;
     }
     GD.active = true;
@@ -689,41 +694,39 @@ static void draw_bug(const Bug *b)
     DrawCylinder(Vector3Add(b->pos, (Vector3){ 0, 0.02f, 0 }), BUG_R * 0.9f, BUG_R * 0.9f, 0.04f, 10, ColorBrightness(c, -0.5f));
 }
 
-// The Bugmaster, in simple shapes (the flat game's drawing was his only
-// model): a purple robe, a green head with antennae, a staff with a bug on
-// top, turned to watch you.
+// The Bugmaster: his drawing from the flat game, standing on his tower as
+// a flat cut-out that turns to face you (a billboard). It turns only about
+// the vertical, so he stands upright however you tilt your head. Two frames
+// swap to make him fidget -- faster while he's shouting.
 static void draw_bugmaster(void)
 {
-    Vector3 me = sfxr_head_floor_point();
-    float yaw = atan2f(me.x - TOWER.x, me.z - TOWER.z);
-    // drawn at 1.7x (he's the boss), around a local origin on the tower top
-    rlPushMatrix();
-    rlTranslatef(TOWER.x, TOWER_TOP, TOWER.z);
-    rlScalef(1.7f, 1.7f, 1.7f);
-    Vector3 base = { 0 };
-    Vector3 f = { sinf(yaw), 0, cosf(yaw) }, r = { f.z, 0, -f.x };
-    float bob = sinf((float)sfxr_time() * 2.0f) * 0.05f;
-    DrawCylinderEx(base, Vector3Add(base, (Vector3){ 0, 1.3f, 0 }), 0.55f, 0.2f, 12, (Color){ 110, 40, 140, 255 });
-    Vector3 head = Vector3Add(base, (Vector3){ 0, 1.55f + bob, 0 });
-    DrawSphereEx(head, 0.3f, 10, 12, (Color){ 120, 190, 70, 255 });
-    for (int s = -1; s <= 1; s += 2) {
-        Vector3 eye = Vector3Add(head, Vector3Add(Vector3Scale(f, 0.25f), Vector3Scale(r, 0.11f * (float)s)));
-        DrawSphereEx(eye, 0.07f, 6, 6, (Color){ 250, 60, 40, 255 });
-        Vector3 root = Vector3Add(head, Vector3Add(Vector3Scale(r, 0.12f * (float)s), (Vector3){ 0, 0.25f, 0 }));
-        Vector3 tip = Vector3Add(root, Vector3Add(Vector3Scale(r, 0.25f * (float)s), (Vector3){ 0, 0.4f, 0 }));
-        DrawCylinderEx(root, tip, 0.025f, 0.015f, 6, (Color){ 40, 30, 40, 255 });
-        DrawSphereEx(tip, 0.06f, 6, 6, (Color){ 40, 30, 40, 255 });
-    }
-    Vector3 staff = Vector3Add(base, Vector3Scale(r, 0.6f));
-    DrawCylinderEx(staff, Vector3Add(staff, (Vector3){ 0, 2.2f, 0 }), 0.04f, 0.04f, 6, (Color){ 90, 60, 40, 255 });
-    DrawSphereEx(Vector3Add(staff, (Vector3){ 0, 2.3f + bob, 0 }), 0.15f, 8, 8, (Color){ 210, 60, 60, 255 });
-    rlPopMatrix();
+    Texture2D tex = GD.bugmaster[(int)(sfxr_time() * (GD.shout_t > 0 ? 6.0 : 1.5)) % 2];
+    if (tex.id == 0) return;
+    const float px = 3.4f / 94.0f;                        // meters per pixel: he's 3.4 m tall up there
+    float w = (float)tex.width * px, h = (float)tex.height * px;
+    Vector3 feet = { TOWER.x, TOWER_TOP, TOWER.z };
+    Vector3 to_me = Vector3Subtract(sfxr_head().position, feet);
+    to_me.y = 0;
+    if (Vector3Length(to_me) < 1e-3f) to_me = (Vector3){ 0, 0, 1 };
+    to_me = Vector3Normalize(to_me);
+    Vector3 right = { to_me.z, 0, -to_me.x };             // to your right, as you look at him
+    Vector3 l = Vector3Subtract(feet, Vector3Scale(right, w * 0.5f));   // bottom corners, left and right
+    Vector3 r = Vector3Add(feet, Vector3Scale(right, w * 0.5f));
+    rlSetTexture(tex.id);
+    rlBegin(RL_QUADS);
+    rlColor4ub(255, 255, 255, 255);
+    rlNormal3f(to_me.x, 0, to_me.z);
+    rlTexCoord2f(0, 1); rlVertex3f(l.x, l.y, l.z);        // counter-clockwise, seen from you
+    rlTexCoord2f(1, 1); rlVertex3f(r.x, r.y, r.z);
+    rlTexCoord2f(1, 0); rlVertex3f(r.x, r.y + h, r.z);
+    rlTexCoord2f(0, 0); rlVertex3f(l.x, l.y + h, l.z);
+    rlEnd();
+    rlSetTexture(0);
 }
 
 void garden_draw(void)
 {
     gw_draw();
-    draw_bugmaster();
     DrawCylinder(Vector3Subtract(stump_top(), (Vector3){ 0, 0.5f, 0 }), 0.2f, 0.22f, 0.5f, 12, (Color){ 110, 80, 50, 255 });   // the stump
     DrawCylinder(Vector3Subtract(stump_top(), (Vector3){ 0, 0.01f, 0 }), 0.19f, 0.19f, 0.012f, 12, (Color){ 190, 160, 110, 255 });
     // the hammer model: its origin is the handle's end, below the pose we keep
@@ -732,4 +735,5 @@ void garden_draw(void)
     sfxr_pop_pose();
     for (int i = 0; i < MAX_BUGS; i++)
         if (GD.bugs[i].alive) draw_bug(&GD.bugs[i]);
+    draw_bugmaster();   // last: his see-through edges blend with what's already drawn
 }

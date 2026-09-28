@@ -33,6 +33,7 @@ their callouts say how many are left.
 | your health and score on the HUD, arrows to bugs behind you, a red flash when bitten | HUDs, `vrui_offscreen_arrow`, `vrui_tint` | [ATTACHING.md](ATTACHING.md) |
 | Restart / Recall hammer / Leave / HUD style / Hammer feel on your hands | hand menus (the Menus & HUD station's choices apply) | [ATTACHING.md](ATTACHING.md) |
 | a thump per hit, stronger the harder you swung | haptics | [INPUT.md](INPUT.md) |
+| the Bugmaster himself: the kids' drawing of him from the flat game, a cut-out on his tower that always turns to face you | an upright billboard: a textured quad turned about the vertical only (`draw_bugmaster`, a dozen lines of rlgl) | `garden.c` |
 | the chair you can knock over (walk into it, or hit it) | a box rigid body | `garden_rigidbody.c` |
 | winning unlocks an achievement when Steam is there | `sfxr_steam_unlock` | [STEAM.md](STEAM.md) |
 | every pick-up, hit, bite and drop is in the event log | `sfxr_event` | [TESTING.md](TESTING.md) |
@@ -45,7 +46,7 @@ their callouts say how many are left.
   loose props.
 - `garden_rigidbody.c`: a box rigid body: tips, bounces, settles, sleeps.
 - `resources/garden/`: the models (glTF, made in Blender), the sounds (`sfx/`), the music
-  (`music/`) and the Bugmaster's voice (`voice/`), from the original game. A package carries them
+  (`music/`), the Bugmaster's voice (`voice/`) and his drawing (`sprites/`: two frames), from the original game. A package carries them
   (`resources/` is copied next to the app). The sounds are converted to mono 22 kHz:
   positional sound needs a mono source, since panning a stereo file only shifts its
   balance.
