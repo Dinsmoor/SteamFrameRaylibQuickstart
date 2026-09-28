@@ -19,6 +19,7 @@
 
 #include "toolbox.h"
 #include "onboarding.h"
+#include "sfxr_steam.h"
 
 #include <stdlib.h>
 
@@ -28,6 +29,7 @@ int main(void)
     cfg.app_name = "sfxr toolbox";
     if (!sfxr_init(&cfg)) return 1;
     vrui_init();
+    sfxr_steam_init();   // optional: no libsteam_api.so next to the app = no Steam, no harm
 
     // Preferences saved by the hands-on setup station: next to the app (on the
     // headset: its folder). Replays and tests only use them when given

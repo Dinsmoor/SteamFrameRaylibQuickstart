@@ -81,7 +81,7 @@ vrui/            the interaction toolkit (C library, on top of sfxr)
 sfxt/            the test harness (C, for your tests)
 examples/        hello (the smallest app) and toolbox (the testbed)
 apps/            your own apps go here (make new-app NAME=...)
-tests/           behavior tests (mech, input, move, hands) and recorded replays (regress)
+tests/           behavior tests (mech, input, move, hands, steam) and recorded replays (regress)
 docs/            how things behave and why
 scripts/         build, test and headset scripts
 tools/           xr_probe, sfxrec_dump, Valve's devkit helper scripts
@@ -104,6 +104,7 @@ CLAUDE.md        full technical notes: platform research, design guidance, archi
 | `sfxr_xr_input.c` | which Frame inputs are bound (every one), and reading them each frame |
 | `sfxr_xr_signals.c` | presence, refresh rate, hand trackers, batteries, performance counters, controller models |
 | `sfxr_xr_gl.c` / `sfxr_xr_vk.c` | getting raylib's OpenGL frames to the headset (directly, or through Vulkan) |
+| `sfxr_steam.c`, `include/sfxr_steam.h` | optional Steamworks: loads `libsteam_api.so` if it's next to the app; otherwise every call is a harmless "no" |
 | `sfxr_sim.c` | the desktop simulator (mouse and keyboard play the controllers) |
 | `sfxr_replay.c`, `sfxr_rec.h` | recording every frame's input, and replaying it exactly |
 | `sfxr_script.c` | the backend tests use: scripted hands, no rendering |
@@ -144,6 +145,7 @@ with a table of contents.
   controller when, and haptics as feedback
 - `ONBOARDING.md`: fitting the controls to the player by watching them
 - `MOVEMENT.md`: moving the player comfortably: teleport, pads, surfaces, climbing
+- `STEAM.md`: optional Steamworks (achievements, stats, overlay) without the SDK in the repo
 - `PERFORMANCE.md`: the frame budget, depth submission, what's known about foveated
   rendering, and the experiments that will settle it
 - `TESTING.md`: how and why things are tested
@@ -159,6 +161,7 @@ with a table of contents.
 | Keep the stick from teleporting people while they use your UI | "input ownership" in `docs/INPUT.md`: `vrui_claim_input()` / `vrui_input_claimed()` |
 | Move players around (pads, platforms, climbing, monkey bars) | `docs/MOVEMENT.md` and `examples/toolbox/yard.c` |
 | Bare hands (pinch, palm-up menus, a steady hand ray) | "Bare hands" in `docs/INPUT.md`, `sfxr_hand_gestures()`; press **H** in the simulator |
+| Achievements, stats, the Steam overlay | `docs/STEAM.md`, `sfxr_steam.h`; package with `STEAMWORKS_SDK=...` |
 | Feedback players can feel | `vrui_haptic_pulse()` / `vrui_haptic_hum()` and the haptic vocabulary in `docs/INPUT.md` |
 | Know what the hardware can do | the toolbox's Controllers and Headset panels (try them in the headset), `scripts/frame.sh probe --paths`, and `CLAUDE.md` Part 1 |
 | Comfortable VR design | `CLAUDE.md`, "VR design: what works and what doesn't" |

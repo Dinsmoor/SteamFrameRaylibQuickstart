@@ -204,6 +204,7 @@ void sfxr_xr_release(void);
 void sfxr_xr_frame_end(bool rendered);
 void sfxr_xr_haptic(SfxrHandId hand, float amplitude, float seconds, float freq);
 const char *sfxr_xr_session_state(void);   // for logs
+bool        sfxr_xr_focused(void);
 // Hardware signals only the XR backends have (sfxr_xr.c); callers check the backend.
 int  sfxr_xr_refresh_rates(float *out, int max);
 bool sfxr_xr_set_refresh_rate(float hz);

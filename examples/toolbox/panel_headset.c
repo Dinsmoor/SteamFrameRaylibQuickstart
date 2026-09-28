@@ -4,6 +4,7 @@
 // performance counters.
 
 #include "toolbox.h"
+#include "sfxr_steam.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -32,7 +33,7 @@ void panel_headset(void)
     if (HS.was_present && !present) HS.takeoffs++;
     HS.was_present = present;
 
-    if (!vrui_panel_begin(VRUI_ID2(G_HEADSET, 0), &HS.pose, 0.56f, 0.62f, "Headset")) return;
+    if (!vrui_panel_begin(VRUI_ID2(G_HEADSET, 0), &HS.pose, 0.56f, 0.70f, "Headset")) return;
     vrui_layout_begin(vrui_panel_content(), 6);
     Rectangle cols[2];
 
@@ -73,6 +74,18 @@ void panel_headset(void)
     vrui_row_cols(30, 2, cols);
     if (vrui_toggle(3, cols[0], "Joints while holding", &HS.joints_always)) vrui_hand_joints_always(HS.joints_always);
     if (vrui_toggle(4, cols[1], "Real controller models", &HS.models)) vrui_controller_models(HS.models);
+
+    // Steam (optional: libsteam_api.so next to the app, docs/STEAM.md). The test
+    // achievement is Spacewar's (app 480, Valve's test app) while developing.
+    vrui_label(vrui_row(24), sfxr_steam_status());
+    if (sfxr_steam_available()) {
+        bool done = false;
+        bool known = sfxr_steam_achieved("ACH_WIN_ONE_GAME", &done);
+        vrui_row_cols(30, 2, cols);
+        if (vrui_button(6, cols[0], known && done ? "Test achievement: got it" : "Unlock test achievement"))
+            sfxr_steam_unlock("ACH_WIN_ONE_GAME");
+        if (vrui_button(7, cols[1], "Clear it")) sfxr_steam_clear("ACH_WIN_ONE_GAME");
+    }
 
     if (vrui_toggle(5, vrui_row(30), "Performance counters", &HS.perf)) sfxr_perf_enable(HS.perf);
     if (HS.perf) {

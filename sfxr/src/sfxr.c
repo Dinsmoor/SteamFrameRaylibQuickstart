@@ -4,6 +4,7 @@
 // (buttons, pull levels, hand shapes), sfxr_signals.c (headset signals).
 
 #include "sfxr_internal.h"
+#include "sfxr_steam.h"
 #include "sfxr_gl.h"
 #include "rlgl.h"
 
@@ -322,6 +323,7 @@ void sfxr_shutdown(void)
 {
     if (!S.initialized) return;
     sfxr_record_stop();
+    sfxr_steam_shutdown();
     destroy_msaa();
     S.vt->shutdown();
     S.initialized = false;
@@ -350,6 +352,7 @@ bool sfxr_frame_begin(void)
     S.time += S.dt;
     sfxr_record_frame();
     sfxr__derive_input();
+    sfxr_steam_update();
     S.rendered_this_frame = false;
     frame_t0 = GetTime();
 

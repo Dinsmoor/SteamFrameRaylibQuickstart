@@ -372,6 +372,10 @@ const SfxrHandGestures *sfxr_hand_gestures(SfxrHandId hand);   // never NULL; ch
 // runtime stops asking for frames (sfxr_should_render() == false).
 bool  sfxr_user_presence_known(void);
 bool  sfxr_user_present(void);
+// The app has the player's attention: false while the SteamVR dashboard (or
+// another system overlay) is up, so pause and ignore input. Always true in
+// the simulator and replays.
+bool  sfxr_focused(void);
 
 // Display refresh rate (XR_FB_display_refresh_rate). The Frame offers
 // 72/90/120/144 Hz. A request is applied by the runtime a few frames later;

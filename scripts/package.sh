@@ -11,6 +11,8 @@
 #   vrpreferences.json    Steam Frame default video settings (see CLAUDE.md)
 #   xr_probe              runtime capability dump; run it first on a new device
 #   resources/            copied from examples|apps/<app>/resources if present
+#   libsteam_api.so       only with STEAMWORKS_SDK=<unpacked Steamworks SDK> (docs/STEAM.md),
+#   steam_appid.txt       plus the app id: SFQ_STEAM_APPID, default 480 (Valve's test app)
 set -euo pipefail
 APP=${1:?app name}; BUILD=${2:-build/frame-release}
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -27,6 +29,17 @@ cp "$BIN" "$OUT/"
 if [ -n "$SRC" ] && [ -f "$SRC/vrpreferences.json" ]; then cp "$SRC/vrpreferences.json" "$OUT/";
 else cp templates/vrpreferences.json "$OUT/"; fi
 [ -n "$SRC" ] && [ -d "$SRC/resources" ] && cp -r "$SRC/resources" "$OUT/"
+# Steamworks (optional). The SDK never goes in the repo: its license lets you
+# ship the redistributable library with your game, nothing more.
+if [ -n "${STEAMWORKS_SDK:-}" ]; then
+  arch=linux64; file "$BIN" | grep -q aarch64 && arch=linuxarm64
+  lib="$STEAMWORKS_SDK/redistributable_bin/$arch/libsteam_api.so"
+  [ -f "$lib" ] || { echo "no $lib (the Frame needs SDK 1.64 or newer for linuxarm64)"; exit 1; }
+  cp "$lib" "$OUT/"
+  # Needed when the game isn't launched by Steam under its own app id (devkit
+  # launches, your desk). Leave it out of a real Steam release.
+  echo "${SFQ_STEAM_APPID:-480}" > "$OUT/steam_appid.txt"
+fi
 cat > "$OUT/launch.sh" <<'LAUNCH'
 #!/bin/sh
 # Launch command registered with Steam ("Devkit Game") and used by scripts/frame.sh.

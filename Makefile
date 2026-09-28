@@ -182,6 +182,13 @@ $(BUILD)/tests/%: tests/%/*.c $(SFXT_OBJ) $(VRUI_LIB) $(SFXR_LIB) $(RAYLIB_LIB) 
 
 -include $(SFXT_OBJ:.o=.d)
 
+# tests/steam loads a fake libsteam_api.so built next to it (docs/STEAM.md)
+$(BUILD)/tests/steam: $(BUILD)/tests/libfake_steam_api.so
+$(BUILD)/tests/libfake_steam_api.so: tests/steam/fake/steam_api.c
+	@mkdir -p $(dir $@)
+	$(CC) -std=gnu11 -O1 -g -fPIC -shared -o $@ $<
+	chmod -x $@    # scripts/test.sh runs every executable in tests/ as a suite
+
 test-bins: $(TEST_BINS)
 
 test:

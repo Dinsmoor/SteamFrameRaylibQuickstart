@@ -10,6 +10,8 @@
 
 SfxrXr sfxr_xr;
 
+bool sfxr_xr_focused(void) { return X.state == XR_SESSION_STATE_FOCUSED; }
+
 const char *sfxr_xr_session_state(void)
 {
     switch (X.state) {

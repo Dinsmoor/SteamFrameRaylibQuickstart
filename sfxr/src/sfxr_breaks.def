@@ -5,3 +5,6 @@ BREAK(sfxr_pinch_no_hysteresis, "bare-hand pinch opens at the distance it closed
 BREAK(sfxr_pinch_shape_from_curl_only, "the pinch shape needs a curled index, so a light fingertip pinch isn't seen")
 BREAK(sfxr_palm_normal_flipped, "the palm normal points out of the back of the hand (palm-up reads as palm-down)")
 BREAK(sfxr_no_joint_hands, "bare hands tracked only as joints (no hand-interaction profile) stay inactive")
+BREAK(sfxr_steam_no_dispatch, "Steam callbacks are never pumped (the overlay state never changes)")
+BREAK(sfxr_steam_no_store, "achievements are set but never stored (Steam never hears of them)")
+BREAK(sfxr_steam_claims_success, "without Steam, unlocking an achievement reports success")

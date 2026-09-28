@@ -684,7 +684,8 @@ must never prevent use.
 **Later**
 - The `vk` backend and 90/120 Hz on hardware; the Performance Assessment overlay; eye
   gaze and `XR_EXT_hand_tracking` on the device.
-- Steamworks SDK (ARM64 libs, ≥ 1.63): achievements, overlay, depots.
+- Steamworks: `sfxr_steam.h` (dlopen of the flat API, tested against a fake library;
+  `docs/STEAM.md`). Unverified on the Frame: devkit launches + app 480. Depots: not started.
 - Depth submission: done for the GL path (`SFXR_DEPTH=0` off); the VK path still lacks it.
   Foveation and the on-device experiments: `docs/PERFORMANCE.md`, `scripts/frame-perf.sh`.
 - A virtual keyboard widget and a `vrui_scroll_panel`.
