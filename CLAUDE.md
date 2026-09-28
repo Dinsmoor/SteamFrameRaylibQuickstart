@@ -604,7 +604,7 @@ The quickstart's toolbox is the reference implementation of it.
 - **ESC does not quit** (`SetExitKey(KEY_NULL)`), because VR users can't see the keyboard.
   Close the window or let the runtime end the session.
 
-### Current state and next steps (handoff, updated 2026-09-28, fourth session)
+### Current state and next steps (handoff, updated 2026-09-28, fifth session)
 
 **The goal (from the user):** this quickstart is specifically for the Steam Frame. Every
 bit of the hardware should be exposed in the toolbox with sane defaults, and the toolbox
@@ -709,7 +709,7 @@ Feedback from the session, and what was done about it:
 | workbenches too close to walk around | stations on a ring (`station_pose` in `toolbox.h`), 1 m or more apart |
 | teleport only "anywhere" | **teleport pads** (snap to center and facing, `pads_only`), plus `valid_target` zones |
 | no platformer-style movement examples | **surfaces** (`ground_height`: arc lands on platforms, stairs up, tables no, falls) and **climbing** (`vrui_handhold`: walls, ladders, monkey bars, mantling). Movement yard ahead. `docs/MOVEMENT.md`, `tests/move` |
-| thumbs mirrored on the controller skeleton | **not solved.** The recorded joints move with the stick correctly (thumb tip vs stick x correlate positively for both hands), so the drawing or SteamVR's resting-thumb estimate is suspect. Next session: compare with the real controller models off and on, and read the Controllers panel |
+| thumbs mirrored on the controller skeleton | **solved in the fifth session** (see below). Was: **not solved.** The recorded joints move with the stick correctly (thumb tip vs stick x correlate positively for both hands), so the drawing or SteamVR's resting-thumb estimate is suspect. Next session: compare with the real controller models off and on, and read the Controllers panel |
 | bare hands wanted | **gestures** from the joints (`sfxr_hand_gestures`: pinch with hysteresis, middle pinch, grasp, palm up / to face, steady ray); joint-only hands work; simulator **H**; `tests/hands` |
 | Steam API | `sfxr_steam.h` (dlopen, flat API, fake-library tests; `docs/STEAM.md`) |
 | foveated rendering | researched again: no GL route. Valve's `fdm_injection` is loaded into our process (Vulkan and OpenXR layer) and may already foveate Zink's passes. Unmeasured. **Depth submission** added (GL path). `docs/PERFORMANCE.md`, `scripts/frame-perf.sh` |
@@ -788,11 +788,51 @@ clean, goldens pass, Frame build and package clean (the package carries
    Bugmaster's voice; the music stays out, one track was a commercial song added by
    accident): do the Bugmaster's lines come from his tower, and do the subtitles match?
 
+**Fifth session (2026-09-28): the headset feedback on sound, voice and Daddy Bug Smasher**
+
+The session data is `local-data/toolbox-20260928-143908/` on spark. What the recordings
+showed, and what was done:
+
+| Feedback / finding | Done |
+|---|---|
+| the chime is annoying | a switch per sound at the new **Sound** station, all off to start |
+| left/right barely audible | raylib only pans. sfxr now **mixes sounds itself** (a raylib mixed-audio processor), with each ear's level (far ear -12 dB), time (up to 0.66 ms, Woodworth) and tone (far ear muffled above 1.8 kHz); duller behind and far. Runs **offline** without a device, so tests render it (`voice/click-reaches-the-near-ear-first`) |
+| emitter types | `SfxrEmitter`: point, cone, line, box, ambient; `sfxr_sound_emit` / `sfxr_playing_move/stop`; `sfxr_audio_ears` |
+| voice via world button + pointing was awkward; show each binding type | the **Voice commands** station (x -12.2): point + bumper (context), point + A (an orders ring, context), TALK intercom, hands-free with the wake word "bugs" (`sfxr_voice_hands_free`: a speech detector) |
+| the radial menu never worked | **B's click never reaches the app on the Frame** (touch yes, click 0 in every recording). The radial is on **A** now; `docs/INPUT.md` "Buttons that don't arrive". Ask the user to press B on the Controllers panel to confirm |
+| finger poke never worked | **SteamVR's poke pose for the Frame controllers is 12.5 cm below the grip**, and **its controller skeleton never straightens the index** (curl 0.97 off the trigger). With controllers, sfxr pokes from the tip and reads shapes from the touch sensors; a green fingertip shows a point; point-to-press buttons coach a nearby hand |
+| thumb bones on the wrong side | SteamVR's controller skeleton has the thumb **mirrored across the controller** (lifting swings it ~3 cm to the far side). sfxr reflects it back (`sfxr__unmirror_thumb`, controller-sourced joints on the Frame profile only) |
+| checkerboard tag on the board | above it, on a stand |
+| smoothing ghosts moved on teleport | `with_player` only while the sword is held |
+| chest and doors too stiff; lid should fall | hinge weight 0.08 s, 220 deg/s; the lid has gravity and friction (stays open past ~70%) |
+| knobs too small | 5.5 cm (dials 6.5) |
+| Whisper loops | repeats collapse to one |
+| the Bugmaster looked crazy | his own two-frame drawing, an upright billboard |
+| weapons held at the grab angle; hammer too short; wanted Blade & Sorcery | **`vrui_wield`** (vrui.h section 14, `docs/WIELDING.md`): handles that settle into the fist, two hands, sticky grips that slide when loosened, weight springs, lift_hands, laser pull, loose physics. **Wielding** station (x -15.4, a rack and a sandbag). Daddy's hammer is wielded and 0.95 m |
+| a weight and physics-feel area | **Weights** station (x -18.8): `vrui_wield_spec` presets feather .. anvil, a throw lane |
+
+`make test`: 117 cases (19 unproven), audit clean, goldens re-blessed once (bigger knob,
+the green fingertip).
+
+**Next headset session: check these first**
+1. Sound station: can you now tell left from right, and behind? The radio's back, the
+   stream swapping ears, the rain canopy.
+2. B button: press it on the Controllers panel. If it never lights, it's SteamVR's binding
+   (look for a SteamVR binding override for the app); the radial is on A anyway.
+3. Point-to-press on the Mechanisms bench: index off the trigger, others on the grip, green
+   fingertip, push the tip in. Plain buttons with the controller tip.
+4. The thumb bones with "Joints while holding" on (Headset panel): on the palm side now?
+5. Wielding: does each weapon settle naturally? Sliding by loosening; two hands; the
+   hammer's weight at the end of its shaft (too laggy? `spring_rates` in `vrui_wield.c`);
+   laser pull. Then Daddy Bug Smasher with the new hammer.
+6. Weights: does the anvil read as "too heavy"? Throw distances sane?
+7. Voice commands: the four bindings; hands-free false starts from the game's own sounds.
+
 **Still to build**
 - Animate the controller models' buttons (`xrGetRenderModelStateEXT` node poses; needs
   the device to verify).
 - Scenario commands still planned: `snapshot`, `play`, gaze / session / controller dropout.
-- The garden: sound (none yet), more bug kinds, a second level.
+- The garden: more bug kinds, a second level.
 - Why one launch failed on the GL path (`xrCreateReferenceSpace` gave `HANDLE_INVALID`) and
   fell back to Vulkan. Watch for it in logs.
 
