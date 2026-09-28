@@ -571,7 +571,7 @@ The quickstart's toolbox is the reference implementation of it.
 - **ESC does not quit** (`SetExitKey(KEY_NULL)`), because VR users can't see the keyboard.
   Close the window or let the runtime end the session.
 
-### Current state and next steps (handoff, 2026-09-28)
+### Current state and next steps (handoff, updated 2026-09-28, third session)
 
 **The goal (from the user):** this quickstart is specifically for the Steam Frame. Every
 bit of the hardware should be exposed in the toolbox with sane defaults, and the toolbox
@@ -599,8 +599,8 @@ must never prevent use.
   - simulator, Monado GL/VK, Frame builds
   - record/replay: format v2, with v1 upgrade
   - `make regress` (2 golden tests)
-  - **`make test`: 35 C cases (30 mechanisms, 5 input: pull levels, hand shapes), all
-    passing, all 20 break switches proven, audit clean**
+  - **`make test`: 59 C cases (mech, input, move, hands, steam), all passing, every
+    break switch proven, audit clean** (5 cases are unproven: no switch fits them)
 - **In the toolbox:**
   - workbench: app-wired controls
   - Toolbox panel, with the "Pull to use" selector
@@ -652,46 +652,79 @@ must never prevent use.
   - `ar` kept deleted objects in the libraries
   - the joystick's break-switch probe (caught by its red leg)
 
-**Not yet tried by hand in the headset**
-- everything from the feedback round above: the setup, hand shapes from the real touch
-  sensors, resistance and tension feel, the linkage bench, drag scrolling, LOOK capture
+**Not yet tried by hand in the headset** (from the second session's round)
+- the setup station, hand shapes from the real touch sensors, resistance feel, the
+  linkage bench, drag scrolling
 - the Headset panel while worn: passthrough, batteries, counters, model alignment,
   camera-tracked joints
 
-**Next steps, in order**
-1. A headset session (try the hands-on setup station, right behind you):
-   - try the bench, the Controllers panel, pull levels and bare hands
-   - check the emulation notice
-   - keep sessions as regression recordings (`frame.sh keep`)
-2. Follow-ups from that session: animate the controller models' buttons
-   (`xrGetRenderModelStateEXT` node poses). If passthrough works, add a toolbox
-   "mixed reality" corner.
-3. More mechanisms, on the same core and with tests:
-   - hinged door/lid (constrained grab)
-   - two-handed valve wheel
-   - key switch (insert and turn)
-   - pull cord
-   - dial with pointer
-4. Testing slice, continued:
-   - event log (`SFXR_EVENTS`)
-   - widget registry and string targets
-   - `.sfxt` scenario files over the `sfxt_*` calls
-   - failure artifacts (screenshot plus `run.sfxrec`)
-   - splitting headset sessions into per-item clips
-5. First git commit. Nothing is committed yet. Also: pick a license (undecided), and
-   check spark's git identity before committing.
+**Third headset session (2026-09-28, `local-data/session3/` on spark) and the work since**
+
+The repo is public (`github.com/Dinsmoor/SteamFrameRaylibQuickstart`, MIT). Claude makes the
+commits (spark's git identity; the attribution lines in each message; write the message to
+a file and `git commit -F`, because an apostrophe inside `ssh '...'` truncated one once).
+Never force-push.
+
+Feedback from the session, and what was done about it:
+
+| Feedback | Done |
+|---|---|
+| camera too low at spawn, fixed itself later | **floor guard**: if LOCAL_FLOOR and the room-setup (STAGE) floor disagree by over 10 cm, every tracked height is corrected (`SFXR_FLOOR=local` turns it off). The cause looks like SteamVR's floor estimate settling (0.64 m off for about 12 s in the recording). **Check the log line in the next session** |
+| a panel took the controls when looked at from behind | LOOK capture only from the front |
+| springy things buzzed near full strength at 10% | the tension hum is quadratic in displacement from rest; test `mech/plunger-tension-gentle-near-rest` |
+| which controls take poke, grip or laser? | **usage hints** above whatever a hand or laser is on ("poke it \| or laser + trigger", "grab it (grip)...", pull level) |
+| workbenches too close to walk around | stations on a ring (`station_pose` in `toolbox.h`), 1 m or more apart |
+| teleport only "anywhere" | **teleport pads** (snap to center and facing, `pads_only`), plus `valid_target` zones |
+| no platformer-style movement examples | **surfaces** (`ground_height`: arc lands on platforms, stairs up, tables no, falls) and **climbing** (`vrui_handhold`: walls, ladders, monkey bars, mantling). Movement yard ahead. `docs/MOVEMENT.md`, `tests/move` |
+| thumbs mirrored on the controller skeleton | **not solved.** The recorded joints move with the stick correctly (thumb tip vs stick x correlate positively for both hands), so the drawing or SteamVR's resting-thumb estimate is suspect. Next session: compare with the real controller models off and on, and read the Controllers panel |
+| bare hands wanted | **gestures** from the joints (`sfxr_hand_gestures`: pinch with hysteresis, middle pinch, grasp, palm up / to face, steady ray); joint-only hands work; simulator **H**; `tests/hands` |
+| Steam API | `sfxr_steam.h` (dlopen, flat API, fake-library tests; `docs/STEAM.md`) |
+| foveated rendering | researched again: no GL route. Valve's `fdm_injection` is loaded into our process (Vulkan and OpenXR layer) and may already foveate Zink's passes. Unmeasured. **Depth submission** added (GL path). `docs/PERFORMANCE.md`, `scripts/frame-perf.sh` |
+| testing to-dos | **event log** (`SFXR_EVENTS`, every headset session and failing test keeps one) |
+
+**Next headset session: what to check, in order**
+1. `scripts/frame-perf.sh toolbox` while wearing it. Read the table and `layers.txt`
+   (what fdm_injection is, and its off switch).
+2. Spawn height: the log should say "floor guard: ...", or nothing if the floors agree.
+3. The thumb mirroring, with models off and on.
+4. Bare hands: put the controllers down.
+   - Does the runtime's hand profile activate, and is its pinch sane? (the Controllers panel's gesture line)
+   - Then `SFXR_HANDS=joints` to compare.
+5. The Movement yard: pads, the climbing wall, monkey bars, the stairs, the LIFT as an elevator.
+6. The hints, the gentler spring hum, front-only LOOK capture.
+7. Only 72 Hz offered: check `vrpreferences.json` was loaded (the vrserver log) and the
+   refresh switch.
+8. With a Steamworks SDK: `STEAMWORKS_SDK=... make package`, then the Headset panel's test
+   achievement.
+9. `frame.sh pull toolbox` afterwards: the `.events` file next to each recording says what
+   was touched when.
+
+**Still to build**
+- More mechanisms on the same core, with tests:
+  - hinged door/lid (constrained grab)
+  - two-handed valve wheel
+  - key switch (insert and turn)
+  - pull cord
+  - dial with pointer
+- Animate the controller models' buttons (`xrGetRenderModelStateEXT` node poses; needs
+  the device to verify).
+- Testing:
+  - the widget registry and string targets
+  - `.sfxt` scenario files
+  - failure screenshots and `run.sfxrec`
+  - splitting sessions into clips using the event log
+- A fade while the head is inside geometry (walking into a wall), for `docs/MOVEMENT.md`.
+- Why one launch failed on the GL path (`xrCreateReferenceSpace` gave `HANDLE_INVALID`) and
+  fell back to Vulkan. Watch for it in logs.
 
 **Later**
 - The `vk` backend and 90/120 Hz on hardware; the Performance Assessment overlay; eye
-  gaze and `XR_EXT_hand_tracking` on the device.
-- Steamworks: `sfxr_steam.h` (dlopen of the flat API, tested against a fake library;
-  `docs/STEAM.md`). Unverified on the Frame: devkit launches + app 480. Depots: not started.
-- Depth submission: done for the GL path (`SFXR_DEPTH=0` off); the VK path still lacks it.
-  Foveation and the on-device experiments: `docs/PERFORMANCE.md`, `scripts/frame-perf.sh`.
+  gaze on the device.
+- Steamworks on the Frame (devkit launches + app 480); depots.
+- Depth for the VK path; motion vectors (`XR_EXT_frame_synthesis`).
 - A virtual keyboard widget and a `vrui_scroll_panel`.
 - An Android APK target (raylib's Android backend + `XR_KHR_opengl_es_enable`) as a
   fallback path.
-- If rlvk (raylib's Vulkan backend) lands upstream: a native `vk` path plus foveated
-  rendering.
+- A native Vulkan renderer, if foveation can't reach GL (`docs/PERFORMANCE.md`).
 - raylib stays on the 6.0 release (the newest); the development branch was 438 commits
   ahead on 2026-09-27. Pin a commit only if a feature needs it.
