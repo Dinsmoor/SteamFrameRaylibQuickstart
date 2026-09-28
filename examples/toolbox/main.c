@@ -1,20 +1,22 @@
 // toolbox - a walk-around testbed for everything in this quickstart. Not an
 // app with a flow: a set of stations, each in its own file (see toolbox.h).
 //
-//   Ahead:        the workbench -- SPAWN, GRID, SKY, SIZE, LIFT wired to the
-//                 world, and throwable blocks (an open palm shoves them, a
-//                 fist punches them)
-//   Ahead left:   the Toolbox panel -- world settings, pull level, grab style
-//   Left:         the Controllers panel -- every Steam Frame input, live
-//   Behind left:  the Headset panel -- worn, refresh rate, passthrough, ...
-//   Ahead right:  the Mechanisms bench -- every reference mechanism
-//   Behind right: the Linkage bench -- controls wired to mechanical displays
-//   Behind:       the Hands-on setup station (docs/ONBOARDING.md)
-//   The stations stand on a ring with room to walk around each (toolbox.h).
-//   Far right:    Hinges & cords -- a door, a chest lid, a bell cord, a radio dial
-//   Far ahead:    the Movement yard -- teleport pads, stairs, climbing wall, monkey bars
-//   On your wrist: fps, hand shapes, trigger level
-//   Moving:       stick forward = teleport arc, stick sideways = snap turn
+// They stand in one row in front of you; walk along it (stick forward to
+// teleport, sideways to turn). From left to right:
+//   Menus & HUD        hand menus (watch, palm, tablet, radial) and visor HUDs
+//   Hands-on setup     learns how you like to grab, point and press
+//   Headset            worn, refresh rate, passthrough, batteries, joints
+//   Controllers        every Steam Frame input, live
+//   Toolbox            world settings, pull level, grab style
+//   Workbench          (straight ahead) SPAWN, GRID, SKY, SIZE, LIFT wired to
+//                      the world, and throwable blocks
+//   Mechanisms         every reference mechanism
+//   Linkage bench      controls wired to mechanical displays
+//   Attach & label     things riding on things; every kind of world label
+//   Hinges & cords     a door, a chest lid, a bell cord, a radio dial
+// Behind you: the LIFT platform and the Movement yard (teleport pads,
+// stairs, climbing wall, monkey bars).
+// With you everywhere: the hand menus and the HUD (station_menus.c, hud.c).
 //
 // Runs in the headset, under Monado, or in the desktop simulator (F1 = keys).
 
@@ -23,6 +25,29 @@
 #include "sfxr_steam.h"
 
 #include <stdlib.h>
+
+// The HUD's text here: where you are along the row. The edge arrows point
+// home (the workbench) and to the yard when they're out of view.
+static void toolbox_hud(void)
+{
+    static const struct { float x; const char *name; } ROW[] = {
+        { -8.0f, "Menus & HUD" }, { -6.4f, "Hands-on setup" }, { -4.8f, "Headset" }, { -3.2f, "Controllers" },
+        { -1.6f, "Toolbox" }, { 0, "Workbench" }, { 2.5f, "Mechanisms" }, { 5.2f, "Linkage bench" },
+        { 7.9f, "Attach & label" }, { 11.4f, "Hinges & cords" },
+    };
+    Vector3 me = sfxr_head().position;
+    const char *near = "the yard";
+    if (me.z < 3.0f) {
+        float best = 1e9f;
+        for (size_t i = 0; i < sizeof ROW / sizeof ROW[0]; i++)
+            if (fabsf(ROW[i].x - me.x) < best) { best = fabsf(ROW[i].x - me.x); near = ROW[i].name; }
+    }
+    hud_show(menus_hud_style(), TextFormat("%s\n%.0f fps", near, sfxr_dt() > 0 ? 1.0f / sfxr_dt() : 0.0f), vrui_style()->accent);
+    if (menus_edge_arrows()) {
+        vrui_offscreen_arrow((Vector3){ 0, 1.2f, TABLE_Z }, "home", (Color){ 255, 255, 255, 230 });
+        vrui_offscreen_arrow((Vector3){ 0, 1.2f, 5.0f }, "yard", (Color){ 120, 200, 255, 230 });
+    }
+}
 
 int main(void)
 {
@@ -42,12 +67,26 @@ int main(void)
     world_init();
     VruiLocoConfig loco = vrui_loco_default();
     yard_setup(&loco);   // surfaces, teleport pads, "only pads inside the yard"
-    SfxrPose setup_pose = station_pose(165, 2.2f, 1.35f);
+    SfxrPose setup_pose = row_pose(-6.4f, 1.35f);
+
+    // What the hand menus offer here (every menu shows the same list; the
+    // palm shows the first three).
+    static const char *const MENU[] = { "Grid", "Day / dusk", "Go home", "Reset blocks", "HUD style", "Hints" };
+    const int NMENU = (int)(sizeof MENU / sizeof MENU[0]);
 
     while (sfxr_frame_begin()) {
         vrui_begin();
             panels_toolbox(&loco);
-            panels_wrist();
+            station_menus();
+            switch (menus_update(MENU, NMENU, TextFormat("blocks %d", world.spawned))) {
+            case 0: world.show_grid = !world.show_grid; break;
+            case 1: world.sky = world.sky > 0.5f ? 0.0f : 1.0f; break;
+            case 2: sfxr_rig_teleport((Vector3){ 0, 0, 0 }); vrui_fade(1.0f); break;
+            case 3: world_reset_blocks(); break;
+            case 4: menus_set_hud_style((HudStyle)((menus_hud_style() + 1) % HUD_COUNT)); break;
+            case 5: vrui_style()->show_hints = !vrui_style()->show_hints; break;
+            default: break;
+            }
             onboarding_update();
             onboarding_panel(&setup_pose);
             world_workbench();
@@ -56,9 +95,12 @@ int main(void)
             panel_controllers();
             panel_headset();
             station_hinges();
+            station_attach();
             yard_update();
             vrui_locomotion(&loco);   // after the handholds (yard_update)
-            vrui_text3d((Vector3){ 0, 2.2f, -2.5f }, "sfxr + vrui toolbox", 0.12f, RAYWHITE);
+            toolbox_hud();
+            station_sign(-6.4f, "Hands-on setup", "learns how you like to\ngrab, point and press");
+            vrui_text3d((Vector3){ 0, 3.0f, -1.8f }, "sfxr + vrui toolbox", 0.14f, RAYWHITE);
         vrui_end();
 
         world_step(sfxr_dt());

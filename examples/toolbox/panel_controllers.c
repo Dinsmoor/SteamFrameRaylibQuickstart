@@ -97,8 +97,9 @@ static void hand_column(Rectangle col, SfxrHandId id)
 
 void panel_controllers(void)
 {
+    station_sign(-3.2f, "Controllers", "every input, live: look at it\nand everything is yours to test");
     if (!K.placed) {
-        K.pose = station_pose(-110, 2.2f, 1.35f);
+        K.pose = row_pose(-3.2f, 1.35f);
         K.placed = true;
     }
     vrui_panel_capture(VRUI_CAPTURE_LOOK);   // look at it: it owns both controllers

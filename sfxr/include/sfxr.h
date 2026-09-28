@@ -153,6 +153,17 @@ Vector3  sfxr_pose_apply(SfxrPose p, Vector3 local);      // local point -> worl
 Vector3  sfxr_pose_apply_inv(SfxrPose p, Vector3 world);  // world point -> local
 SfxrPose sfxr_pose_mul(SfxrPose parent, SfxrPose child);  // child expressed in parent -> world
 SfxrPose sfxr_pose_inverse(SfxrPose p);
+// Attaching one thing to another (docs/ATTACHING.md). A child keeps a LOCAL
+// pose relative to its parent, and its world pose is worked out again every
+// frame, so it goes wherever the parent goes:
+//     child_world = sfxr_pose_mul(parent_world, local);
+// To attach something WHERE IT IS NOW (picking it up, setting it down on a
+// moving platform), take its pose relative to the new parent at that moment:
+//     local = sfxr_pose_relative(parent_world, child_world);
+// To detach, stop updating it: its last world pose is where it stays.
+// Parents can be anything with a pose: a hand's grip, the head, the body
+// (vrui_body), a turntable, another child (chains work the same way).
+SfxrPose sfxr_pose_relative(SfxrPose parent, SfxrPose child_world);   // = inverse(parent) * child
 SfxrPose sfxr_pose_lerp(SfxrPose a, SfxrPose b, float t);
 // A yaw-only pose facing `target` from `from` (handy for spawning UI panels).
 SfxrPose sfxr_pose_look_at_yaw(Vector3 from, Vector3 target);

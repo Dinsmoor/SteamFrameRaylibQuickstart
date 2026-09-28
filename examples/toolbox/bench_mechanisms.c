@@ -17,7 +17,7 @@ static struct {
 #define BENCH_D 0.6f
 
 // The bench stands front-right on the station ring (see toolbox.h).
-static SfxrPose bench_origin(void) { return station_pose(60, 2.4f, TABLE_Y); }
+static SfxrPose bench_origin(void) { return row_pose(2.5f, TABLE_Y); }
 
 static SfxrPose on_bench(float x, float z)
 {
@@ -34,7 +34,7 @@ static void draw_bench(void)
         vrui_box(sfxr_pose_mul(o, (SfxrPose){ { x, -TABLE_Y * 0.5f, z }, QuaternionIdentity() }),
                  (Vector3){ 0.05f, TABLE_Y - 0.05f, 0.05f }, (Color){ 90, 68, 52, 255 });
     }
-    vrui_text3d(sfxr_pose_apply(o, (Vector3){ 0, 0.45f, -BENCH_D * 0.5f }), "Mechanisms bench", 0.04f, RAYWHITE);
+    station_sign(2.5f, "Mechanisms", "one of every reference mechanism,\ndefault feel: grab, poke or laser them");
 }
 
 void bench_mechanisms(void)

@@ -1,8 +1,7 @@
-// panels.c - the Toolbox panel (world settings, pull level, grab style: the
-// 2D widgets, all of them) and the small wrist panel.
+// panels.c - the Toolbox panel: world settings, pull level, grab style (the
+// 2D widgets, all of them). The wrist watch moved to station_menus.c.
 
 #include "toolbox.h"
-#include "onboarding.h"
 
 static struct {
     SfxrPose pose;
@@ -17,8 +16,9 @@ static struct {
 
 void panels_toolbox(VruiLocoConfig *loco)
 {
+    station_sign(-1.6f, "Toolbox", "world settings, pull level,\ngrab style");
     if (!P.placed) {
-        P.pose = station_pose(-55, 1.3f, 1.35f);
+        P.pose = row_pose(-1.6f, 1.35f);
         P.placed = true;
     }
     if (!vrui_panel_begin(VRUI_ID2(G_PANEL, 0), &P.pose, 0.46f, 0.78f, "Toolbox")) return;
@@ -66,27 +66,4 @@ void panels_toolbox(VruiLocoConfig *loco)
     loco->smooth_turn = P.smooth_turn;
     loco->fall = P.real_falls ? VRUI_FALL_DROP : VRUI_FALL_BLINK;
     loco->snap_angle_deg = 15.0f * (float)(P.snap_choice + 1);
-}
-
-// Floats above the back of the hand you use less (the setup station learns
-// which), tilted toward your face.
-void panels_wrist(void)
-{
-    SfxrHandId off = onboarding_prefs()->valid && onboarding_prefs()->dominant == SFXR_LEFT ? SFXR_RIGHT : SFXR_LEFT;
-    const SfxrHand *hand = sfxr_hand(off);
-    if (!hand->active) return;
-    SfxrPose offs = { { 0, 0.07f, 0.06f }, QuaternionFromAxisAngle((Vector3){ 1, 0, 0 }, -60.0f * DEG2RAD) };
-    SfxrPose p = sfxr_pose_mul(hand->grip, offs);
-    if (!vrui_panel_begin(VRUI_ID2(G_WRIST, 0), &p, 0.18f, 0.12f, NULL)) return;
-    vrui_layout_begin(vrui_panel_content(), 2);
-    // sfxr_dt(), not GetFPS(): keeps replays (regression tests) deterministic
-    vrui_label(vrui_row(22), TextFormat("%.0f fps", sfxr_dt() > 0 ? 1.0f / sfxr_dt() : 0.0f));
-    vrui_label(vrui_row(22), TextFormat("blocks %d", world.spawned));
-    vrui_label(vrui_row(22), TextFormat("L %s  R %s", sfxr_hand_shape_name(sfxr_hand(SFXR_LEFT)->shape),
-                                        sfxr_hand_shape_name(sfxr_hand(SFXR_RIGHT)->shape)));
-    const SfxrHand *r = sfxr_hand(SFXR_RIGHT);
-    const char *lvl = r->trigger_at[SFXR_PULL_FULL].down ? "full" : r->trigger_at[SFXR_PULL_FIRM].down ? "firm"
-                    : r->trigger_at[SFXR_PULL_SOFT].down ? "soft" : "-";
-    vrui_label(vrui_row(22), TextFormat("R trig %.2f %s", r->trigger, lvl));
-    vrui_panel_end();
 }

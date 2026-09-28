@@ -153,6 +153,7 @@ static SfxrPose on_table(float x, float z_off)
 
 void world_workbench(void)
 {
+    station_sign(0, "Workbench", "controls wired to the world;\npick up and throw the blocks");
     // A per-item pull level: SPAWN wants a deliberate full pull with the
     // laser (poking it with a fingertip works as usual).
     vrui_push_pull(SFXR_PULL_FULL);
@@ -203,7 +204,7 @@ void world_draw(void)
     // landmarks for scale, and to make turning and teleporting readable
     for (int i = 0; i < 12; i++) {
         float a = (float)i / 12.0f * 2.0f * PI;
-        Vector3 base = { cosf(a) * 14.0f, 0, sinf(a) * 14.0f };
+        Vector3 base = { cosf(a) * 26.0f, 0, sinf(a) * 26.0f };   // well clear of the row and the yard
         float h = 2.0f + (float)(i % 3);
         DrawCylinder(base, 0.25f, 0.25f, h, 8, (Color){ 150, 140, 125, 255 });
         DrawSphereEx((Vector3){ base.x, h + 0.6f, base.z }, 0.9f, 6, 8, (Color){ 70, 130, 70, 255 });
@@ -219,8 +220,8 @@ void world_draw(void)
 
     // the lift platform, driven by the LIFT slider (a surface: yard.c)
     float lift_h = world_lift_height();
-    DrawCube((Vector3){ -2.4f, lift_h * 0.5f, -2.4f }, 1.0f, lift_h, 1.0f, (Color){ 90, 96, 110, 255 });
-    DrawCubeWires((Vector3){ -2.4f, lift_h * 0.5f, -2.4f }, 1.0f, lift_h, 1.0f, (Color){ 30, 32, 40, 255 });
+    DrawCube((Vector3){ LIFT_X, lift_h * 0.5f, LIFT_Z }, 1.0f, lift_h, 1.0f, (Color){ 90, 96, 110, 255 });
+    DrawCubeWires((Vector3){ LIFT_X, lift_h * 0.5f, LIFT_Z }, 1.0f, lift_h, 1.0f, (Color){ 30, 32, 40, 255 });
 }
 
 float world_lift_height(void) { return 0.05f + world.lift * 1.5f; }

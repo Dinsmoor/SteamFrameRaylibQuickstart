@@ -59,6 +59,8 @@ static float panel_hit(int h, SfxrPose pose, float w_m, float h_m, int w_px, int
     return t;
 }
 
+void vrui_panel_passive(void) { C.next_passive = true; }
+
 bool vrui_panel_begin(VruiId id, SfxrPose *pose, float width_m, float height_m, const char *title)
 {
     if (C.p.open) { TraceLog(LOG_WARNING, "VRUI: vrui_panel_begin while another panel is open"); return false; }

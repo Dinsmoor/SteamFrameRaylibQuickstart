@@ -225,10 +225,12 @@ what's broken, and what's next.
   up slightly; `vrui_grab_region` returns it.
 
 **UI and text:**
-- **No screen-locked HUD.** Put UI in the world, on the wrist, or on panels about 0.5–2 m
-  away.
-- Text must be much larger than on flat screens: roughly ≥ 2 cm tall at 1 m. vrui panels
-  default to 1 px/mm with 20 px text. Keep key content in the center of the lens.
+- **Avoid head-locked HUDs.** Put UI in the world, on the wrist, or on panels about 0.5–2 m
+  away. A readout that goes with you should lag behind your head (lazy follow) or sit on
+  your body (`docs/ATTACHING.md`).
+- Text must be much larger than on flat screens: roughly ≥ 2 cm tall at 1 m (a little over
+  1 degree; `vrui_text_height()`). vrui panels default to 1 px/mm with 20 px text. Keep
+  key content in the center of the lens.
 
 **Scale / presence:** 1 unit = 1 m (players notice wrong scale instantly). Spatial audio
 matters. Sessions of 15–30 minutes suit VR.
@@ -277,9 +279,10 @@ sfxr/include/sfxr.h  public XR API. sfxr/src/:
 vrui/include/vrui.h  interaction toolkit (starts with a table of contents). vrui/src/:
                        vrui.c (context, arbitration, claims, draw)  vrui_panel.c  vrui_grab.c (grab machinery, grabbables)
                        vrui_mech.c (rotary/pivot/linear/tilt)  vrui_press.c (press/rocker)  vrui_display.c
-                       vrui_haptics.c (mixer)  vrui_loco.c. Per-widget state: typed structs in VruiItem.state
+                       vrui_haptics.c (mixer)  vrui_loco.c  vrui_label.c (world text)  vrui_attach.c (body,
+                       follow, edge arrows)  vrui_menu.c (radial). Per-widget state: typed structs in VruiItem.state
                        (VRUI_STATE / VRUI_STATE_FITS in vrui_internal.h), never generic slots.
-examples/<name>/     each dir with main.c -> bin/<name>   (hello, toolbox: one file per station, see toolbox.h)
+examples/<name>/     each dir with main.c -> bin/<name>   (hello, toolbox: one file per station in a row, see toolbox.h)
 apps/<name>/         your projects; same rule (make new-app NAME=foo)
 tools/xr_probe.c     runtime capability dump; run it first on real hardware
 tools/sfxrec_dump.c  recording -> CSV (inspect what a player actually did)
@@ -288,6 +291,8 @@ docs/TESTING.md      the testing doctrine and plan (read before writing tests)
 docs/MECHANISMS.md   what each reference mechanism promises players, its defaults, how to reskin it
 docs/INPUT.md        input methods (laser/grab/poke/hand shape), input ownership, 2D vs 3D, the haptic vocabulary
 docs/ONBOARDING.md   the hands-on setup station that learns the player's habits (template: examples/toolbox/onboarding.c)
+docs/MOVEMENT.md     teleport, pads, surfaces, falling, climbing (examples/toolbox/yard.c)
+docs/ATTACHING.md    attaching things to things, world labels, HUDs, hand menus
 tests/mech, tests/input  C test suites (make test); tests/regress/ golden replays (make regress)
 scripts/             frame.sh (headset remote control), shot-sim.sh, test-xr.sh, frame-build.sh, package.sh, new-app.sh
 tools/devkit-utils/  Valve's device-side devkit helper scripts (MIT, pinned copy; see VERSION)
@@ -418,6 +423,15 @@ while (sfxr_frame_begin()) {              // wait for runtime, sample poses and 
   hand's stick alone while that hand points at UI or is claimed. It also handles teleport
   pads, surfaces (`ground_height`: platforms, stairs, lifts, falling) and climbing
   (`vrui_handhold`, called before it). See `docs/MOVEMENT.md`; tests in `tests/move/`.
+- **World text** (vrui.h section 9): `vrui_text3d` (billboard), `vrui_text_at` (printed on a
+  pose, one-sided), `vrui_tag` (on a plate), `vrui_callout` (points at a spot, keeps its
+  apparent size, hides past 8 m), `vrui_sign`. **Attaching** is `sfxr_pose_mul(parent,
+  local)` every frame and `sfxr_pose_relative(parent, world)` when attaching; parents can be
+  hands, the head, `vrui_body()` (estimated torso), the rig, a mechanism's `part`, a bone.
+  **HUDs**: a passive panel (`vrui_panel_passive`) drawn on top (`vrui_on_top_begin/end`),
+  posed by `vrui_follow` (lazy) or the body; `vrui_offscreen_arrow`, `vrui_tint`.
+  **Hand menus**: watch, palm buttons, a tablet, `vrui_radial_menu`. All in
+  `docs/ATTACHING.md`, shown at the toolbox's Attach & label bench and Menus & HUD station.
 - **Adding a widget:** follow the existing ones. Compute hit distance/proximity, call
   `vrui__ray_offer`/`vrui__grab_offer`, use `handle_update()` for grabbable handles, keep
   per-widget state in `vrui__item(id)`, queue drawing with `vrui_box`/`vrui__cylinder`/...,

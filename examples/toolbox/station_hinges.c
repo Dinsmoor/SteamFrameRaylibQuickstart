@@ -6,7 +6,7 @@
 //   Bell cord  pull it all the way: rings once per pull, jiggling doesn't re-ring
 //   Radio dial a tuning dial: ticks every 5, rests anywhere
 //
-// Everything here is placed in the station's own frame (station_pose, facing
+// Everything here is placed in the station's own frame (row_pose, facing
 // the middle): +X to your right as you face it, +Z toward you.
 
 #include "toolbox.h"
@@ -17,7 +17,7 @@ static struct {
     float flash;       // bell lamp glow, seconds left
 } H = { .dial = 40 };
 
-static SfxrPose origin(void) { return station_pose(90, 4.2f, 0); }
+static SfxrPose origin(void) { return row_pose(11.4f, 0); }
 static SfxrPose local(float x, float y, float z, Quaternion q)
 {
     return sfxr_pose_mul(origin(), (SfxrPose){ { x, y, z }, q });
@@ -63,8 +63,10 @@ void station_hinges(void)
     ds.value_format = NULL;
     vrui_rotary(VRUI_ID2(G_HINGE, 4), local(1.62f, 0.95f, 0.01f, QuaternionFromAxisAngle((Vector3){ 1, 0, 0 }, PI / 2)),
                 &ds, &H.dial);
-    vrui_text3d(sfxr_pose_apply(origin(), (Vector3){ 1.78f, 0.97f, 0.03f }), TextFormat("FM %.1f", 88.0f + H.dial * 0.2f),
-                0.025f, (Color){ 255, 200, 120, 255 });
+    // the frequency is printed on the radio's face (vrui_text_at: fixed to a
+    // pose, readable from the front only), not floating toward you
+    vrui_text_at(local(1.78f, 0.97f, 0.012f, I), TextFormat("FM %.1f", 88.0f + H.dial * 0.2f),
+                 0.022f, (Color){ 255, 200, 120, 255 });
 
-    vrui_text3d(sfxr_pose_apply(origin(), (Vector3){ 0.2f, 2.5f, 0 }), "Hinges & cords", 0.05f, RAYWHITE);
+    station_sign(11.4f, "Hinges & cords", "a door, a chest lid,\na bell cord, a radio dial");
 }

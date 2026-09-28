@@ -32,17 +32,20 @@
 #define VRUI_PULL_STACK   8
 
 typedef enum {
-    CMD_BOX, CMD_BOX_WIRES, CMD_SPHERE, CMD_CYLINDER, CMD_LINE, CMD_PANEL, CMD_TEXT, CMD_RING,
+    CMD_BOX, CMD_BOX_WIRES, CMD_SPHERE, CMD_CYLINDER, CMD_LINE, CMD_PANEL, CMD_TEXT, CMD_RING, CMD_TRI,
 } VruiCmdKind;
 
 typedef struct {
     VruiCmdKind kind;
     Color color;
     SfxrPose pose;        // BOX / PANEL / RING
-    Vector3 a, b;         // LINE, CYLINDER endpoints; SPHERE center = a; TEXT position = a
+    Vector3 a, b;         // LINE, CYLINDER endpoints; SPHERE center = a; TEXT position = a; TRI a, b, size
     Vector3 size;         // BOX size; PANEL (w,h,_); CYLINDER (r0,r1,_); SPHERE (r,_,_); TEXT (height); RING (r)
     unsigned tex;         // PANEL
     int text_off;         // TEXT
+    bool billboard;       // TEXT: faces the head (else lies on `pose`, facing its +Z)
+    Color bg;             // TEXT: backing plate (alpha 0 = none)
+    bool on_top;          // drawn after everything, without depth test (vrui_on_top_begin)
 } VruiCmd;
 
 // Persistent per-widget state, found by id with vrui__item(). The grab
@@ -101,7 +104,8 @@ typedef struct {
     // input claims (vrui_claim_input): this frame and last frame
     bool claim_cur[2], claim_prev[2];
     VruiCapture next_capture;     // for the next vrui_panel_begin
-    bool next_passive;            // next panel is a display: no laser, no claims (vrui_display.c)
+    bool next_passive;            // next panel is a display: no laser, no claims (vrui_panel_passive)
+    int  on_top;                  // vrui_on_top_begin nesting: commands queued now draw over the world
 
     VruiHapticMix hap[2];
 
@@ -132,6 +136,11 @@ typedef struct {
     char text[VRUI_TEXT_ARENA];
     int ntext;
     float fade;
+    Color tint;                   // vrui_tint: colored flash over the view (alpha = strength)
+
+    // vrui_body(): the player's estimated torso, yaw kept relative to the rig
+    // so snap turns carry it along
+    struct { bool init; float yaw_rel; SfxrPose pose; } body;
 
     VruiItem items[VRUI_MAX_ITEMS];
     VruiPanelTex panels[VRUI_MAX_PANELS];
@@ -215,6 +224,10 @@ VruiCmd *vrui__cmd(VruiCmdKind kind, Color color);
 void vrui__sphere(Vector3 c, float r, Color color);
 void vrui__cylinder(Vector3 a, Vector3 b, float r, Color color);
 void vrui__ring(SfxrPose pose, float r, Color color);
+void vrui__triangle(Vector3 a, Vector3 b, Vector3 c, Color color);   // two-sided
+
+// vrui_attach.c: the body estimate, updated once per frame at vrui_begin
+void vrui__body_update(void);
 
 // math
 float vrui__ray_box(Ray ray, SfxrPose pose, Vector3 half);   // distance or -1

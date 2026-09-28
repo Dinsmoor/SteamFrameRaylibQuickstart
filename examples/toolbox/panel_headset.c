@@ -25,8 +25,9 @@ static const char *joint_source(const SfxrHandJoints *j)
 
 void panel_headset(void)
 {
+    station_sign(-4.8f, "Headset", "worn state, refresh rate,\npassthrough, batteries, joints");
     if (!HS.placed) {
-        HS.pose = station_pose(-160, 2.2f, 1.35f);
+        HS.pose = row_pose(-4.8f, 1.35f);
         HS.placed = true;
     }
     bool present = sfxr_user_present();

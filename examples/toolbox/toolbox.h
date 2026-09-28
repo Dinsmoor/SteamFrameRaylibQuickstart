@@ -22,34 +22,55 @@
 #include <stddef.h>
 
 // Layout (meters; the player starts at the origin facing -Z).
+//
+// The stations stand in ONE ROW along the X axis, just in front of you, all
+// facing the aisle you stand in (+Z), with a gap of a meter or more between
+// neighbours so you can walk between them and round the back. Walk (or
+// teleport) along the aisle to go from one to the next. Each station has a
+// sign above it (vrui_sign) saying what it is.
+//
+//      x   station                       file
+//   -8.0   Menus & HUD                   station_menus.c (hand menus, visor HUDs)
+//   -6.4   Hands-on setup                onboarding.c
+//   -4.8   Headset panel                 panel_headset.c
+//   -3.2   Controllers panel             panel_controllers.c
+//   -1.6   Toolbox panel                 panels.c
+//    0     the workbench                 world.c
+//    2.5   Mechanisms bench              bench_mechanisms.c
+//    5.2   Linkage bench                 bench_linkage.c
+//    7.9   Attach & label bench          station_attach.c
+//   11.4   Hinges & cords                station_hinges.c
+//
+// Behind you (+Z): the Movement yard (yard.c), and the LIFT platform on the
+// way to it.
+#define ROW_Z   -0.8f           // the row's line (bench centers, panel faces)
 #define TABLE_Y  0.9f           // table top height
-#define TABLE_Z -0.75f          // the workbench, straight ahead
+#define TABLE_Z  ROW_Z          // the workbench, straight ahead
 #define TABLE_W  1.4f
 #define TABLE_D  0.7f
 
-// The stations stand on a ring around the spawn point, each turned to face
-// the middle, with a walkable gap (1 m or more) between neighbours so you can
-// step around a bench to look at it from the side. Angle 0 is straight ahead
-// (-Z); positive angles are to the right.
-//
-//   station          angle   radius
-//   workbench            0   0.75 (the table in world.c, right in front)
-//   Toolbox panel      -55   1.3
-//   Mechanisms bench    60   2.4
-//   Linkage bench      125   2.6
-//   Controllers panel -110   2.2
-//   Headset panel     -160   2.2
-//   Setup station      165   2.2
-//   Hinges & cords      90   4.2 (outer ring, right)
-//   Movement yard: straight ahead past the ring, 4 to 12 m out (yard.c)
-static inline SfxrPose station_pose(float angle_deg, float radius, float y)
+#define LIFT_X  -3.0f           // the lift platform (world.c draws it, yard.c walks on it)
+#define LIFT_Z   2.2f
+
+// A station's frame: on the row at x, height y, facing the aisle (+Z), so
+// "+X to your right, +Z toward you" as you stand in front of it.
+static inline SfxrPose row_pose(float x, float y)
 {
-    float a = angle_deg * DEG2RAD;
-    return vrui_facing((Vector3){ radius * sinf(a), y, -radius * cosf(a) }, (Vector3){ 0, y, 0 });
+    return (SfxrPose){ { x, y, ROW_Z }, QuaternionIdentity() };
+}
+
+// The sign above a station: a board 2.1 m up, set back behind the station
+// so it never blocks your reach. vrui_sign (vrui.h section 9) sizes the
+// letters from the board's width.
+static inline void station_sign(float x, const char *title, const char *body)
+{
+    vrui_sign((SfxrPose){ { x, 2.15f, ROW_Z - 0.45f }, QuaternionIdentity() }, 1.2f, title, body,
+              (Color){ 44, 50, 64, 255 });
 }
 
 // Widget id groups: VRUI_ID2(group, index).
-enum { G_TABLE = 1, G_PANEL, G_WRIST, G_BLOCKS, G_BENCH, G_CTRL, G_HEADSET, G_LINK, G_YARD, G_HINGE };
+enum { G_TABLE = 1, G_PANEL, G_WRIST, G_BLOCKS, G_BENCH, G_CTRL, G_HEADSET, G_LINK, G_YARD, G_HINGE,
+       G_ATTACH, G_MENUS, G_HUD };
 
 // World settings, changed by the workbench controls and the Toolbox panel.
 typedef struct {
@@ -78,12 +99,27 @@ extern const char *const SPAWN_COLOR_NAMES[6];
 
 // the stations (each between vrui_begin/end)
 void panels_toolbox(VruiLocoConfig *loco);
-void panels_wrist(void);
 void bench_mechanisms(void);
 void bench_linkage(void);
 void panel_controllers(void);
 void panel_headset(void);
 void station_hinges(void);
+void station_attach(void);
+
+// hud.c: visor HUD templates (the garden uses them too)
+typedef enum { HUD_OFF, HUD_HEAD, HUD_FOLLOW, HUD_BODY, HUD_COUNT } HudStyle;
+extern const char *const HUD_STYLE_NAMES[HUD_COUNT];
+void hud_show(HudStyle style, const char *text, Color accent);
+
+// station_menus.c: hand menus (watch, palm, tablet, radial) and the Menus &
+// HUD station that switches them on and off. Every menu offers the same list
+// of choices (the caller's: the toolbox and the garden pass their own);
+// menus_update returns the index picked this frame from any of them, or -1.
+int      menus_update(const char *const *items, int count, const char *watch_text);
+void     station_menus(void);
+HudStyle menus_hud_style(void);
+void     menus_set_hud_style(HudStyle style);
+bool     menus_edge_arrows(void);
 
 // yard.c: surfaces, pads and handholds; yard_setup fills in the loco config
 void yard_setup(VruiLocoConfig *loco);

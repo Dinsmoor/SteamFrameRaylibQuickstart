@@ -1,5 +1,6 @@
-// yard.c - the Movement yard, straight ahead past the workbench: examples
-// of moving the player that aren't "teleport anywhere" (docs/MOVEMENT.md).
+// yard.c - the Movement yard, behind you as you face the row of stations:
+// examples of moving the player that aren't "teleport anywhere"
+// (docs/MOVEMENT.md).
 //
 //   Teleport pads   inside the yard you can only land on a pad; each pad
 //                   puts you on its center facing the way its arrow points
@@ -9,14 +10,23 @@
 //                   edge and let go to stand on it
 //   Monkey bars     between two platforms: hand over hand; let go and you
 //                   drop to the ground
-//   The LIFT        (by the workbench) is a surface too: stand on it and move
-//                   the LIFT slider with the laser
+//   The LIFT        (on the way to the yard) is a surface too: stand on it and
+//                   move the workbench's LIFT slider with the laser
 //
 // All of it is data for vrui_locomotion: a ground_height() function over a
 // list of boxes, a pad list, a valid_target() rule, and handholds. The boxes
 // are the only "physics" -- enough for platforms, stairs, walls and lifts.
+//
+// The numbers below are written as if the yard were straight ahead of the
+// spawn point (-Z), which is easy to picture; W() turns the whole yard round
+// to stand behind it. A half turn keeps every box lined up with the axes, so
+// the box tests stay simple. (To put it elsewhere, change W and L together.)
 
 #include "toolbox.h"
+
+static Vector3 W(Vector3 p) { return (Vector3){ -p.x, p.y, -p.z }; }   // yard -> world
+static Vector3 L(Vector3 p) { return (Vector3){ -p.x, p.y, -p.z }; }   // world -> yard (a half turn is its own inverse)
+#define YAW_TURN 180.0f
 
 typedef struct { Vector3 lo, hi; Color color; } Block;   // hi.y is the top you stand on
 
@@ -42,7 +52,7 @@ static const Block BLOCKS[] = {
 };
 #define NBLOCKS ((int)(sizeof BLOCKS / sizeof BLOCKS[0]))
 
-static const VruiTeleportPad PADS[] = {
+static const VruiTeleportPad PADS_YARD[] = {
     { { 0.0f, 0, -4.6f }, 0.45f, true, 0 },               // the way in
     { { -2.0f, 0, -7.2f }, 0.45f, true, 0 },              // foot of the wall
     { { -2.0f, WALL_TOP, -9.6f }, 0.45f, true, 180 },     // top of the wall, looking back
@@ -50,22 +60,28 @@ static const VruiTeleportPad PADS[] = {
     { { 2.0f, 0.8f, -9.4f }, 0.4f, true, 180 },           // far one, looking back
     { { 0.0f, 0, -11.2f }, 0.45f, true, 180 },            // the far end
 };
-#define NPADS ((int)(sizeof PADS / sizeof PADS[0]))
+#define NPADS ((int)(sizeof PADS_YARD / sizeof PADS_YARD[0]))
+static VruiTeleportPad PADS[NPADS];   // the same, in world space (yard_setup)
 
-// The lift by the workbench (world.c) is a surface like any other.
-static Block lift_block(void) { return (Block){ { -2.9f, 0, -2.9f }, { -1.9f, world_lift_height(), -1.9f }, { 0 } }; }
+static bool on_block(Vector3 p, const Block *b, float *g)
+{
+    if (p.x >= b->lo.x && p.x <= b->hi.x && p.z >= b->lo.z && p.z <= b->hi.z && b->hi.y <= p.y + 1e-4f && b->hi.y > *g) {
+        *g = b->hi.y;
+        return true;
+    }
+    return false;
+}
 
 // vrui_locomotion's ground_height: the highest top at or below p.
 static float toolbox_ground(Vector3 p, void *user)
 {
     (void)user;
     float g = 0;
-    Block lift = lift_block();
-    for (int i = 0; i <= NBLOCKS; i++) {
-        const Block *b = i < NBLOCKS ? &BLOCKS[i] : &lift;
-        if (p.x >= b->lo.x && p.x <= b->hi.x && p.z >= b->lo.z && p.z <= b->hi.z && b->hi.y <= p.y + 1e-4f && b->hi.y > g)
-            g = b->hi.y;
-    }
+    Vector3 y = L(p);
+    for (int i = 0; i < NBLOCKS; i++) on_block(y, &BLOCKS[i], &g);
+    // the lift (world.c) is a surface like any other, already in world space
+    Block lift = { { LIFT_X - 0.5f, 0, LIFT_Z - 0.5f }, { LIFT_X + 0.5f, world_lift_height(), LIFT_Z + 0.5f }, { 0 } };
+    on_block(p, &lift, &g);
     return g;
 }
 
@@ -74,11 +90,17 @@ static float toolbox_ground(Vector3 p, void *user)
 static bool outside_yard(Vector3 t, void *user)
 {
     (void)user;
-    return !(t.x > YARD_X0 && t.x < YARD_X1 && t.z > YARD_Z0 && t.z < YARD_Z1);
+    Vector3 y = L(t);
+    return !(y.x > YARD_X0 && y.x < YARD_X1 && y.z > YARD_Z0 && y.z < YARD_Z1);
 }
 
 void yard_setup(VruiLocoConfig *loco)
 {
+    for (int i = 0; i < NPADS; i++) {
+        PADS[i] = PADS_YARD[i];
+        PADS[i].center = W(PADS_YARD[i].center);
+        PADS[i].yaw_deg = PADS_YARD[i].yaw_deg + YAW_TURN;
+    }
     loco->ground_height = toolbox_ground;
     loco->valid_target = outside_yard;
     loco->pads = PADS;
@@ -98,30 +120,31 @@ void yard_update(void)
     };
     for (int i = 0; i < (int)(sizeof ROCKS / sizeof ROCKS[0]); i++) {
         Vector3 at = { ROCKS[i][0], ROCKS[i][1], WALL_FACE_Z + 0.04f };
-        vrui_handhold(VRUI_ID2(G_YARD, ++id), at, at, 0.035f, hold);
+        vrui_handhold(VRUI_ID2(G_YARD, ++id), W(at), W(at), 0.035f, hold);
     }
     // a ladder on the right part: rungs every 30 cm, standing off the face
     for (int i = 0; i < 8; i++) {
         float y = 0.35f + 0.3f * (float)i;
-        vrui_handhold(VRUI_ID2(G_YARD, ++id), (Vector3){ -1.35f, y, WALL_FACE_Z + 0.08f },
-                      (Vector3){ -0.95f, y, WALL_FACE_Z + 0.08f }, 0.018f, rung);
+        vrui_handhold(VRUI_ID2(G_YARD, ++id), W((Vector3){ -1.35f, y, WALL_FACE_Z + 0.08f }),
+                      W((Vector3){ -0.95f, y, WALL_FACE_Z + 0.08f }), 0.018f, rung);
     }
     // the top edge: grab it to pull yourself over
-    vrui_handhold(VRUI_ID2(G_YARD, ++id), (Vector3){ -3.15f, WALL_TOP, WALL_FACE_Z + 0.03f },
-                  (Vector3){ -0.85f, WALL_TOP, WALL_FACE_Z + 0.03f }, 0.03f, hold);
+    vrui_handhold(VRUI_ID2(G_YARD, ++id), W((Vector3){ -3.15f, WALL_TOP, WALL_FACE_Z + 0.03f }),
+                  W((Vector3){ -0.85f, WALL_TOP, WALL_FACE_Z + 0.03f }), 0.03f, hold);
 
     // monkey bars across the gap between the platforms
     for (int i = 0; i < 6; i++) {
         float z = -6.4f - 0.44f * (float)i;
-        vrui_handhold(VRUI_ID2(G_YARD, ++id), (Vector3){ 1.4f, BAR_Y, z }, (Vector3){ 2.6f, BAR_Y, z }, 0.02f, rung);
+        vrui_handhold(VRUI_ID2(G_YARD, ++id), W((Vector3){ 1.4f, BAR_Y, z }), W((Vector3){ 2.6f, BAR_Y, z }), 0.02f, rung);
     }
 
-    vrui_text3d((Vector3){ 0, 4.2f, -7.0f }, "Movement yard", 0.1f, RAYWHITE);
-    vrui_text3d((Vector3){ 0, 3.85f, -7.0f }, "in here you can only teleport onto pads", 0.07f, RAYWHITE);
-    vrui_text3d((Vector3){ -2.0f, WALL_TOP + 0.5f, WALL_FACE_Z + 0.3f },
+    // signs: the yard's name over the entrance, and a word at each example
+    SfxrPose gate = vrui_facing(W((Vector3){ 0, 3.2f, YARD_Z1 }), (Vector3){ 0, 3.2f, 0 });   // faces the row
+    vrui_sign(gate, 2.4f, "Movement yard", "in here you can only teleport onto pads", (Color){ 44, 50, 64, 255 });
+    vrui_text3d(W((Vector3){ -2.0f, WALL_TOP + 0.5f, WALL_FACE_Z + 0.3f }),
                 "climb: grab, pull down, push over the top, let go", 0.06f, RAYWHITE);
-    vrui_text3d((Vector3){ 2.0f, BAR_Y + 0.35f, -7.5f }, "monkey bars: hand over hand", 0.06f, RAYWHITE);
-    vrui_text3d((Vector3){ 2.0f, 1.2f, -3.9f }, "stairs: walk up in your room", 0.05f, RAYWHITE);
+    vrui_text3d(W((Vector3){ 2.0f, BAR_Y + 0.35f, -7.5f }), "monkey bars: hand over hand", 0.06f, RAYWHITE);
+    vrui_text3d(W((Vector3){ 2.0f, 1.2f, -3.9f }), "stairs: walk up in your room", 0.05f, RAYWHITE);
 }
 
 void yard_draw(void)
@@ -129,23 +152,23 @@ void yard_draw(void)
     if (world.passthrough) return;
     for (int i = 0; i < NBLOCKS; i++) {
         const Block *b = &BLOCKS[i];
-        Vector3 c = Vector3Scale(Vector3Add(b->lo, b->hi), 0.5f), s = Vector3Subtract(b->hi, b->lo);
+        Vector3 c = W(Vector3Scale(Vector3Add(b->lo, b->hi), 0.5f)), s = Vector3Subtract(b->hi, b->lo);
         DrawCubeV(c, s, b->color);
         DrawCubeWiresV(c, s, (Color){ 40, 40, 48, 255 });
     }
     // ladder rails
     for (int k = 0; k < 2; k++) {
         float x = k ? -0.95f : -1.35f;
-        DrawCylinderEx((Vector3){ x, 0, WALL_FACE_Z + 0.08f }, (Vector3){ x, WALL_TOP, WALL_FACE_Z + 0.08f }, 0.02f, 0.02f, 6,
+        DrawCylinderEx(W((Vector3){ x, 0, WALL_FACE_Z + 0.08f }), W((Vector3){ x, WALL_TOP, WALL_FACE_Z + 0.08f }), 0.02f, 0.02f, 6,
                        (Color){ 160, 160, 170, 255 });
     }
     // monkey-bar frame: two rails and four posts
     Color frame = { 80, 84, 96, 255 };
     for (int k = 0; k < 2; k++) {
         float x = k ? 2.6f : 1.4f;
-        DrawCylinderEx((Vector3){ x, BAR_Y, -6.2f }, (Vector3){ x, BAR_Y, -8.8f }, 0.03f, 0.03f, 6, frame);
-        DrawCylinderEx((Vector3){ x, 0.8f, -6.2f }, (Vector3){ x, BAR_Y, -6.2f }, 0.04f, 0.04f, 6, frame);
-        DrawCylinderEx((Vector3){ x, 0.8f, -8.8f }, (Vector3){ x, BAR_Y, -8.8f }, 0.04f, 0.04f, 6, frame);
+        DrawCylinderEx(W((Vector3){ x, BAR_Y, -6.2f }), W((Vector3){ x, BAR_Y, -8.8f }), 0.03f, 0.03f, 6, frame);
+        DrawCylinderEx(W((Vector3){ x, 0.8f, -6.2f }), W((Vector3){ x, BAR_Y, -6.2f }), 0.04f, 0.04f, 6, frame);
+        DrawCylinderEx(W((Vector3){ x, 0.8f, -8.8f }), W((Vector3){ x, BAR_Y, -8.8f }), 0.04f, 0.04f, 6, frame);
     }
     // pads: a disc and an arrow the way you'll face
     for (int i = 0; i < NPADS; i++) {

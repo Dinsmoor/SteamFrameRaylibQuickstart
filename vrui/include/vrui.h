@@ -18,7 +18,9 @@
 //   6. Press and rocker                          (short forms: push_button, switch)
 //   7. Displays: gauge, odometer, lamp
 //   8. Locomotion
-//   9. Queued 3D drawing helpers
+//   9. Text and labels in the world
+//  10. Things that go with the player: body, HUDs, hand menus
+//  11. Queued 3D drawing helpers
 //
 // Naming: short forms are named after the THING and use default behavior
 // (vrui_knob, vrui_lever...). Full forms are named after the MOTION and take
@@ -173,6 +175,10 @@ void vrui_panel_capture(VruiCapture mode);
 // Begins a panel. `pose` is updated when the player drags it by the title bar
 // (keep it in a persistent variable). title == NULL: no title bar, not
 // movable. Returns true when the panel is shown -- pair with vrui_panel_end().
+// A display, not a control (set before vrui_panel_begin): no laser, no
+// input claims. HUDs use this, so a readout floating in front of you never
+// catches the laser meant for what's behind it.
+void vrui_panel_passive(void);
 bool vrui_panel_begin(VruiId id, SfxrPose *pose, float width_m, float height_m, const char *title);
 void vrui_panel_end(void);
 Rectangle vrui_panel_content(void);   // content area in panel pixels (below the title bar)
@@ -461,10 +467,89 @@ bool     vrui_climbing(void);   // a hand is on a handhold: the rig follows it
 bool     vrui_airborne(void);   // falling, or just let go and not landed yet
 
 // ===========================================================================
-// 9. Queued 3D drawing helpers (call from logic code; drawn by vrui_draw)
+// 9. Text and labels in the world (vrui_label.c)
+// ===========================================================================
+//
+// Pick by who reads it, and from where:
+//   vrui_text3d   floats and turns to face you (yaw only): names over things.
+//   vrui_text_at  printed at a pose, facing its +Z: signs, plaques, the words
+//                 on a control. Seen from behind, it isn't drawn at all.
+//   vrui_tag      vrui_text3d on a dark plate, readable over any background.
+//   vrui_callout  points AT something: a dot on `anchor`, a leader line up
+//                 `lift_m`, and a tag. It keeps its apparent size as you step
+//                 back (up to 5 cm letters) and hides past 8 m.
+//   vrui_sign     a board with a title and lines of text (station signs).
+// Text is left-aligned inside its block, and the block is centered on the
+// position; "\n" starts a new line.
+//
+// How big: text reads comfortably at about 1 degree tall on the Frame, which
+// is 1.75 cm per meter of distance: vrui_text_height(distance, 1.0f).
+//
+// Labels on moving things: every call takes a position or pose worked out
+// THIS frame, so a label follows whatever you compute it from:
+//   vrui_callout(sfxr_pose_apply(cube_pose, (Vector3){ 0, 0.05f, 0 }), "cube", 0.12f, WHITE);
+// (docs/ATTACHING.md; the toolbox's "Attach & label" bench shows each kind.)
+
+void    vrui_text3d(Vector3 position, const char *text, float height_m, Color color);   // billboard
+void    vrui_text_at(SfxrPose pose, const char *text, float height_m, Color color);    // fixed, faces +Z
+void    vrui_tag(Vector3 position, const char *text, float height_m, Color color, Color plate);
+void    vrui_callout(Vector3 anchor, const char *text, float lift_m, Color color);
+void    vrui_sign(SfxrPose pose, float width_m, const char *title, const char *body, Color board);   // pose = middle of the face
+Vector2 vrui_text_size(const char *text, float height_m);    // meters (width, height)
+float   vrui_text_height(float distance_m, float degrees);   // height that looks `degrees` tall from that far
+
+// ===========================================================================
+// 10. Things that go with the player: body, HUDs, hand menus (vrui_attach.c,
+//     vrui_menu.c). The patterns are in docs/ATTACHING.md; the toolbox's
+//     "Menus & HUD" station has one of each to try.
+// ===========================================================================
+//
+// Anything can ride along with the player by working out its pose from one
+// of these every frame:
+//   the head      sfxr_head()           a visor HUD (keep it small and low)
+//   a hand        sfxr_hand(h)->grip    a wrist watch, a tablet in your hand
+//   the body      vrui_body()           a belt, holsters, a display at your waist
+//   the rig       sfxr_rig_position()   things that travel with you (a follow HUD)
+
+// The player's estimated body: on the floor under the head, facing where the
+// head has been facing (it lags head turns under 45 degrees, drifts after
+// you, and snap turns carry it). +Y up, -Z forward. For a belt at the waist:
+//   sfxr_pose_mul(vrui_body(), (SfxrPose){ { 0, 0.6f * vrui_eye_height(), 0 }, QuaternionIdentity() })
+SfxrPose vrui_body(void);
+float    vrui_eye_height(void);         // eyes above the floor you stand on (m)
+
+// Lazy follow ("tag-along"): returns where a HUD should be this frame. It
+// stays put while `target` is within max_deg of it (seen from your eyes) and
+// 30 cm in depth; once it's further off it glides to the target in about
+// glide_s seconds, then rests again. It rides with the rig, so teleports and
+// snap turns don't make it swoop. One id per follower.
+SfxrPose vrui_follow(VruiId id, SfxrPose target, float max_deg, float glide_s);
+
+// An arrow at the edge of your view pointing toward `target` when it is out
+// of view (more than 30 degrees off where you look); nothing when it's in
+// view. Returns true when drawn. For "bug behind you", "your ball is there".
+bool vrui_offscreen_arrow(Vector3 target, const char *label, Color color);
+
+// Draw over the world (no depth test) whatever is queued between these:
+// HUDs, pointers, menus that must not disappear into a wall.
+void vrui_on_top_begin(void);
+void vrui_on_top_end(void);
+
+// Wash the whole view with a color this frame (0..1): a damage flash, a
+// "you can't go there" hint. Use it briefly and gently.
+void vrui_tint(Color color, float alpha);
+
+// Radial (pie) menu on one controller: hold `hold` (e.g. &hand->secondary),
+// tilt the stick toward a choice, let go of the button to pick it. Returns
+// the index picked (once, on release) or -1. Letting go with the stick
+// centered cancels. The hand's stick is claimed while it is open.
+int  vrui_radial_menu(VruiId id, SfxrHandId hand, const SfxrButton *hold, const char *const *items, int count);
+bool vrui_radial_open(VruiId id);
+
+// ===========================================================================
+// 11. Queued 3D drawing helpers (call from logic code; drawn by vrui_draw)
 // ===========================================================================
 
-void vrui_text3d(Vector3 position, const char *text, float height_m, Color color); // billboard, faces head
 void vrui_box(SfxrPose pose, Vector3 size, Color color);
 void vrui_line(Vector3 a, Vector3 b, Color color);
 void vrui_fade(float alpha);   // darken the whole view this frame (0..1)

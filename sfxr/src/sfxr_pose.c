@@ -57,6 +57,11 @@ SfxrPose sfxr_pose_inverse(SfxrPose p)
     return r;
 }
 
+SfxrPose sfxr_pose_relative(SfxrPose parent, SfxrPose child_world)
+{
+    return sfxr_pose_mul(sfxr_pose_inverse(parent), child_world);
+}
+
 SfxrPose sfxr_pose_lerp(SfxrPose a, SfxrPose b, float t)
 {
     SfxrPose r;

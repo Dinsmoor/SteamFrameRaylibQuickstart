@@ -287,6 +287,9 @@ void vrui_begin(void)
     C.ncmds = 0;
     C.ntext = 0;
     C.fade = 0.0f;
+    C.tint = (Color){ 0 };
+    C.on_top = 0;
+    vrui__body_update();
     for (int h = 0; h < 2; h++) {
         C.ray_offer_id[h] = VRUI_ID_NONE;
         C.ray_offer_dist[h] = 0;
@@ -302,6 +305,7 @@ void vrui_begin(void)
 void vrui_end(void)
 {
     if (C.npull) { TraceLog(LOG_WARNING, "VRUI: %d vrui_push_pull without vrui_pop_pull this frame", C.npull); C.npull = 0; }
+    if (C.on_top) { TraceLog(LOG_WARNING, "VRUI: vrui_on_top_begin without vrui_on_top_end this frame"); C.on_top = 0; }
     for (int h = 0; h < 2; h++) {
         const SfxrHand *hand = sfxr_hand((SfxrHandId)h);
         // Release captures once the hand has let go completely. Widgets
@@ -340,7 +344,7 @@ void vrui_end(void)
         if (how && !C.grab_active[h] && !C.ray_active[h]) {
             Vector3 at = C.grab_hot[h] ? Vector3Add(hand->grip.position, (Vector3){ 0, 0.09f, 0 })
                                        : Vector3Add(C.laser_to[h], (Vector3){ 0, 0.05f, 0 });
-            vrui_text3d(at, how, 0.014f, C.style.text_dim);
+            vrui_tag(at, how, 0.014f, C.style.text, (Color){ 20, 22, 28, 200 });
         }
     }
     vrui__haptics_flush();
@@ -358,6 +362,7 @@ VruiCmd *vrui__cmd(VruiCmdKind kind, Color color)
     memset(c, 0, sizeof(*c));
     c->kind = kind;
     c->color = color;
+    c->on_top = C.on_top > 0;
     return c;
 }
 
@@ -390,6 +395,14 @@ void vrui__cylinder(Vector3 a, Vector3 b, float r, Color color)
     c->size = (Vector3){ r, r, 0 };
 }
 
+void vrui__triangle(Vector3 a, Vector3 b, Vector3 c3, Color color)
+{
+    VruiCmd *c = vrui__cmd(CMD_TRI, color);
+    c->a = a;
+    c->b = b;
+    c->size = c3;
+}
+
 void vrui__ring(SfxrPose pose, float r, Color color)
 {
     VruiCmd *c = vrui__cmd(CMD_RING, color);
@@ -397,19 +410,20 @@ void vrui__ring(SfxrPose pose, float r, Color color)
     c->size.x = r;
 }
 
-void vrui_text3d(Vector3 position, const char *text, float height_m, Color color)
+void vrui_fade(float alpha) { if (alpha > C.fade) C.fade = alpha; }
+void vrui_tint(Color color, float alpha)
 {
-    int len = (int)strlen(text);
-    if (C.ntext + len + 1 > VRUI_TEXT_ARENA) return;
-    VruiCmd *c = vrui__cmd(CMD_TEXT, color);
-    c->a = position;
-    c->size.x = height_m;
-    c->text_off = C.ntext;
-    memcpy(C.text + C.ntext, text, (size_t)len + 1);
-    C.ntext += len + 1;
+    if (alpha <= C.tint.a / 255.0f) return;
+    C.tint = color;
+    C.tint.a = (unsigned char)(Clamp(alpha, 0, 1) * 255);
 }
 
-void vrui_fade(float alpha) { if (alpha > C.fade) C.fade = alpha; }
+void vrui_on_top_begin(void) { C.on_top++; }
+void vrui_on_top_end(void)
+{
+    if (C.on_top > 0) C.on_top--;
+    else TraceLog(LOG_WARNING, "VRUI: vrui_on_top_end without a begin");
+}
 
 // ---------------------------------------------------------------------------
 // Math
@@ -464,24 +478,54 @@ static void draw_panel_quad(const VruiCmd *c)
     rlEnd();
 }
 
+// One quad, corners in order top-left, bottom-left, bottom-right, top-right
+// (counter-clockwise seen from the front, so its back is culled).
+static void quad(Vector3 tl, Vector3 right, Vector3 down, Color col)
+{
+    Vector3 bl = Vector3Add(tl, down), br = Vector3Add(bl, right), tr = Vector3Add(tl, right);
+    rlColor4ub(col.r, col.g, col.b, col.a);
+    rlVertex3f(tl.x, tl.y, tl.z); rlVertex3f(bl.x, bl.y, bl.z);
+    rlVertex3f(br.x, br.y, br.z); rlVertex3f(tr.x, tr.y, tr.z);
+}
+
+// Text laid out on a plane: facing the head (billboard, yaw only) or lying
+// on the command's pose (facing its +Z). The block is centered on the
+// anchor; lines are left-aligned inside it.
 static void draw_text3d(const VruiCmd *c)
 {
     const char *text = C.text + c->text_off;
     Font f = C.font;
     float scale = c->size.x / (float)f.baseSize;
     Vector2 m = MeasureTextEx(f, text, (float)f.baseSize, 1.0f);
-    Vector3 head = sfxr_head().position;
-    Vector3 d = Vector3Subtract(head, c->a);
-    d.y = 0;
-    if (Vector3Length(d) < 1e-4f) d = (Vector3){0, 0, 1};
-    d = Vector3Normalize(d);
-    Vector3 up = { 0, 1, 0 };
-    Vector3 right = Vector3CrossProduct(up, d);
+    Vector3 up, right, normal, origin = c->a;
+    if (c->billboard) {
+        Vector3 d = Vector3Subtract(sfxr_head().position, c->a);
+        d.y = 0;
+        if (Vector3Length(d) < 1e-4f) d = (Vector3){0, 0, 1};
+        normal = Vector3Normalize(d);
+        up = (Vector3){ 0, 1, 0 };
+        right = Vector3CrossProduct(up, normal);
+    } else {
+        origin = c->pose.position;
+        up = sfxr_pose_up(c->pose);
+        right = sfxr_pose_right(c->pose);
+        normal = Vector3CrossProduct(right, up);
+    }
+
+    if (c->bg.a > 0) {   // backing plate, a hair behind the glyphs
+        float pad = c->size.x * 0.35f;
+        float w = m.x * scale + 2 * pad, h = m.y * scale + 2 * pad;
+        Vector3 tl = Vector3Add(origin, Vector3Add(Vector3Scale(right, -w * 0.5f), Vector3Scale(up, h * 0.5f)));
+        tl = Vector3Add(tl, Vector3Scale(normal, -0.002f));
+        rlSetTexture(0);
+        rlBegin(RL_QUADS);
+        quad(tl, Vector3Scale(right, w), Vector3Scale(up, -h), c->bg);
+        rlEnd();
+    }
 
     float x = -m.x * 0.5f, y = m.y * 0.5f;   // centered, in font px
     rlSetTexture(f.texture.id);
     rlBegin(RL_QUADS);
-    rlColor4ub(c->color.r, c->color.g, c->color.b, c->color.a);
     for (const char *s = text; *s;) {
         int bytes = 0;
         int cp = GetCodepointNext(s, &bytes);
@@ -492,13 +536,13 @@ static void draw_text3d(const VruiCmd *c)
         GlyphInfo g = f.glyphs[gi];
         if (cp != ' ' && cp != '\t') {
             float gx = x + (float)g.offsetX, gy = y - (float)g.offsetY;
-            float pad = 0.0f;
-            Vector3 o = Vector3Add(c->a, Vector3Add(Vector3Scale(right, gx * scale), Vector3Scale(up, gy * scale)));
-            Vector3 w = Vector3Scale(right, (rec.width + pad) * scale);
-            Vector3 hgt = Vector3Scale(up, -(rec.height + pad) * scale);
+            Vector3 o = Vector3Add(origin, Vector3Add(Vector3Scale(right, gx * scale), Vector3Scale(up, gy * scale)));
+            Vector3 w = Vector3Scale(right, rec.width * scale);
+            Vector3 hgt = Vector3Scale(up, -rec.height * scale);
             float u0 = rec.x / f.texture.width, v0 = rec.y / f.texture.height;
             float u1 = (rec.x + rec.width) / f.texture.width, v1 = (rec.y + rec.height) / f.texture.height;
             Vector3 p0 = o, p1 = Vector3Add(o, hgt), p2 = Vector3Add(p1, w), p3 = Vector3Add(o, w);
+            rlColor4ub(c->color.r, c->color.g, c->color.b, c->color.a);
             rlTexCoord2f(u0, v0); rlVertex3f(p0.x, p0.y, p0.z);
             rlTexCoord2f(u0, v1); rlVertex3f(p1.x, p1.y, p1.z);
             rlTexCoord2f(u1, v1); rlVertex3f(p2.x, p2.y, p2.z);
@@ -576,28 +620,50 @@ static void draw_controllers(void)
     }
 }
 
+static void draw_cmd(const VruiCmd *c)
+{
+    switch (c->kind) {
+    case CMD_BOX:
+        sfxr_push_pose(c->pose);
+        DrawCube((Vector3){0}, c->size.x, c->size.y, c->size.z, c->color);
+        sfxr_pop_pose();
+        break;
+    case CMD_BOX_WIRES:
+        sfxr_push_pose(c->pose);
+        DrawCubeWires((Vector3){0}, c->size.x, c->size.y, c->size.z, c->color);
+        sfxr_pop_pose();
+        break;
+    case CMD_SPHERE:   DrawSphereEx(c->a, c->size.x, 8, 12, c->color); break;
+    case CMD_CYLINDER: DrawCylinderEx(c->a, c->b, c->size.x, c->size.y, 16, c->color); break;
+    case CMD_LINE:     DrawLine3D(c->a, c->b, c->color); break;
+    case CMD_PANEL:    draw_panel_quad(c); break;
+    case CMD_TEXT:     draw_text3d(c); break;
+    case CMD_RING:     draw_ring(c); break;
+    case CMD_TRI:
+        DrawTriangle3D(c->a, c->b, c->size, c->color);
+        DrawTriangle3D(c->a, c->size, c->b, c->color);
+        break;
+    }
+}
+
+// A sphere around the head, drawn over everything (teleport blinks, flashes).
+static void view_sphere(Color col)
+{
+    rlDrawRenderBatchActive();
+    rlDisableDepthTest();
+    rlDisableBackfaceCulling();
+    DrawSphereEx(sfxr_head().position, 0.25f, 8, 12, col);
+    rlDrawRenderBatchActive();
+    rlEnableBackfaceCulling();
+    rlEnableDepthTest();
+}
+
 void vrui_draw(void)
 {
+    bool any_on_top = false;
     for (int i = 0; i < C.ncmds; i++) {
-        const VruiCmd *c = &C.cmds[i];
-        switch (c->kind) {
-        case CMD_BOX:
-            sfxr_push_pose(c->pose);
-            DrawCube((Vector3){0}, c->size.x, c->size.y, c->size.z, c->color);
-            sfxr_pop_pose();
-            break;
-        case CMD_BOX_WIRES:
-            sfxr_push_pose(c->pose);
-            DrawCubeWires((Vector3){0}, c->size.x, c->size.y, c->size.z, c->color);
-            sfxr_pop_pose();
-            break;
-        case CMD_SPHERE:   DrawSphereEx(c->a, c->size.x, 8, 12, c->color); break;
-        case CMD_CYLINDER: DrawCylinderEx(c->a, c->b, c->size.x, c->size.y, 16, c->color); break;
-        case CMD_LINE:     DrawLine3D(c->a, c->b, c->color); break;
-        case CMD_PANEL:    draw_panel_quad(c); break;
-        case CMD_TEXT:     draw_text3d(c); break;
-        case CMD_RING:     draw_ring(c); break;
-        }
+        if (C.cmds[i].on_top) any_on_top = true;
+        else draw_cmd(&C.cmds[i]);
     }
 
     if (C.show_controllers) draw_controllers();
@@ -609,13 +675,16 @@ void vrui_draw(void)
         if (C.laser_hit[h]) DrawSphereEx(C.laser_to[h], 0.006f, 6, 8, C.style.cursor);
     }
 
-    if (C.fade > 0.001f) {
+    // On-top pass (HUDs, pointers): no depth test, so nothing in the world
+    // can hide them; they draw in the order they were queued.
+    if (any_on_top) {
         rlDrawRenderBatchActive();
         rlDisableDepthTest();
-        rlDisableBackfaceCulling();
-        DrawSphereEx(sfxr_head().position, 0.25f, 8, 12, (Color){ 0, 0, 0, (unsigned char)(Clamp(C.fade, 0, 1) * 255) });
+        for (int i = 0; i < C.ncmds; i++) if (C.cmds[i].on_top) draw_cmd(&C.cmds[i]);
         rlDrawRenderBatchActive();
-        rlEnableBackfaceCulling();
         rlEnableDepthTest();
     }
+
+    if (C.tint.a > 0) view_sphere(C.tint);
+    if (C.fade > 0.001f) view_sphere((Color){ 0, 0, 0, (unsigned char)(Clamp(C.fade, 0, 1) * 255) });
 }
