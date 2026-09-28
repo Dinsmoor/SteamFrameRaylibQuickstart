@@ -1,0 +1,8 @@
+{
+  "steam_frame": {
+    "preferResolution": 1728,
+    "preferMinRefreshRate": 90,
+    "preferHalfFramerate": false,
+    "preferMotionSmoothingMode": "on"
+  }
+}

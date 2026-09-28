@@ -1,0 +1,3 @@
+// sfxr break switches: BREAK(name, "what breaks"). See sfxr/include/sfxr_break.h.
+BREAK(sfxr_shapes_from_values_only, "hand shapes ignore the touch sensors and joints (analog trigger/grip values only)")
+BREAK(sfxr_no_hysteresis, "trigger/grip pull levels release at their press point (no debounce)")

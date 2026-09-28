@@ -1,0 +1,12 @@
+build/
+dist/
+shots/
+external/raylib-6.0/
+external/OpenXR-SDK-release-*/
+!external/*.tar.gz
+compile_commands.json
+.cache/
+.frame-host
+.frame-host-fake
+local-data/
+prefs.cfg

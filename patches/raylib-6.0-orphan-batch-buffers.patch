@@ -1,0 +1,28 @@
+--- a/src/rlgl.h
++++ b/src/rlgl.h
+@@ -2996,21 +2996,25 @@
+ 
+         // Vertex positions buffer
+         glBindBuffer(GL_ARRAY_BUFFER, batch->vertexBuffer[batch->currentBuffer].vboId[0]);
++        glBufferData(GL_ARRAY_BUFFER, batch->vertexBuffer[batch->currentBuffer].elementCount*4*3*sizeof(float), NULL, GL_DYNAMIC_DRAW);  // SFQ patch: orphan (fresh storage), see patches/README.md
+         glBufferSubData(GL_ARRAY_BUFFER, 0, RLGL.State.vertexCounter*3*sizeof(float), batch->vertexBuffer[batch->currentBuffer].vertices);
+         //glBufferData(GL_ARRAY_BUFFER, sizeof(float)*3*4*batch->vertexBuffer[batch->currentBuffer].elementCount, batch->vertexBuffer[batch->currentBuffer].vertices, GL_DYNAMIC_DRAW);  // Update all buffer
+ 
+         // Texture coordinates buffer
+         glBindBuffer(GL_ARRAY_BUFFER, batch->vertexBuffer[batch->currentBuffer].vboId[1]);
++        glBufferData(GL_ARRAY_BUFFER, batch->vertexBuffer[batch->currentBuffer].elementCount*4*2*sizeof(float), NULL, GL_DYNAMIC_DRAW);  // SFQ patch: orphan (fresh storage), see patches/README.md
+         glBufferSubData(GL_ARRAY_BUFFER, 0, RLGL.State.vertexCounter*2*sizeof(float), batch->vertexBuffer[batch->currentBuffer].texcoords);
+         //glBufferData(GL_ARRAY_BUFFER, sizeof(float)*2*4*batch->vertexBuffer[batch->currentBuffer].elementCount, batch->vertexBuffer[batch->currentBuffer].texcoords, GL_DYNAMIC_DRAW); // Update all buffer
+ 
+         // Normals buffer
+         glBindBuffer(GL_ARRAY_BUFFER, batch->vertexBuffer[batch->currentBuffer].vboId[2]);
++        glBufferData(GL_ARRAY_BUFFER, batch->vertexBuffer[batch->currentBuffer].elementCount*4*3*sizeof(float), NULL, GL_DYNAMIC_DRAW);  // SFQ patch: orphan (fresh storage), see patches/README.md
+         glBufferSubData(GL_ARRAY_BUFFER, 0, RLGL.State.vertexCounter*3*sizeof(float), batch->vertexBuffer[batch->currentBuffer].normals);
+         //glBufferData(GL_ARRAY_BUFFER, sizeof(float)*3*4*batch->vertexBuffer[batch->currentBuffer].elementCount, batch->vertexBuffer[batch->currentBuffer].normals, GL_DYNAMIC_DRAW); // Update all buffer
+ 
+         // Colors buffer
+         glBindBuffer(GL_ARRAY_BUFFER, batch->vertexBuffer[batch->currentBuffer].vboId[3]);
++        glBufferData(GL_ARRAY_BUFFER, batch->vertexBuffer[batch->currentBuffer].elementCount*4*4*sizeof(unsigned char), NULL, GL_DYNAMIC_DRAW);  // SFQ patch: orphan (fresh storage), see patches/README.md
+         glBufferSubData(GL_ARRAY_BUFFER, 0, RLGL.State.vertexCounter*4*sizeof(unsigned char), batch->vertexBuffer[batch->currentBuffer].colors);
+         //glBufferData(GL_ARRAY_BUFFER, sizeof(float)*4*4*batch->vertexBuffer[batch->currentBuffer].elementCount, batch->vertexBuffer[batch->currentBuffer].colors, GL_DYNAMIC_DRAW);    // Update all buffer
+ 
