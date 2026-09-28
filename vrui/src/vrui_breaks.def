@@ -43,3 +43,7 @@ BREAK(vrui_key_stuck,               "pulling back on a key at its first stop doe
 BREAK(vrui_loco_no_wall_fade,       "putting your head into a wall shows you its inside (no fade)")
 BREAK(vrui_loco_walk_through_walls, "stick walking goes straight through walls")
 BREAK(vrui_smooth_world_space,     "a smoothed held thing ignores the rig, so a teleport smears it across the world")
+BREAK(vrui_wield_keeps_grab_angle, "a wielded thing stays at whatever angle it was grabbed, instead of settling into the hand by its handle")
+BREAK(vrui_wield_second_hand_ignored, "a second hand on a wielded thing's handle doesn't steer it")
+BREAK(vrui_wield_weightless, "wielded things all follow the hand exactly, whatever they weigh")
+BREAK(vrui_wield_not_sticky, "a sticky grip drops the thing as soon as the grip loosens")

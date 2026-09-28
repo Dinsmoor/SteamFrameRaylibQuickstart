@@ -717,6 +717,84 @@ void vrui_line(Vector3 a, Vector3 b, Color color);
 void vrui_fade(float alpha);   // darken the whole view this frame (0..1)
 float vrui_faded(void);        // how dark the view is this frame so far (0..1): pause, mute...
 
+// ===========================================================================
+// 14. Wielding: things held by their handles, with weight (vrui_wield.c,
+//     docs/WIELDING.md). Modeled on Blade & Sorcery's.
+// ===========================================================================
+//
+// A sword, a hammer, a spear, a brick. Take it by a handle and it settles
+// into your hand the way it's meant to be held -- blade up, hammer face
+// forward -- wherever along the handle you took it, whatever angle it was
+// lying at. Then:
+//   * a second hand on a handle holds it too, and steers it (two_handed);
+//     without two_handed the other hand takes it over
+//   * sticky: it stays in your hand until you let go of the grip completely,
+//     and LOOSENING the grip (not letting go) slides your hand along the
+//     handle -- choke up on a spear, slide down a hammer's shaft
+//   * weight: it follows your hand through springs set by its mass and how
+//     far from its balance point you hold it: a feather is on your hand, a
+//     hammer held at the end of its shaft swings behind your wrist, and an
+//     anvil takes two hands to lift (lift_hands)
+//   * laser + grip pulls a dropped thing back into your hand (pull)
+//   * let go and it's loose: it falls, tumbles, bounces and settles on
+//     whatever spec.ground says is below it; thrown, it keeps your swing
+//     (capped by max_throw: you can't throw an anvil)
+//
+// Frames: the thing's own frame is yours to choose; a handle is a segment
+// in it. Your hand holds a handle the way a fist holds a rod: the handle
+// runs out of the thumb side (the grip pose's -Z), and `face` -- a hammer's
+// striking face, a blade's edge -- points where your knuckles do (-Y).
+
+typedef struct {
+    Vector3 a, b;        // the handle, from a to b in the thing's frame (a == b: a single point, held along +Y)
+    Vector3 face;        // the thing's direction that goes where your knuckles point
+    int     rolls;       // ways round it sits in the hand: 1 (face forward only), 2 (forward or back), 0 (any: a round staff)
+    bool    reversible;  // may be held upside down (a dagger's icepick grip): taken the way it lies
+} VruiGrip;
+
+typedef enum { VRUI_WEIGHT_FEATHER, VRUI_WEIGHT_LIGHT, VRUI_WEIGHT_MEDIUM, VRUI_WEIGHT_HEAVY, VRUI_WEIGHT_HUGE,
+               VRUI_WEIGHT_COUNT } VruiWeight;
+
+typedef struct {
+    float   mass;        // kg (0: weightless -- exactly on the hand)
+    Vector3 center;      // balance point (center of mass), own frame
+    Vector3 box_center, half;   // collider, own frame: the laser, the hand's reach when there are no handles, and the ground
+    VruiGrip grip[4];
+    int     ngrips;      // 0: no handles -- held anywhere, the way you took it
+    float   reach;       // how near a hand must be to a handle to take it (m)
+    bool    two_handed;  // a second hand may hold it too
+    int     lift_hands;  // hands it takes to lift it (an anvil: 2); with fewer it drags
+    bool    sticky;      // held until the grip is fully let go
+    bool    slide;       // (sticky) a loosened grip slides along the handle
+    bool    pull;        // laser + grip pulls it to your hand
+    // loose
+    float   gravity;     // m/s/s (9.8; a balloon: negative)
+    float   drag;        // air drag, 1/s (a feather: 4)
+    float   bounce;      // 0..1
+    float   max_throw;   // m/s: the fastest it can leave your hand
+    float (*ground)(Vector3 at);   // the surface height under a point (NULL: the floor, y = 0)
+} VruiWieldSpec;
+
+VruiWieldSpec vrui_wield_spec(VruiWeight weight);   // tested defaults for a thing of that weight
+const char   *vrui_weight_name(VruiWeight weight);   // "feather", "light"...
+
+typedef struct {
+    SfxrPose   pose;             // = *pose: draw it here
+    Vector3    velocity, angular_velocity;
+    int        hands;            // hands on it: 0, 1, 2
+    SfxrHandId hand;             // the hand in charge (hands > 0), or that last held it
+    bool       hovered;          // a hand could take it (or pull it) now
+    bool       grabbed, released;// this frame: the first hand took it / the last let go
+    bool       loose;            // falling, tumbling or sliding to rest
+    bool       pulling;          // flying to a hand (laser pull)
+    bool       sliding[2];       // that hand is sliding along the handle
+    bool       straining;        // fewer hands on it than it takes to lift
+    float      lag;              // how far behind the hands it is (m): the weight showing
+} VruiWield;
+
+VruiWield vrui_wield(VruiId id, SfxrPose *pose, const VruiWieldSpec *spec);
+void      vrui_wield_drop(VruiId id);   // let go with every hand (it falls)
+
 #ifdef __cplusplus
 }
 #endif
