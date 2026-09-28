@@ -104,6 +104,10 @@ typedef struct {
 
     VruiHapticMix hap[2];
 
+    // "how do I use this?" hints for whatever each hand is on (vrui__hint)
+    struct { VruiId id; char text[80]; } hints[64];
+    int nhints;
+
     // VRUI_GRAB_CLOSE state per hand (updated at vrui_begin)
     bool close_armed[2], close_down[2], close_pressed[2];
 
@@ -167,6 +171,12 @@ VruiItem *vrui__item(VruiId id);
 // State for a widget whose id is only unique inside its owner (a panel's widgets).
 VruiItem *vrui__widget_item(VruiId owner, VruiId local);
 void vrui__haptics_flush(void);           // vrui_haptics.c, at vrui_end
+// Say how a widget is used ("poke it", "grab it"...). Shown next to the hand
+// or laser spot while that hand is on it (vrui_style()->show_hints).
+void vrui__hint(VruiId id, const char *how);
+// The words for the current grab style and pull level ("grab it", "close your hand on it"...).
+const char *vrui__grab_words(void);
+const char *vrui__pull_suffix(void);   // "" at FIRM, else " (light pull)" / " (full pull)"
 // Near grab by the style in effect (vrui_style()->grab).
 bool vrui__grab_pressed(int hand);
 bool vrui__grab_down(int hand);

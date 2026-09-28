@@ -179,7 +179,6 @@ VruiMechSpec vrui_plunger_spec(void)
     s.travel = 0.15f;
     s.spring = true;
     s.rest = 0.0f;
-    s.haptic_tension = 0.35f;
     s.color = (Color){ 230, 170, 60, 255 };
     return s;
 }
@@ -242,15 +241,20 @@ static void model_grab(MechState *ms, const VruiMechSpec *sp, float value)
 
 // Spring tension: while a sprung control is held away from its rest point,
 // a hum that gets stronger, higher and wobbles faster the further it is --
-// the only way to tell the hand "this wants to go back".
+// the only way to tell the hand "this wants to go back". Strength grows with
+// the SQUARE of the displacement: barely there near rest (these motors are
+// strong even at low amplitude; a linear ramp felt like full power at 10%),
+// building to haptic_tension at the end of travel.
 static void tension_hum(MechState *ms, const VruiMechSpec *sp, float displacement01, int hand)
 {
-    if (!sp->spring || sp->haptic_tension <= 0 || hand < 0 || displacement01 < 0.02f) return;
+    if (!sp->spring || sp->haptic_tension <= 0 || hand < 0 || displacement01 < 0.05f) return;
     if (SFXR_BREAK(vrui_mech_no_tension)) return;
     float d = Clamp(displacement01, 0, 1);
-    ms->tension_phase += sfxr_dt() * 2.0f * PI * (3.0f + 9.0f * d);   // wobble 3 -> 12 Hz
-    float amp = sp->haptic_tension * (0.25f + 0.75f * d) * (0.7f + 0.3f * sinf(ms->tension_phase));
-    vrui_haptic_hum((SfxrHandId)hand, amp, 70.0f + 190.0f * d);
+    ms->tension_phase += sfxr_dt() * 2.0f * PI * (2.0f + 8.0f * d);   // wobble 2 -> 10 Hz
+    float curve = SFXR_BREAK(vrui_mech_tension_linear) ? d : d * d;
+    float amp = sp->haptic_tension * curve * (0.75f + 0.25f * sinf(ms->tension_phase));
+    if (amp < 0.01f) return;
+    vrui_haptic_hum((SfxrHandId)hand, amp, 60.0f + 160.0f * d);
 }
 
 // One held frame: the hand moved the target by dv (value units). The control
@@ -332,7 +336,12 @@ static bool model_drive(MechState *ms, const VruiMechSpec *sp, float *value, flo
             ms->detent_pos_prev = pos;
         }
     }
-    if (sp->spring) tension_hum(ms, sp, fabsf(out - sp->rest) / fmaxf(fabsf(range_of(sp)) * 0.5f, 1e-6f), hand);
+    if (sp->spring) {
+        // displacement as a fraction of the farthest it can get from rest
+        // (half the range for a centered spring, all of it for a plunger)
+        float reach = fmaxf(fabsf(sp->max - sp->rest), fabsf(sp->rest - sp->min));
+        tension_hum(ms, sp, fabsf(out - sp->rest) / fmaxf(reach, 1e-6f), hand);
+    }
     bool changed = out != *value;
     *value = out;
     return changed;
@@ -510,6 +519,12 @@ static bool stick_adjust(VruiId id, MechState *ms, const VruiMechSpec *sp, float
     return false;
 }
 
+// "How do I use this?" -- every mechanism takes a grab or the laser.
+static void mech_hint(VruiId id)
+{
+    vrui__hint(id, TextFormat("%s | or laser + trigger%s", vrui__grab_words(), vrui__pull_suffix()));
+}
+
 static VruiMech result_from(const VruiHandle *hd, float value)
 {
     VruiMech m = {0};
@@ -549,6 +564,7 @@ VruiMech vrui_rotary(VruiId id, SfxrPose base, const VruiMechSpec *sp, float *va
     vrui__prox_box_all(body, half, prox);
     reach_limit(prox, sp->reach);
     VruiHandle hd = vrui__handle_update(id, it, ray, prox);
+    mech_hint(id);
 
     bool changed = false, have_spot = false;
     Vector3 spot = body.position;
@@ -654,6 +670,7 @@ VruiMech vrui_pivot(VruiId id, SfxrPose base, const VruiMechSpec *sp, float *val
     vrui__prox_box_all(knob_pose, knob_half, prox);
     reach_limit(prox, sp->reach);
     VruiHandle hd = vrui__handle_update(id, it, ray, prox);
+    mech_hint(id);
 
     bool changed = false, have_spot = false;
     Vector3 spot = knob;
@@ -706,6 +723,7 @@ VruiMech vrui_linear(VruiId id, SfxrPose base, const VruiMechSpec *sp, float *va
     vrui__prox_box_all(hp, hhalf, prox);
     reach_limit(prox, sp->reach);
     VruiHandle hd = vrui__handle_update(id, it, ray, prox);
+    mech_hint(id);
 
     bool changed = false;
     if (hd.grabbed) model_grab(ms, sp, *value);
@@ -763,6 +781,7 @@ VruiMech vrui_tilt(VruiId id, SfxrPose base, const VruiMechSpec *sp, Vector2 *va
     vrui__prox_box_all(ball, bhalf, prox);
     reach_limit(prox, sp->reach);
     VruiHandle hd = vrui__handle_update(id, it, ray, prox);
+    mech_hint(id);
 
     bool changed = false;
     Vector3 up = Vector3RotateByQuaternion((Vector3){ 0, 1, 0 }, base.orientation);

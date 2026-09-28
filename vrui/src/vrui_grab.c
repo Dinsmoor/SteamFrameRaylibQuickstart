@@ -122,6 +122,7 @@ VruiGrab vrui_grab_region(VruiId id, SfxrPose *pose, Vector3 half)
     for (int h = 0; h < 2; h++) if (prox[h] > 0.06f) prox[h] = -1;   // near-grab reach
 
     VruiHandle hd = vrui__handle_update(id, it, ray, prox);
+    vrui__hint(id, TextFormat("%s%s | or laser + grip", vrui__grab_words(), vrui__pull_suffix()));
     VruiGrab g = {0};
     g.hovered = hd.hovered;
     g.grabbed = hd.grabbed;

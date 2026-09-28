@@ -2,6 +2,8 @@
 
 #include "vrui_internal.h"
 
+#include <stdio.h>
+
 VruiCtx vrui_ctx;
 
 // ---------------------------------------------------------------------------
@@ -32,6 +34,7 @@ static VruiStyle default_style(void)
     s.haptic_hover  = 0.15f;
     s.haptic_click  = 0.5f;
     s.haptic_scale  = 1.0f;
+    s.show_hints    = true;
     s.pull          = SFXR_PULL_FIRM;
     return s;
 }
@@ -217,9 +220,39 @@ void vrui_claim_input(SfxrHandId h) { C.claim_cur[h == SFXR_RIGHT] = true; }
 bool vrui_input_claimed(SfxrHandId h) { int i = h == SFXR_RIGHT; return C.claim_cur[i] || C.claim_prev[i]; }
 void vrui_panel_capture(VruiCapture mode) { C.next_capture = mode; }
 
+void vrui__hint(VruiId id, const char *how)
+{
+    if (!C.style.show_hints || C.nhints >= (int)(sizeof C.hints / sizeof C.hints[0])) return;
+    C.hints[C.nhints].id = id;
+    snprintf(C.hints[C.nhints].text, sizeof C.hints[0].text, "%s", how);
+    C.nhints++;
+}
+
+const char *vrui__grab_words(void)
+{
+    switch (C.style.grab) {
+    case VRUI_GRAB_CLOSE:           return "close your hand on it";
+    case VRUI_GRAB_GRIP_OR_TRIGGER: return "grab it (grip or trigger)";
+    default:                        return "grab it (grip)";
+    }
+}
+
+const char *vrui__pull_suffix(void)
+{
+    SfxrPull p = vrui_current_pull();
+    return p == SFXR_PULL_SOFT ? " (light pull)" : p == SFXR_PULL_FULL ? " (full pull)" : "";
+}
+
+static const char *hint_for(VruiId id)
+{
+    for (int i = 0; i < C.nhints; i++) if (C.hints[i].id == id) return C.hints[i].text;
+    return NULL;
+}
+
 void vrui_begin(void)
 {
     C.frame++;
+    C.nhints = 0;
     for (int h = 0; h < 2; h++) {
         C.claim_prev[h] = C.claim_cur[h];
         C.claim_cur[h] = false;
@@ -282,6 +315,15 @@ void vrui_end(void)
             if (C.panels[i].id && C.panels[i].id == C.ray_hot[h]) C.laser_on_panel[h] = true;
         float len = C.laser_hit[h] ? C.ray_hot_dist[h] : 0.6f;
         C.laser_to[h] = Vector3Add(r.position, Vector3Scale(r.direction, len));
+
+        // how to use what this hand is on: above the hand when touching, above
+        // the laser spot when pointing
+        const char *how = C.grab_hot[h] ? hint_for(C.grab_hot[h]) : C.ray_hot[h] ? hint_for(C.ray_hot[h]) : NULL;
+        if (how && !C.grab_active[h] && !C.ray_active[h]) {
+            Vector3 at = C.grab_hot[h] ? Vector3Add(hand->grip.position, (Vector3){ 0, 0.09f, 0 })
+                                       : Vector3Add(C.laser_to[h], (Vector3){ 0, 0.05f, 0 });
+            vrui_text3d(at, how, 0.014f, C.style.text_dim);
+        }
     }
     vrui__haptics_flush();
 }

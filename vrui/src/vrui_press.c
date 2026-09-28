@@ -65,6 +65,8 @@ VruiPress vrui_press(VruiId id, SfxrPose base, const VruiPressSpec *sp, bool *la
         st->armed = (st->armed & ~(1u << h)) | ((armed ? 1u : 0u) << h);
     }
     bool poke_down = depth > sp->travel * (was ? sp->release_at : sp->press_at);
+    vrui__hint(id, TextFormat("%s | or laser + trigger%s", sp->require_point ? "poke it with a pointing finger" : "poke it",
+                              vrui__pull_suffix()));
 
     // Laser + trigger (at the current pull level).
     SfxrPose cap_pose = base;
@@ -140,6 +142,7 @@ VruiPress vrui_rocker(VruiId id, SfxrPose base, const VruiRockerSpec *sp, bool *
     SfxrPose body = base;
     body.position = sfxr_pose_apply(base, (Vector3){ 0, sp->half.y, 0 });
     Vector3 poke_half = { sp->half.x, sp->half.y + 0.01f, sp->half.z };
+    vrui__hint(id, TextFormat("poke to flip | or laser + trigger%s", vrui__pull_suffix()));
 
     for (int h = 0; h < 2; h++) {
         const SfxrHand *hand = sfxr_hand((SfxrHandId)h);

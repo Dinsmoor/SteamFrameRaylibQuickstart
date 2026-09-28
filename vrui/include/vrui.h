@@ -107,6 +107,7 @@ typedef struct {
     float haptic_scale;     // scales every vrui haptic (1 default, 0 off): comfort / accessibility
     SfxrPull pull;          // how hard trigger/grip must be pulled (default FIRM; see vrui_push_pull)
     VruiGrabStyle grab;     // how a hand takes hold of things within reach (default GRIP)
+    bool  show_hints;       // say how to use whatever a hand is on ("poke it | or laser + trigger"; default on)
 } VruiStyle;
 
 VruiStyle *vrui_style(void);
@@ -162,8 +163,9 @@ void vrui_haptic_hum(SfxrHandId hand, float amplitude, float frequency_hz);   //
 // How a panel claims input; set before vrui_panel_begin (applies to that panel):
 typedef enum {
     VRUI_CAPTURE_POINT = 0,  // default: a hand whose laser is on the panel
-    VRUI_CAPTURE_LOOK,       // both hands, while the panel is in front of your face
-                             //   (a controller test panel: look at it, use everything)
+    VRUI_CAPTURE_LOOK,       // both hands, while you look at the panel's front (within 30 deg,
+                             //   3 m; never from behind): a controller test panel, look at it
+                             //   and use everything
     VRUI_CAPTURE_MODAL,      // both hands, every frame the panel is shown (dialogs)
 } VruiCapture;
 void vrui_panel_capture(VruiCapture mode);

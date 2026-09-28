@@ -11,6 +11,7 @@ BREAK(vrui_mech_stop_unwind,        "end stops don't hold the raw value, so over
 BREAK(vrui_mech_no_snap,            "selectors can rest between positions")
 BREAK(vrui_mech_no_resistance,      "controls follow the hand at any speed (no weight, no speed limit, no slip)")
 BREAK(vrui_mech_no_tension,         "sprung controls give no tension hum while held away from rest")
+BREAK(vrui_mech_tension_linear,     "the tension hum ramps linearly (near-full strength just off rest)")
 BREAK(vrui_mech_no_spring,          "sprung controls stay where they were released")
 BREAK(vrui_button_ignores_shape,    "point-to-press buttons press for any hand shape")
 BREAK(vrui_grab_style_ignored,      "near grabs always use the grip button, whatever vrui_style()->grab says")

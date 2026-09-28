@@ -106,14 +106,19 @@ bool vrui_panel_begin(VruiId id, SfxrPose *pose, float width_m, float height_m, 
     for (int h = 0; h < 2 && !passive; h++) if (vrui__ray_hot(h, id)) vrui_claim_input((SfxrHandId)h);
     bool capturing = cap == VRUI_CAPTURE_MODAL;
     if (cap == VRUI_CAPTURE_LOOK) {
-        // in front of your face: within 30 deg of where the head points, 3 m
+        // in front of your face (within 30 deg of where the head points, 3 m),
+        // and you're looking at its FRONT: the back of a panel never captures
         SfxrPose head = sfxr_head();
         Vector3 to = Vector3Subtract(pose->position, head.position);
         float dist = Vector3Length(to);
+        Vector3 facing = Vector3RotateByQuaternion((Vector3){ 0, 0, 1 }, pose->orientation);
         capturing = dist < 3.0f && dist > 1e-3f &&
-                    Vector3DotProduct(Vector3Scale(to, 1.0f / dist), sfxr_pose_forward(head)) > 0.866f;
+                    Vector3DotProduct(Vector3Scale(to, 1.0f / dist), sfxr_pose_forward(head)) > 0.866f &&
+                    Vector3DotProduct(facing, to) < 0.0f;
     }
     if (capturing) { vrui_claim_input(SFXR_LEFT); vrui_claim_input(SFXR_RIGHT); }
+
+    if (!passive) vrui__hint(id, TextFormat("laser + trigger%s%s", vrui__pull_suffix(), title ? " | drag the title bar to move" : ""));
 
     bool has_title = title != NULL;
     C.p.open = true;

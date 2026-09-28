@@ -185,6 +185,7 @@ void knob_end_stop_holds(void);
 void knob_laser_orbit(void);
 void knob_laser_fast_spin_is_limited(void);
 void plunger_tension_hum(void);
+void plunger_tension_gentle_near_rest(void);
 void sprung_lever_returns_to_set_point(void);
 void selector_turn_snaps(void);
 void selector_no_chatter_at_boundary(void);

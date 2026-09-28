@@ -23,6 +23,7 @@ static const SfxtCase CASES[] = {
     { "mech/knob-end-stop-holds",            knob_end_stop_holds,            "vrui_mech_stop_unwind" },
     { "mech/knob-laser-orbit",               knob_laser_orbit,               "vrui_rotary_twist_only" },
     { "mech/knob-laser-fast-spin-is-limited", knob_laser_fast_spin_is_limited, "vrui_mech_no_resistance" },
+    { "mech/plunger-tension-gentle-near-rest", plunger_tension_gentle_near_rest, "vrui_mech_tension_linear" },
     { "mech/plunger-tension-hum",            plunger_tension_hum,            "vrui_mech_no_tension" },
     { "mech/sprung-lever-returns-to-set-point", sprung_lever_returns_to_set_point, "vrui_mech_no_spring" },
     { "mech/selector-turn-snaps",            selector_turn_snaps,            "vrui_mech_no_snap" },

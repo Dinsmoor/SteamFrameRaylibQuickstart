@@ -238,5 +238,6 @@ const Model *sfxr_xr_controller_model(SfxrHandId hand, SfxrPose *pose_stage)
     }
     if (!X.rm[h].loaded || !X.rm[h].space) return NULL;
     if (!sfxr_xr_locate(X.rm[h].space, pose_stage, NULL, NULL, NULL)) return NULL;
+    pose_stage->position.y += X.floor_fix;   // same floor as everything else (floor guard)
     return &X.rm[h].mesh;
 }

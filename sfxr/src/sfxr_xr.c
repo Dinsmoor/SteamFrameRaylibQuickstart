@@ -126,7 +126,16 @@ static bool create_space(void)
         which = "LOCAL (-1.6m)";
     }
     if (!XR_CHECK(xrCreateReferenceSpace(X.session, &ci, &X.app_space))) return false;
-    SFXR_LOG("tracking space: %s", which);
+    SFXR_LOG("tracking space: %s%s", which, has_stage ? " (room-setup floor available)" : "");
+
+    // The floor guard compares against the room-setup floor (see floor_guard()).
+    const char *mode = sfxr_env_str("SFXR_FLOOR");
+    if (has_stage && ci.referenceSpaceType != XR_REFERENCE_SPACE_TYPE_STAGE && !(mode && !strcmp(mode, "local"))) {
+        XrReferenceSpaceCreateInfo si = { XR_TYPE_REFERENCE_SPACE_CREATE_INFO };
+        si.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_STAGE;
+        si.poseInReferenceSpace.orientation.w = 1.0f;
+        if (!XR_CHECK(xrCreateReferenceSpace(X.session, &si, &X.stage_space))) X.stage_space = XR_NULL_HANDLE;
+    }
 
     ci.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;
     ci.poseInReferenceSpace = (XrPosef){ {0, 0, 0, 1}, {0, 0, 0} };
@@ -319,6 +328,7 @@ void sfxr_xr_shutdown(void)
     if (X.action_set) xrDestroyActionSet(X.action_set);
     if (X.app_space) xrDestroySpace(X.app_space);
     if (X.view_space) xrDestroySpace(X.view_space);
+    if (X.stage_space) xrDestroySpace(X.stage_space);
     if (X.session) xrDestroySession(X.session);
     if (X.instance) xrDestroyInstance(X.instance);
     memset(&X, 0, sizeof(X));
@@ -369,6 +379,11 @@ static void poll_events(void)
             SFXR_LOG("display refresh %.0f -> %.0f Hz", e->fromDisplayRefreshRate, e->toDisplayRefreshRate);
             break;
         }
+        case XR_TYPE_EVENT_DATA_REFERENCE_SPACE_CHANGE_PENDING: {
+            const XrEventDataReferenceSpaceChangePending *e = (const XrEventDataReferenceSpaceChangePending *)&ev;
+            SFXR_LOG("tracking space change pending (space type %d, pose valid %d)", (int)e->referenceSpaceType, (int)e->poseValid);
+            break;
+        }
         case XR_TYPE_EVENT_DATA_INTERACTION_RENDER_MODELS_CHANGED_EXT:
             sfxr_xr_unload_render_models();
             X.rm_next_try = 0;
@@ -379,6 +394,47 @@ static void poll_events(void)
         ev = (XrEventDataBuffer){ XR_TYPE_EVENT_DATA_BUFFER };
     }
 }
+
+// FLOOR GUARD. The Frame's LOCAL_FLOOR space starts from an estimate of the
+// floor that can be far off for the first seconds after the headset goes on
+// (seen: 64 cm too high for ~12 s, so the player was a child-height camera
+// until SteamVR corrected it). The room-setup floor (STAGE) doesn't have that
+// problem, so while the two disagree by more than 10 cm, every tracked height
+// is corrected to the room-setup floor. When SteamVR fixes its estimate the
+// disagreement -- and the correction -- vanish in the same frame, so nothing
+// jumps. SFXR_FLOOR=local turns it off.
+#define FLOOR_GUARD_M 0.10f
+static void floor_guard(void)
+{
+    float fix = 0.0f;
+    if (X.stage_space) {
+        XrSpaceLocation loc = { XR_TYPE_SPACE_LOCATION };
+        if (XR_SUCCEEDED(xrLocateSpace(X.app_space, X.stage_space, X.frame_state.predictedDisplayTime, &loc)) &&
+            (loc.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT)) {
+            float disagree = loc.pose.position.y;   // our floor's height above the room-setup floor
+            if (fabsf(disagree) > FLOOR_GUARD_M) fix = disagree;
+        }
+    }
+    if ((fix != 0.0f) != (X.floor_fix != 0.0f) || (fix != 0.0f && !X.floor_fix_logged)) {
+        if (fix != 0.0f) SFXR_LOG("floor guard: tracking floor is %+.2f m off the room-setup floor; correcting", fix);
+        else SFXR_LOG("floor guard: floors agree again (correction off)");
+        X.floor_fix_logged = fix != 0.0f;
+    }
+    X.floor_fix = fix;
+    if (fix == 0.0f) return;
+    S.head_stage.position.y += fix;
+    for (int e = 0; e < 2; e++) S.eye_stage[e].position.y += fix;
+    if (S.gaze_valid) S.gaze_stage.position.y += fix;
+    for (int h = 0; h < 2; h++) {
+        SfxrRawHand *r = &S.raw[h];
+        r->grip.position.y += fix; r->aim.position.y += fix; r->poke.position.y += fix;
+        r->pinch.position.y += fix; r->palm.position.y += fix;
+        SfxrHandJoints *j = &S.sig.joints[h];
+        if (j->valid) for (int k = 0; k < SFXR_JOINT_COUNT; k++) j->joint[k].position.y += fix;
+    }
+}
+
+float sfxr_xr_floor_fix(void) { return X.floor_fix; }
 
 bool sfxr_xr_frame_begin(void)
 {
@@ -429,6 +485,7 @@ bool sfxr_xr_frame_begin(void)
     if (!S.views_valid) S.should_render = false;
 
     sfxr_xr_sample_input();
+    floor_guard();
     return true;
 }
 

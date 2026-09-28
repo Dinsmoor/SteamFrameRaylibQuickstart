@@ -23,6 +23,7 @@ typedef struct {
     uint32_t buttons;       // RAW_BIT(SfxrControl)
     uint32_t touching;      // touched without pressing
     int      haptics;
+    float    haptic_max;    // strongest amplitude since sfxt_haptic_reset
     Vector3  prev_pos;
     bool     have_prev;
 } Hand;
@@ -98,8 +99,10 @@ static void fill(void)
 
 static void on_haptic(int hand, float amplitude, float seconds)
 {
-    (void)amplitude; (void)seconds;
-    T.hand[hand ? 1 : 0].haptics++;
+    (void)seconds;
+    Hand *H = &T.hand[hand ? 1 : 0];
+    H->haptics++;
+    if (amplitude > H->haptic_max) H->haptic_max = amplitude;
 }
 
 static void run_frame(void)
@@ -202,6 +205,8 @@ void sfxt_noise(float pos_m, float rot_deg, float analog)
 }
 
 int sfxt_haptic_count(SfxrHandId h) { return T.hand[h == SFXR_RIGHT].haptics; }
+float sfxt_haptic_max(SfxrHandId h) { return T.hand[h == SFXR_RIGHT].haptic_max; }
+void sfxt_haptic_reset(SfxrHandId h) { T.hand[h == SFXR_RIGHT].haptic_max = 0; }
 
 // --- checks --------------------------------------------------------------------------
 

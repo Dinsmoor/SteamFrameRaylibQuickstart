@@ -89,7 +89,9 @@ void sfxt_trigger_ramp(SfxrHandId h, float to, float seconds);
 void sfxt_noise(float pos_m, float rot_deg, float analog);
 
 // --- what the app did
-int  sfxt_haptic_count(SfxrHandId h);   // haptic pulses sent to this hand so far
+int   sfxt_haptic_count(SfxrHandId h);  // haptic updates sent to this hand so far
+float sfxt_haptic_max(SfxrHandId h);    // strongest amplitude since the last reset
+void  sfxt_haptic_reset(SfxrHandId h);
 
 // --- checks: record a failure and keep going (all failures get reported)
 void sfxt_check(bool ok, const char *expr, const char *file, int line, const char *fmt, ...);

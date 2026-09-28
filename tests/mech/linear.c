@@ -73,3 +73,24 @@ void plunger_tension_hum(void)
     CHECK(sfxt_haptic_count(R) - h0 >= 30, "tension hum while held out (%d updates in 0.5 s)", sfxt_haptic_count(R) - h0);
     let_go();
 }
+
+void plunger_tension_gentle_near_rest(void)
+{
+    // Tension builds with the square of the displacement: a small pull is
+    // barely felt, the end of travel is strong. (A linear ramp felt like full
+    // power at 10% on the Frame's motors.)
+    sfxt_noise(0.0005f, 0.1f, 0.0f);
+    Vector3 h = slider_handle(PLUNGER_AT, 0.0f, 0.15f);
+    grab_at(h);
+    Line l = { h, { 0.03f, 0, 0 }, { 0, 0, 0 } };            // ~17% of its travel
+    sfxt_hand_path(R, line_path, &l, 0.3f);
+    sfxt_haptic_reset(R);
+    sfxt_wait(0.4f);
+    CHECK(sfxt_haptic_max(R) <= 0.02f, "a small pull is barely felt (max %.3f)", sfxt_haptic_max(R));
+    Line l2 = { add(h, v3(0.03f, 0, 0)), { 0.11f, 0, 0 }, { 0, 0, 0 } };   // to the end
+    sfxt_hand_path(R, line_path, &l2, 0.3f);
+    sfxt_haptic_reset(R);
+    sfxt_wait(0.4f);
+    CHECK(sfxt_haptic_max(R) >= 0.2f, "the end of travel is strong (max %.3f)", sfxt_haptic_max(R));
+    let_go();
+}

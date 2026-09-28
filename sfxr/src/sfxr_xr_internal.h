@@ -20,6 +20,9 @@ typedef struct {
     XrSystemId system;
     XrSession session;
     XrSpace app_space, view_space;
+    XrSpace stage_space;                 // the room-setup floor, for the floor guard (may be null)
+    float   floor_fix;                   // meters added to every tracked height (floor guard)
+    bool    floor_fix_logged;
     XrSwapchain swapchain;
     int sc_width, sc_height;
     XrSessionState state;
@@ -96,6 +99,8 @@ bool     sfxr_xr_locate(XrSpace space, SfxrPose *out, Vector3 *vel, Vector3 *ang
 bool sfxr_xr_create_actions(void);
 void sfxr_xr_sample_input(void);
 void sfxr_xr_update_profiles(void);
+
+float sfxr_xr_floor_fix(void);   // floor guard correction in use (m)
 
 // sfxr_xr_signals.c
 void sfxr_xr_signals_session_started(void);
