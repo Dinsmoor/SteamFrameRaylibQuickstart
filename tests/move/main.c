@@ -18,6 +18,8 @@
 typedef struct { Vector3 lo, hi; } Box;   // hi.y is the top you stand on
 static Box boxes[8];
 static int nboxes;
+static Box walls[4];   // solid_depth: things your head can't be inside
+static int nwalls;
 static VruiLocoConfig loco;
 static VruiTeleportPad pads[2];
 static struct { bool wall_hold, edge_bar, bars; } F;
@@ -44,6 +46,20 @@ static float ground(Vector3 p, void *user)
             g = b->hi.y;
     }
     return g;
+}
+
+// How deep p is inside the nearest wall box (0 outside).
+static float solid(Vector3 p, void *user)
+{
+    (void)user;
+    float deepest = 0;
+    for (int i = 0; i < nwalls; i++) {
+        const Box *b = &walls[i];
+        float d = fminf(fminf(fminf(p.x - b->lo.x, b->hi.x - p.x), fminf(p.y - b->lo.y, b->hi.y - p.y)),
+                        fminf(p.z - b->lo.z, b->hi.z - p.z));
+        if (d > deepest) deepest = d;
+    }
+    return deepest;
 }
 
 static void scene(void)
@@ -278,6 +294,39 @@ static void teleport_pad_snaps_and_faces(void)
     CHECK(f.x > 0.98f, "facing +X, the pad's yaw 90 (forward %.2f %.2f %.2f)", f.x, f.y, f.z);
 }
 
+// --- walls ------------------------------------------------------------------------
+
+// A wall 0.6 m ahead: lean your head 0.2 m into it and the view goes dark.
+static void head_in_wall_fades(void)
+{
+    setup();
+    walls[nwalls++] = (Box){ { -1, 0, -1.0f }, { 1, 3, -0.6f } };
+    loco.solid_depth = solid;
+    sfxt_frames(2);
+    CHECK(vrui_faded() < 0.01f, "clear view in the open");
+    SfxrPose h = sfxt_head();
+    h.position.z -= 0.8f;
+    sfxt_head_to(h, 0.5f);
+    sfxt_frames(40);
+    CHECK(vrui_faded() > 0.9f, "head 20 cm inside the wall: dark (%.2f)", vrui_faded());
+}
+
+// Walking with the stick stops at the wall instead of passing through it.
+static void stick_walk_stops_at_wall(void)
+{
+    setup();
+    walls[nwalls++] = (Box){ { -1, 0, -1.6f }, { 1, 3, -0.6f } };
+    loco.solid_depth = solid;
+    loco.smooth_move = true;
+    sfxt_frames(2);
+    sfxt_stick(SFXR_LEFT, (Vector2){ 0, 1 });
+    sfxt_wait(2.0f);
+    sfxt_stick(SFXR_LEFT, (Vector2){ 0, 0 });
+    sfxt_frames(2);
+    float z = sfxr_head().position.z;
+    CHECK(z > -0.65f, "stopped at the wall's face (head at z %.2f, the wall starts at -0.6)", z);
+}
+
 // pads_only: landing away from every pad is not a valid target.
 static void teleport_pads_only_rejects_elsewhere(void)
 {
@@ -305,6 +354,8 @@ static const SfxtCase CASES[] = {
     { "move/teleport-lands-on-platform",     teleport_lands_on_platform,     "vrui_loco_arc_floor_only" },
     { "move/teleport-pad-snaps-and-faces",   teleport_pad_snaps_and_faces,   "vrui_loco_no_pad_snap" },
     { "move/teleport-pads-only-rejects-elsewhere", teleport_pads_only_rejects_elsewhere, "vrui_loco_pads_only_ignored" },
+    { "move/head-in-wall-fades",              head_in_wall_fades,             "vrui_loco_no_wall_fade" },
+    { "move/stick-walk-stops-at-wall",        stick_walk_stops_at_wall,       "vrui_loco_walk_through_walls" },
 };
 
 int main(int argc, char **argv) { return sfxt_main(argc, argv, CASES, SFXT_COUNT(CASES), scene); }

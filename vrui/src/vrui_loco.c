@@ -24,6 +24,11 @@
 //     table you walk into (taller than a step) isn't climbed;
 //   * after letting go of a handhold, at your HEAD, so pulling yourself up
 //     until your head is over a ledge and letting go puts you on the ledge.
+//
+// Walls: solid_depth() says how deep a point is inside something solid. A
+// head inside a wall fades the view (the player's body can't be stopped, so
+// the eyes are covered instead); stick walking slides along walls; teleport
+// targets inside walls are refused.
 
 #include "vrui_internal.h"
 
@@ -64,6 +69,24 @@ static float ground_at(const VruiLocoConfig *cfg, Vector3 p)
 }
 
 static void blink(const VruiLocoConfig *cfg) { L.fade_left = cfg->fade_seconds; }
+
+static float solid_at(const VruiLocoConfig *cfg, Vector3 p)
+{
+    return cfg->solid_depth ? cfg->solid_depth(p, cfg->user) : 0.0f;
+}
+
+// Stick walking: move by d unless it takes the head deeper into a wall; then
+// try each horizontal part alone, so you slide along the wall.
+static void walk(const VruiLocoConfig *cfg, Vector3 d)
+{
+    if (!cfg->solid_depth || SFXR_BREAK(vrui_loco_walk_through_walls)) { sfxr_rig_move(d); return; }
+    Vector3 head = sfxr_head().position;
+    float now = solid_at(cfg, head);
+    const Vector3 tries[3] = { d, { d.x, 0, 0 }, { 0, 0, d.z } };
+    for (int i = 0; i < 3; i++) {
+        if (solid_at(cfg, Vector3Add(head, tries[i])) <= now + 1e-4f) { sfxr_rig_move(tries[i]); return; }
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Handholds
@@ -252,6 +275,8 @@ static ArcResult teleport_arc(int h, const VruiLocoConfig *cfg, Vector3 *pts, in
             if (r.pad < 0) {
                 if (cfg->pads_only && !SFXR_BREAK(vrui_loco_pads_only_ignored)) return r;
                 if (cfg->valid_target && !cfg->valid_target(hit, cfg->user)) return r;
+                // your head would be inside a wall there
+                if (solid_at(cfg, Vector3Add(hit, (Vector3){ 0, vrui_eye_height(), 0 })) > 0) return r;
             }
             r.ok = true;
             return r;
@@ -312,7 +337,7 @@ void vrui_locomotion(const VruiLocoConfig *cfg)
                 f = Vector3Normalize(f);
                 r = Vector3Normalize(r);
                 Vector3 d = Vector3Add(Vector3Scale(f, s.y), Vector3Scale(r, s.x));
-                sfxr_rig_move(Vector3Scale(d, cfg->move_speed * dt));
+                walk(cfg, Vector3Scale(d, cfg->move_speed * dt));
             }
             continue;
         }
@@ -372,4 +397,9 @@ void vrui_locomotion(const VruiLocoConfig *cfg)
         vrui_fade(L.fade_left / cfg->fade_seconds);
         L.fade_left -= dt;
     }
+
+    // Head in a wall: fully dark by 10 cm in, so you back out rather than
+    // look around inside it.
+    float depth = solid_at(cfg, sfxr_head().position);
+    if (depth > 0 && !SFXR_BREAK(vrui_loco_no_wall_fade)) vrui_fade(Clamp(depth / 0.1f, 0.3f, 1.0f));
 }

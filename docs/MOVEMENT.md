@@ -98,10 +98,29 @@ Coming down:
 The toolbox's LIFT platform is in its ground function. Stand on it and move the LIFT slider
 at the workbench with your laser, and it carries you.
 
-**What this is not:** a physics engine. The player isn't pushed out of walls: walking into
-a wall in your room still walks you through it. That's normal in VR, since you can't stop a
-real body, and the usual answer is to fade the view while the head is inside geometry.
-That fade isn't part of vrui yet.
+**What this is not:** a physics engine. The player isn't pushed out of walls: nothing can
+stop a real body walking in a real room. What the eyes see can be handled, though; see Walls.
+
+## Walls: your head inside things
+
+```c
+loco.solid_depth = my_solid;   // how deep a point is inside something solid (0 = in the open)
+```
+
+With `solid_depth` set:
+- **Head in a wall: the view fades.** From 30% the moment your head is inside, to fully
+  dark 10 cm in. Seeing the inside of a wall is disorienting and lets players peek
+  through walls; the fade says "not this way", and backing out brings the view back.
+- **Stick walking stops at walls, and slides along them.** A move that would take the head
+  deeper into a wall is refused; if only one direction is blocked, the other part still
+  happens, so walking diagonally into a wall glides along it.
+- **Teleports never land you inside one.** The arc turns red when your head would end up in
+  a wall at the target.
+
+In the yard, the climbing wall and the platforms are solid (`yard_solid` in `yard.c`): walk
+into the wall to see the fade. In the garden, tree trunks, rocks and the tower are.
+`vrui_faded()` says how dark the view is this frame, if your app wants to pause or mute
+while the player can't see.
 
 ## Climbing: handholds
 
@@ -168,6 +187,8 @@ break switch that must make it fail (see [TESTING.md](TESTING.md)):
 | climb-switch-hands-no-jump | the other hand takes over from where it is | `vrui_climb_no_reanchor` |
 | climb-let-go-falls | letting go brings you down | `vrui_loco_no_fall` |
 | climb-over-ledge-lands-on-top | mantling | `vrui_loco_no_mantle` |
+| head-in-wall-fades | a head inside a wall darkens the view | `vrui_loco_no_wall_fade` |
+| stick-walk-stops-at-wall | stick walking doesn't pass through walls | `vrui_loco_walk_through_walls` |
 | monkey-bars-hand-over-hand | hand over hand along bars | `vrui_climb_fixed_world` |
 | steps-yes-tables-no | step height | `vrui_loco_step_any_height` |
 | walk-off-edge-falls | edges | `vrui_loco_no_fall` |

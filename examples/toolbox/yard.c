@@ -13,8 +13,8 @@
 //   The LIFT        (on the way to the yard) is a surface too: stand on it and
 //                   move the workbench's LIFT slider with the laser
 //
-// All of it is data for vrui_locomotion: a ground_height() function over a
-// list of boxes, a pad list, a valid_target() rule, and handholds. The boxes
+// All of it is data for vrui_locomotion: ground_height() and solid_depth()
+// over a list of boxes, a pad list, a valid_target() rule, and handholds. The boxes
 // are the only "physics" -- enough for platforms, stairs, walls and lifts.
 //
 // The numbers below are written as if the yard were straight ahead of the
@@ -85,6 +85,23 @@ static float toolbox_ground(Vector3 p, void *user)
     return g;
 }
 
+// vrui_locomotion's solid_depth: how deep a point is inside a block. Walk
+// your head into the climbing wall and the view fades; stick walking slides
+// along it.
+static float yard_solid(Vector3 p, void *user)
+{
+    (void)user;
+    Vector3 y = L(p);
+    float deepest = 0;
+    for (int i = 0; i < NBLOCKS; i++) {
+        const Block *b = &BLOCKS[i];
+        float d = fminf(fminf(fminf(y.x - b->lo.x, b->hi.x - y.x), fminf(y.y - b->lo.y, b->hi.y - y.y)),
+                        fminf(y.z - b->lo.z, b->hi.z - y.z));
+        if (d > deepest) deepest = d;
+    }
+    return deepest;
+}
+
 // Inside the yard only pads are valid (vrui checks pads before this rule);
 // everywhere else you can teleport anywhere.
 static bool outside_yard(Vector3 t, void *user)
@@ -102,6 +119,7 @@ void yard_setup(VruiLocoConfig *loco)
         PADS[i].yaw_deg = PADS_YARD[i].yaw_deg + YAW_TURN;
     }
     loco->ground_height = toolbox_ground;
+    loco->solid_depth = yard_solid;
     loco->valid_target = outside_yard;
     loco->pads = PADS;
     loco->npads = NPADS;

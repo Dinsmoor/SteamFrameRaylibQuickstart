@@ -723,7 +723,6 @@ Feedback from the session, and what was done about it:
   - `.sfxt` scenario files
   - failure screenshots and `run.sfxrec`
   - splitting sessions into clips using the event log
-- A fade while the head is inside geometry (walking into a wall), for `docs/MOVEMENT.md`.
 - Why one launch failed on the GL path (`xrCreateReferenceSpace` gave `HANDLE_INVALID`) and
   fell back to Vulkan. Watch for it in logs.
 

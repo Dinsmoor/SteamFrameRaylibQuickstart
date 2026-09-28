@@ -497,6 +497,14 @@ typedef struct {
     const VruiTeleportPad *pads;
     int   npads;
     bool  pads_only;
+
+    // Optional walls: how deep `p` is inside something solid (0 = in the
+    // open). Nothing can stop a player walking in their room, so when their
+    // head goes into a wall the view fades out instead (seeing the inside of
+    // things is disorienting, and the fade says "not this way"). Stick
+    // walking stops at walls (sliding along them), and teleports never land
+    // you inside one.
+    float (*solid_depth)(Vector3 p, void *user);
 } VruiLocoConfig;
 
 VruiLocoConfig vrui_loco_default(void);
@@ -602,6 +610,7 @@ bool vrui_radial_open(VruiId id);
 void vrui_box(SfxrPose pose, Vector3 size, Color color);
 void vrui_line(Vector3 a, Vector3 b, Color color);
 void vrui_fade(float alpha);   // darken the whole view this frame (0..1)
+float vrui_faded(void);        // how dark the view is this frame so far (0..1): pause, mute...
 
 #ifdef __cplusplus
 }

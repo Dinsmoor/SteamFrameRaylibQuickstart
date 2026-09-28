@@ -411,6 +411,7 @@ void vrui__ring(SfxrPose pose, float r, Color color)
 }
 
 void vrui_fade(float alpha) { if (alpha > C.fade) C.fade = alpha; }
+float vrui_faded(void) { return Clamp(C.fade, 0, 1); }
 void vrui_tint(Color color, float alpha)
 {
     if (alpha <= C.tint.a / 255.0f) return;
