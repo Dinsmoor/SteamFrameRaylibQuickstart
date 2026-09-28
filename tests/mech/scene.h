@@ -33,9 +33,21 @@ static inline SfxrPose at(float x, float z) { return (SfxrPose){ { x, TABLE_Y, z
 #define DOOR_HINGE  ((SfxrPose){ { -1.2f, 1.0f, -0.6f }, { 0, 0, 0, 1 } })
 #define DOOR_W      0.6f
 #define CORD_ANCHOR ((SfxrPose){ { 1.6f, 1.6f, -0.5f }, { 0, 0, 0, 1 } })
+// A two-handed valve lying flat on the table (axis up), and a key switch
+// with its key standing upright beside it, tip down.
+#define VALVE_AT    at(-0.9f, -1.3f)
+#define KEY_SLOT_AT at(1.45f, -0.9f)
+#define KEY_REST    ((SfxrPose){ { 1.45f, 1.0f, -1.2f }, { 0, 0, 0, 1 } })
 
 enum { ID_KNOB = 1, ID_SELECTOR, ID_CRANK, ID_LEVER, ID_SLIDER, ID_PLUNGER, ID_STICK, ID_BUTTON, ID_SWITCH, ID_SPRUNG, ID_POINTBTN,
-       ID_DOOR, ID_CORD };
+       ID_DOOR, ID_CORD, ID_VALVE, ID_KEY };
+extern VruiMechSpec valve_s;
+extern float valve;
+extern VruiMech valve_m;
+extern VruiKeySpec key_s;
+extern SfxrPose key_pose;
+extern int key_pos;
+extern VruiKey key_r;
 extern VruiMechSpec door_s;
 extern float door, cord;
 extern VruiMech door_m;
@@ -78,6 +90,13 @@ static inline Vector3 slider_handle(SfxrPose base, float t, float len) { return 
 static inline Vector3 stick_ball(void) { return add(STICK_AT.position, v3(0, 0.015f + 0.12f, 0)); }
 static inline Vector3 door_handle(void) { return add(DOOR_HINGE.position, v3(DOOR_W, 0, 0)); }   // closed
 static inline Vector3 cord_handle(float pull) { return add(CORD_ANCHOR.position, v3(0, -(0.35f + pull * 0.25f), 0)); }
+// A point on the valve's rim, `deg` clockwise (seen from above) from its far (-Z) side.
+static inline Vector3 valve_rim(float deg)
+{
+    float a = deg * DEG2RAD, r = 0.2f;
+    return add(VALVE_AT.position, v3(r * sinf(a), 0.12f, -r * cosf(a)));
+}
+static inline Vector3 key_bow(SfxrPose key) { return sfxr_pose_apply(key, v3(0, 0.06f, 0)); }
 static inline Vector3 cap_top(void) { return add(BUTTON_AT.position, v3(0, 0.02f, 0)); }
 // A fingertip at `p`, pointing straight down.
 static inline SfxrPose tip_at(Vector3 p) { return sfxt_tip_pose(p, v3(0, -1, 0)); }
@@ -221,5 +240,11 @@ void button_press_then_slide(void);
 void button_point_to_press(void);
 void grab_by_closing_hand(void);
 void switch_poke_flips_once(void);
+void valve_two_hands_turn_it(void);
+void valve_one_hand_wont_budge(void);
+void key_insert_then_turn(void);
+void key_sideways_does_not_go_in(void);
+void key_pull_out_only_at_off(void);
+void key_start_springs_back(void);
 
 #endif

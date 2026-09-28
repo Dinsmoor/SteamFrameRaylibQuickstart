@@ -19,6 +19,13 @@ VruiMechSpec door_s;
 float door, cord;
 VruiMech door_m;
 int cord_fires;
+VruiMechSpec valve_s;
+float valve;
+VruiMech valve_m;
+VruiKeySpec key_s;
+SfxrPose key_pose = KEY_REST;
+int key_pos;
+VruiKey key_r;
 
 void scene(void)
 {
@@ -38,6 +45,11 @@ void scene(void)
         sprung_s = vrui_lever_spec();
         sprung_s.spring = true;
         door_s = vrui_hinge_spec(DOOR_W);
+        valve_s = vrui_valve_spec();
+        static const char *const KEY_NAMES[] = { "OFF", "ON", "START" };
+        key_s = vrui_key_spec(3);
+        key_s.spring_last = true;
+        key_s.names = KEY_NAMES;
         specs_ready = true;
     }
     knob_m = vrui_rotary(ID_KNOB, KNOB_AT, &knob_s, &knob);
@@ -59,4 +71,6 @@ void scene(void)
     sprung_m = vrui_pivot(ID_SPRUNG, SPRUNG_AT, &sprung_s, &sprung);
     door_m = vrui_hinge(ID_DOOR, DOOR_HINGE, &door_s, &door);
     if (vrui_pull_cord(ID_CORD, CORD_ANCHOR, &cord, "CORD")) cord_fires++;
+    valve_m = vrui_valve(ID_VALVE, VALVE_AT, &valve_s, &valve);
+    key_r = vrui_key_switch(ID_KEY, KEY_SLOT_AT, &key_s, &key_pose, &key_pos);
 }

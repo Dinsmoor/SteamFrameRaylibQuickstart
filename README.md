@@ -119,6 +119,7 @@ with a table of contents.
 | `vrui_panel.c` | 2D panels: buttons, toggles, sliders, lists, layout |
 | `vrui_grab.c` | taking hold of things (shared by everything you grab), grabbable objects |
 | `vrui_mech.c` | knobs, levers, sliders, joysticks: the drives, resistance, detents, springs |
+| `vrui_wheel.c`, `vrui_key.c` | the two-handed valve wheel; the key switch (insert, turn, pull out in one hold) |
 | `vrui_press.c` | push buttons and rocker switches |
 | `vrui_display.c` | gauges, rolling counters, lamps |
 | `vrui_haptics.c` | the haptics mixer (ticks and hums sharing one motor) |
@@ -144,7 +145,7 @@ on its own:
 | `panel_controllers.c` | every controller input live, finger curl, a haptics tester |
 | `panel_headset.c` | worn state, refresh rate, passthrough, batteries, joints, performance counters |
 | `onboarding.c` | the hands-on setup station: learns how a player likes to use their hands |
-| `station_hinges.c` | Hinges & cords: a door, a chest lid, a bell cord, a radio dial |
+| `station_hinges.c` | Hinges & cords: a door, a chest lid, a bell cord, a radio dial, a two-handed valve, a key switch |
 | `yard.c` | the Movement yard: teleport pads, stairs, a climbing wall with a ladder, monkey bars |
 
 **`docs/`**

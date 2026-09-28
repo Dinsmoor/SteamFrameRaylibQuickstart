@@ -386,7 +386,9 @@ while (sfxr_frame_begin()) {              // wait for runtime, sample poses and 
   and a switchable default look, plus the moving part's pose for custom models:
   - full forms, named after the motion: `vrui_rotary` (knob / selector / crank /
     spinner specs), `vrui_pivot` (lever), `vrui_linear` (slider / plunger), `vrui_tilt`
-    (joystick), `vrui_press` (momentary or latching button), `vrui_rocker` (switch)
+    (joystick), `vrui_press` (momentary or latching button), `vrui_rocker` (switch); also
+    `vrui_hinge` (door, lid), `vrui_pull_cord`, `vrui_valve` (two-handed wheel) and
+    `vrui_key_switch` (insert, turn, pull out)
   - short forms, named after the thing: `vrui_knob`, `vrui_lever`, `vrui_slider3d`,
     `vrui_joystick`, `vrui_push_button`, `vrui_switch`
 
@@ -714,9 +716,6 @@ Feedback from the session, and what was done about it:
    was touched when.
 
 **Still to build**
-- More mechanisms (door/lid, pull cord and dial are done: *Hinges & cords*):
-  - two-handed valve wheel (needs both hands to drive one rotary)
-  - key switch (insert, then turn)
 - Animate the controller models' buttons (`xrGetRenderModelStateEXT` node poses; needs
   the device to verify).
 - Testing:

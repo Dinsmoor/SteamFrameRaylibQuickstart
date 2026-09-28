@@ -273,6 +273,50 @@ ring a bell, start an engine, flush.
 
 **Test:** `cord-fires-once-per-pull`.
 
+### Valve: the two-handed wheel (`vrui_valve_spec`, `vrui_valve`)
+**Players expect:** a big stuck valve to need both hands, the way a real one does, and to
+turn like a steering wheel once both are on it.
+
+**Behavior:**
+- Grab the rim anywhere, with each hand, independently. Near only: a laser can't put two
+  hands on a rim.
+- It turns by the **average** of the two hands' swings round the axis. Both hands going
+  the same way turn it with them. One pushing and one pulling still turns it, like a
+  steering wheel. And one hand slipping can't spin it on its own.
+- Only the swing round the axis counts: pushing, pulling or lifting the rim does nothing.
+- With one hand (fewer than `hands`) it **won't budge** (`one_hand = 0`). It strains in
+  your hand, harder the harder you try, and a tag by the wheel says "use both hands". Set
+  `one_hand` to a fraction for a valve that's merely stiff with one hand.
+- 3 turns from shut to open, a tick every quarter turn, a heavy speed limit (half a turn a
+  second: more slips, with a strain hum), a hard bump at each end.
+- The result's `holders` says how many hands are on it.
+
+**Tests:** `valve-two-hands-turn-it`, `valve-one-hand-wont-budge`.
+
+### Key switch (`vrui_key_spec(positions)`, `vrui_key_switch`)
+**Players expect:** to pick up a key, push it into its slot, turn it, and pull it out
+again, all without letting go, like a real key.
+
+**Behavior:**
+- The key is a loose object with a pose you keep (`SfxrPose key`). vrui moves it while
+  it's held or in the slot, and leaves it where you let go otherwise.
+- **Going in:** bring the tip within 3 cm of the slot, lined up within 30 degrees, and it's
+  drawn in with a click. Line it up roughly, not exactly: the last few centimeters are a
+  magnet. Held on its side, it doesn't go in.
+- **Turning:** twist your wrist. Only the twist round the slot's axis counts, so moving
+  your arm doesn't turn it. It turns through `positions` stops 45 degrees apart,
+  clockwise. Let go and it settles on the nearest stop. With `spring_last`, the last stop
+  springs back to the one before, like an ignition's START.
+- **Coming out:** at the first stop, pull straight back 4 cm. Turned past it, the key is
+  locked in. Just after coming out, the key only goes in again once it has been well
+  clear of the slot, so it doesn't pop straight back in.
+- It's **one hold throughout**. A version that ended the hold on insertion ("now grab it
+  again to turn it") was the tempting shortcut, and players hate it; there's a break
+  switch for that bug.
+
+**Tests:** `key-insert-then-turn`, `key-sideways-does-not-go-in`,
+`key-pull-out-only-at-off`, `key-start-springs-back`.
+
 ### Push button (`vrui_press_spec`, `vrui_press`)
 **Players expect:**
 - to poke it with a fingertip (or the controller tip) and feel one click

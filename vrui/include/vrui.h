@@ -279,6 +279,9 @@ typedef struct {
     float haptic_stop;   // end-stop bump
     float haptic_strain; // rough hum while it lags the hand (you're pushing too fast)
     float haptic_tension;// springs: hum while displaced, stronger and faster further from rest
+    // --- hands (vrui_valve)
+    int   hands;         // hands it takes to move it (1; a stuck valve: 2)
+    float one_hand;      // with fewer hands on it, it moves at this fraction (0 = won't budge: it strains)
     // --- look (default drawing; ignored when draw = false)
     bool  draw;
     Color color;
@@ -295,6 +298,7 @@ typedef struct {
     int        detent;     // index of the nearest stop, -1 when smooth
     float      position;   // rotary/pivot: angle of the moving part (rad); linear: offset from center (m)
     Vector2    tilt;       // tilt only (-1..1)
+    int        holders;    // hands holding it (2 for a two-handed hold)
     SfxrPose   part;       // world pose of the moving part: draw your own model here
 } VruiMech;
 
@@ -308,6 +312,51 @@ VruiMech vrui_rotary(VruiId id, SfxrPose base, const VruiMechSpec *spec, float *
 // Knob with default feel; `turns` = rotations spanning min..max; the stick
 // fine-adjusts while pointing at it. true when changed.
 bool vrui_knob(VruiId id, SfxrPose base, float radius, float *value, float min, float max, float turns, const char *label);
+
+// TWO-HANDED WHEEL: a big handwheel (a stuck valve, a ship's wheel) on the
+// base's +Y axis, standing `height` 12 cm off its mount. Grab the rim
+// anywhere, with each hand. It turns only while spec.hands (2) hands hold
+// it; with one it strains and won't budge (spec.one_hand = 0), which the
+// haptics and a hint say. It turns by the AVERAGE swing of the hands round
+// the axis, so pushing with one hand and pulling with the other turns it
+// like a steering wheel, and one hand slipping can't spin it. Near only:
+// a laser can't put two hands on a rim.
+VruiMechSpec vrui_valve_spec(void);            // 0..1 over 3 turns, a tick every quarter turn, needs both hands
+VruiMech vrui_valve(VruiId id, SfxrPose base, const VruiMechSpec *spec, float *value);
+
+// KEY SWITCH: a key you carry to its slot, push in and turn, all in one
+// hold. `slot` is the keyhole (+Y out of the surface); `*key` is the key's
+// pose (origin at the blade's tip, +Y toward its bow): keep it in a variable,
+// vrui moves it while it's held or in the slot, and leaves it where you let
+// go otherwise. Bring the tip within `capture` of the slot, lined up within
+// `align_deg`, and it goes in; then twist your wrist to turn it through
+// `positions` stops `step_deg` apart (clockwise); at the first stop, pull
+// it straight back to take it out. Near only.
+typedef struct {
+    int   positions;     // stops (2..): OFF, ON, ...
+    float step_deg;      // between stops (default 45)
+    bool  spring_last;   // the last stop springs back to the one before (an ignition's START)
+    float capture;       // tip this close to the slot to go in (m, default 0.03)
+    float align_deg;     // key this straight to the slot's axis (default 30)
+    float pull_out;      // pull back this far at the first stop to take it out (m, default 0.04)
+    bool  draw;
+    Color color;         // the key
+    const char *label;
+    const char *const *names; // printed round the slot, one per stop (NULL: none)
+} VruiKeySpec;
+
+typedef struct {
+    bool hovered, grabbed, held, released;
+    bool inserted;                 // in the slot now
+    bool inserted_now, removed_now;
+    bool changed;                  // *position changed
+    int  position;                 // the stop it's at (0 when out)
+    SfxrHandId hand;
+    SfxrPose key;                  // = *key
+} VruiKey;
+
+VruiKeySpec vrui_key_spec(int positions);
+VruiKey vrui_key_switch(VruiId id, SfxrPose slot, const VruiKeySpec *spec, SfxrPose *key, int *position);
 
 // PIVOT: swings on the base's X axis; handle up along +Y mid-swing.
 VruiMechSpec vrui_lever_spec(void);            // throttle lever, 80 deg of swing, 0..1

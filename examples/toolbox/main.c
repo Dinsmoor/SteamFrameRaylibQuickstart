@@ -13,7 +13,8 @@
 //   Mechanisms         every reference mechanism
 //   Linkage bench      controls wired to mechanical displays
 //   Attach & label     things riding on things; every kind of world label
-//   Hinges & cords     a door, a chest lid, a bell cord, a radio dial
+//   Hinges & cords     a door, a chest lid, a bell cord, a radio dial,
+//                      a two-handed valve, a key switch
 // Behind you: the LIFT platform and the Movement yard (teleport pads,
 // stairs, climbing wall, monkey bars).
 // With you everywhere: the hand menus and the HUD (station_menus.c, hud.c).
@@ -33,7 +34,7 @@ static void toolbox_hud(void)
     static const struct { float x; const char *name; } ROW[] = {
         { -8.0f, "Menus & HUD" }, { -6.4f, "Hands-on setup" }, { -4.8f, "Headset" }, { -3.2f, "Controllers" },
         { -1.6f, "Toolbox" }, { 0, "Workbench" }, { 2.5f, "Mechanisms" }, { 5.2f, "Linkage bench" },
-        { 7.9f, "Attach & label" }, { 11.4f, "Hinges & cords" },
+        { 7.9f, "Attach & label" }, { 12.8f, "Hinges & cords" },
     };
     Vector3 me = sfxr_head().position;
     const char *near = "the yard";

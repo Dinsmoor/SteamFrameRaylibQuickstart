@@ -48,6 +48,12 @@ static const SfxtCase CASES[] = {
     { "mech/button-point-to-press",         button_point_to_press,          "vrui_button_ignores_shape" },
     { "mech/grab-by-closing-hand",           grab_by_closing_hand,           "vrui_grab_style_ignored" },
     { "mech/switch-poke-flips-once",         switch_poke_flips_once,         "vrui_switch_no_exit_margin" },
+    { "mech/valve-two-hands-turn-it",        valve_two_hands_turn_it,        "vrui_valve_sum_not_average" },
+    { "mech/valve-one-hand-wont-budge",      valve_one_hand_wont_budge,      "vrui_valve_one_hand_turns" },
+    { "mech/key-insert-then-turn",           key_insert_then_turn,           "vrui_key_needs_regrip" },
+    { "mech/key-sideways-does-not-go-in",    key_sideways_does_not_go_in,    "vrui_key_any_angle" },
+    { "mech/key-pull-out-only-at-off",       key_pull_out_only_at_off,       "vrui_key_stuck" },
+    { "mech/key-start-springs-back",         key_start_springs_back,         "vrui_mech_no_spring" },
 };
 
 int main(int argc, char **argv) { return sfxt_main(argc, argv, CASES, SFXT_COUNT(CASES), scene); }

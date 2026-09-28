@@ -9,7 +9,7 @@
 //   panel_controllers.c  every controller input live, finger curl, a haptics tester
 //   panel_headset.c      worn state, refresh rate, passthrough, batteries, joints, counters
 //   onboarding.c         the hands-on setup station (learns the player's habits)
-//   station_hinges.c     Hinges & cords: a door, a chest lid, a bell cord, a radio dial
+//   station_hinges.c     Hinges & cords: a door, a chest lid, a bell cord, a radio dial, a valve, a key switch
 //   yard.c               the Movement yard: teleport pads, stairs, climbing wall, monkey bars
 
 #ifndef TOOLBOX_H
@@ -39,7 +39,7 @@
 //    2.5   Mechanisms bench              bench_mechanisms.c
 //    5.2   Linkage bench                 bench_linkage.c
 //    7.9   Attach & label bench          station_attach.c
-//   11.4   Hinges & cords                station_hinges.c
+//   11.4   Hinges & cords (4 m wide)     station_hinges.c
 //
 // Behind you (+Z): the Movement yard (yard.c), and the LIFT platform on the
 // way to it.

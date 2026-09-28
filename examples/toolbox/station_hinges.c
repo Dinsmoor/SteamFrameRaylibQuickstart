@@ -1,10 +1,14 @@
-// station_hinges.c - Hinges & cords, out to your right past the benches:
-// the big-motion mechanisms (docs/MECHANISMS.md).
+// station_hinges.c - Hinges & cords, at the right end of the row: the
+// big-motion mechanisms (docs/MECHANISMS.md).
 //
 //   Door       take the handle and walk it round: heavy, stops at the frame
 //   Chest lid  the same hinge on its side (vrui_door with a turned hinge pose)
 //   Bell cord  pull it all the way: rings once per pull, jiggling doesn't re-ring
 //   Radio dial a tuning dial: ticks every 5, rests anywhere
+//   Valve      a stuck valve on a pipe: needs BOTH hands on the wheel; a
+//              gauge shows the pressure it lets through
+//   Key switch take the key off its hook, push it in, turn it: OFF, ON,
+//              START (springs back to ON, and the engine lamp lights)
 //
 // Everything here is placed in the station's own frame (row_pose, facing
 // the middle): +X to your right as you face it, +Z toward you.
@@ -12,9 +16,12 @@
 #include "toolbox.h"
 
 static struct {
-    float door, lid, cord, dial;
+    float door, lid, cord, dial, valve;
     int rings;
     float flash;       // bell lamp glow, seconds left
+    SfxrPose key;      // the key: on its hook, in your hand, or in the slot
+    bool key_placed, running;
+    int ignition;      // 0 OFF, 1 ON, 2 START
 } H = { .dial = 40 };
 
 static SfxrPose origin(void) { return row_pose(11.4f, 0); }
@@ -68,5 +75,35 @@ void station_hinges(void)
     vrui_text_at(local(1.78f, 0.97f, 0.012f, I), TextFormat("FM %.1f", 88.0f + H.dial * 0.2f),
                  0.022f, (Color){ 255, 200, 120, 255 });
 
-    station_sign(11.4f, "Hinges & cords", "a door, a chest lid,\na bell cord, a radio dial");
+    // --- a valve on a pipe: the wheel faces you (base +Y toward you), and a
+    // gauge further up the pipe shows the pressure it lets through
+    Quaternion facing_you = QuaternionFromAxisAngle((Vector3){ 1, 0, 0 }, PI / 2);   // +Y -> +Z
+    vrui_box(local(2.6f, 1.0f, -0.12f, I), (Vector3){ 0.1f, 2.0f, 0.1f }, (Color){ 120, 124, 132, 255 });
+    VruiMechSpec vs = vrui_valve_spec();
+    vs.label = "VALVE";
+    vrui_valve(VRUI_ID2(G_HINGE, 5), local(2.6f, 1.15f, -0.07f, facing_you), &vs, &H.valve);
+    vrui_gauge(VRUI_ID2(G_HINGE, 6), local(2.6f, 1.75f, -0.06f, I), H.valve * 8.0f, 0, 8, "bar");
+
+    // --- a key switch on a post, its key hanging on a hook beside it
+    SfxrPose hook = local(3.45f, 1.3f, -0.02f, I);   // the key hangs tip down: +Y up
+    if (!H.key_placed) { H.key = hook; H.key_placed = true; }
+    vrui_box(local(3.2f, 0.55f, -0.1f, I), (Vector3){ 0.08f, 1.1f, 0.08f }, metal);
+    vrui_box(local(3.2f, 1.15f, -0.08f, I), (Vector3){ 0.2f, 0.2f, 0.04f }, (Color){ 50, 54, 62, 255 });
+    vrui_box(local(3.45f, 1.39f, -0.04f, I), (Vector3){ 0.01f, 0.03f, 0.04f }, metal);   // the hook
+    static const char *const IGNITION[] = { "OFF", "ON", "START" };
+    VruiKeySpec ks = vrui_key_spec(3);
+    ks.spring_last = true;
+    ks.names = IGNITION;
+    ks.label = "KEY";
+    VruiKey k = vrui_key_switch(VRUI_ID2(G_HINGE, 7), local(3.2f, 1.15f, -0.06f, facing_you), &ks, &H.key, &H.ignition);
+    // Let go of the key anywhere but the slot and it swings back to its hook
+    // (a retractable chain: the app decides where a loose key goes).
+    if (!k.held && !k.inserted) H.key = sfxr_pose_lerp(H.key, hook, 1.0f - expf(-sfxr_dt() * 6.0f));
+    if (!k.inserted) vrui_line(sfxr_pose_apply(hook, (Vector3){ 0, 0.09f, 0 }), sfxr_pose_apply(H.key, (Vector3){ 0, 0.075f, 0 }),
+                               (Color){ 180, 180, 190, 255 });
+    if (H.ignition == 2) H.running = true;   // START cranks it
+    if (H.ignition == 0) H.running = false;
+    vrui_lamp(local(3.2f, 1.26f, -0.08f, I), H.running, (Color){ 90, 230, 120, 255 }, H.running ? "running" : "engine");
+
+    station_sign(11.4f + 3.3f, "Hinges & cords", "a door, a chest lid, a bell cord, a radio dial,\na two-handed valve, a key switch");
 }

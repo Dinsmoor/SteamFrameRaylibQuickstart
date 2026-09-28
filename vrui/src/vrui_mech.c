@@ -76,6 +76,28 @@ static VruiMechSpec base_spec(void)
     s.color = (Color){ 60, 64, 74, 255 };
     s.value_format = "%s %.2f";
     s.display_scale = 1.0f;
+    s.hands = 1;
+    s.one_hand = 1.0f;
+    return s;
+}
+
+VruiMechSpec vrui_valve_spec(void)
+{
+    VruiMechSpec s = base_spec();
+    s.travel = 3.0f * 2.0f * PI;        // three full turns, shut to open
+    s.detents = 13;                     // a tick every quarter turn
+    s.size = 0.2f;                      // rim radius
+    s.reach = 0.06f;
+    s.slop = 2.0f * DEG2RAD;
+    s.max_speed = 180.0f * DEG2RAD;     // heavy: half a turn a second at most
+    s.haptic_tick = 0.2f;
+    s.haptic_stop = 0.7f;
+    s.haptic_strain = 0.45f;
+    s.hands = 2;
+    s.one_hand = 0.0f;                  // one hand: it won't budge
+    s.color = (Color){ 190, 45, 40, 255 };
+    s.value_format = "%s %.0f%%";
+    s.display_scale = 100.0f;
     return s;
 }
 
