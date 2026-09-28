@@ -700,12 +700,9 @@ Feedback from the session, and what was done about it:
    was touched when.
 
 **Still to build**
-- More mechanisms on the same core, with tests:
-  - hinged door/lid (constrained grab)
-  - two-handed valve wheel
-  - key switch (insert and turn)
-  - pull cord
-  - dial with pointer
+- More mechanisms (door/lid, pull cord and dial are done: *Hinges & cords*):
+  - two-handed valve wheel (needs both hands to drive one rotary)
+  - key switch (insert, then turn)
 - Animate the controller models' buttons (`xrGetRenderModelStateEXT` node poses; needs
   the device to verify).
 - Testing:

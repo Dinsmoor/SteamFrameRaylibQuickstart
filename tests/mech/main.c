@@ -15,6 +15,9 @@
 static const SfxtCase CASES[] = {
     { "mech/knob-orbit-quarter-turn",        knob_orbit_quarter_turn,        "vrui_rotary_twist_only" },
     { "mech/knob-events-name-it",            knob_events_name_it,            "vrui_events_unnamed" },
+    { "mech/door-pull-open",                 door_pull_open,                 "vrui_rotary_twist_only" },
+    { "mech/door-lean-on-handle-ignored",    door_lean_on_handle_ignored,    "vrui_mech_lateral_leak" },
+    { "mech/cord-fires-once-per-pull",       cord_fires_once_per_pull,       "vrui_cord_no_rearm_margin" },
     { "mech/knob-twist-quarter-turn",        knob_twist_quarter_turn,        "vrui_rotary_no_twist" },
     { "mech/knob-press-down-while-turning",  knob_press_down_while_turning,  "vrui_mech_lateral_leak" },
     { "mech/knob-side-push-while-twisting",  knob_side_push_while_twisting,  "vrui_rotary_orbit_everywhere" },

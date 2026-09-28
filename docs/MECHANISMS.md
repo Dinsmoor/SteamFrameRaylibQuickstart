@@ -174,6 +174,17 @@ see where it lands.
 - The result's `position` tells you which wedge is under the pointer (the toolbox's
   linkage bench shows how).
 
+### Dial (`vrui_dial_spec`, `vrui_rotary`)
+**Players expect:** a tuning dial, like a radio's. It turns most of a turn, you feel it
+tick past the marks, and it stays wherever you leave it.
+
+**Behavior:**
+- A knob from 0 to 100 over 300°.
+- 21 ticks (every 5) that it **doesn't** snap to. Compare the selector, which only ever
+  rests on a position.
+
+In the toolbox, it's the radio's TUNE dial in *Hinges & cords*.
+
 ### Lever (`vrui_lever_spec`, `vrui_pivot`)
 **Players expect:** to grab the handle and push or pull it along its arc, like a
 throttle.
@@ -224,6 +235,43 @@ A sprung slider: pull it out, let go, and it glides home (most of the way in abo
 sixth of a second). While you hold it out, the tension hum grows with the distance.
 
 **Tests:** `plunger-pull-and-return`, `plunger-tension-hum`.
+
+### Door and lid (`vrui_hinge_spec(width)`, `vrui_hinge`; short form `vrui_door`)
+**Players expect:**
+- to take the handle and walk it round
+- to pull a door toward themselves, and lift a lid
+- the door to feel heavy
+- leaning on the handle not to open anything
+
+**Behavior:**
+- A pivot turned so its axis is the hinge. It is grabbed by the handle, `width` from the
+  hinge.
+- Only motion **around** the hinge counts. Pushing along the hinge (leaning down on a
+  door handle) or toward the hinge does nothing.
+- It opens 100°, from closed to a little past square, with a bump at each end.
+- It's heavy: 0.15 s of weight, 150°/s at most (60°/s by laser). A fast yank makes it
+  trail and strain.
+- The result's `part` is the door itself, posed on the hinge with +X toward the handle.
+  Draw your own door there.
+
+**A lid is a door on its side.** Turn the hinge pose so its +Y runs along the back edge of
+the chest and its +Z points up. *Hinges & cords* shows both.
+
+**Tests:** `door-pull-open`, `door-lean-on-handle-ignored`.
+
+### Pull cord (`vrui_pull_cord_spec`, short form `vrui_pull_cord`)
+**Players expect:** to pull a cord all the way down and have it do its thing **once**:
+ring a bell, start an engine, flush.
+
+**Behavior:**
+- A sprung handle, 25 cm of travel, hanging from an anchor.
+- It fires when pulled past 90%, with a clunk in the hand.
+- It re-arms only after coming back up past **half**. A hand jiggling at the bottom can't
+  fire it twice. Real hands do jiggle, and a re-arm right below the firing point
+  double-fires.
+- Let go and it springs back up.
+
+**Test:** `cord-fires-once-per-pull`.
 
 ### Push button (`vrui_press_spec`, `vrui_press`)
 **Players expect:**

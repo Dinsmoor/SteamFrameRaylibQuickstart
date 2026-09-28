@@ -28,8 +28,18 @@ static inline SfxrPose at(float x, float z) { return (SfxrPose){ { x, TABLE_Y, z
 #define SWITCH_AT   at(1.0f, -0.9f)
 #define SPRUNG_AT   at(0.8f, -1.25f)
 #define POINTBTN_AT at(1.25f, -0.5f)
+// A door off the table to the left (hinge at handle height, opening toward
+// the player) and a pull cord hanging to the right.
+#define DOOR_HINGE  ((SfxrPose){ { -1.2f, 1.0f, -0.6f }, { 0, 0, 0, 1 } })
+#define DOOR_W      0.6f
+#define CORD_ANCHOR ((SfxrPose){ { 1.6f, 1.6f, -0.5f }, { 0, 0, 0, 1 } })
 
-enum { ID_KNOB = 1, ID_SELECTOR, ID_CRANK, ID_LEVER, ID_SLIDER, ID_PLUNGER, ID_STICK, ID_BUTTON, ID_SWITCH, ID_SPRUNG, ID_POINTBTN };
+enum { ID_KNOB = 1, ID_SELECTOR, ID_CRANK, ID_LEVER, ID_SLIDER, ID_PLUNGER, ID_STICK, ID_BUTTON, ID_SWITCH, ID_SPRUNG, ID_POINTBTN,
+       ID_DOOR, ID_CORD };
+extern VruiMechSpec door_s;
+extern float door, cord;
+extern VruiMech door_m;
+extern int cord_fires;
 
 extern VruiMechSpec knob_s, selector_s, crank_s, lever_s, slider_s, plunger_s, stick_s, sprung_s;
 extern float sprung, set_point;
@@ -66,6 +76,8 @@ static inline Vector3 knob_center(SfxrPose base) { return add(base.position, v3(
 static inline Vector3 lever_pivot(void) { return add(LEVER_AT.position, v3(0, 0.02f, 0)); }
 static inline Vector3 slider_handle(SfxrPose base, float t, float len) { return add(base.position, v3((t - 0.5f) * len, 0.018f, 0)); }
 static inline Vector3 stick_ball(void) { return add(STICK_AT.position, v3(0, 0.015f + 0.12f, 0)); }
+static inline Vector3 door_handle(void) { return add(DOOR_HINGE.position, v3(DOOR_W, 0, 0)); }   // closed
+static inline Vector3 cord_handle(float pull) { return add(CORD_ANCHOR.position, v3(0, -(0.35f + pull * 0.25f), 0)); }
 static inline Vector3 cap_top(void) { return add(BUTTON_AT.position, v3(0, 0.02f, 0)); }
 // A fingertip at `p`, pointing straight down.
 static inline SfxrPose tip_at(Vector3 p) { return sfxt_tip_pose(p, v3(0, -1, 0)); }
@@ -176,6 +188,9 @@ static inline SfxrPose switch_jitter_path(float t, void *u)
 // ---------------------------------------------------------------------------
 void knob_orbit_quarter_turn(void);
 void knob_events_name_it(void);
+void door_pull_open(void);
+void door_lean_on_handle_ignored(void);
+void cord_fires_once_per_pull(void);
 void knob_twist_quarter_turn(void);
 void knob_press_down_while_turning(void);
 void knob_side_push_while_twisting(void);

@@ -297,6 +297,7 @@ VruiMechSpec vrui_knob_spec(void);             // bounded knob, 3/4 turn, smooth
 VruiMechSpec vrui_selector_spec(int positions);// rotary switch: snaps between `positions` stops
 VruiMechSpec vrui_crank_spec(void);            // endless handwheel: value = turns, drag around only
 VruiMechSpec vrui_spinner_spec(int pegs);      // wheel of fortune: flick it, it coasts past `pegs`
+VruiMechSpec vrui_dial_spec(void);             // tuning dial 0..100 over 300 deg, ticks every 5, rests anywhere
 VruiMech vrui_rotary(VruiId id, SfxrPose base, const VruiMechSpec *spec, float *value);
 // Knob with default feel; `turns` = rotations spanning min..max; the stick
 // fine-adjusts while pointing at it. true when changed.
@@ -307,11 +308,26 @@ VruiMechSpec vrui_lever_spec(void);            // throttle lever, 80 deg of swin
 VruiMech vrui_pivot(VruiId id, SfxrPose base, const VruiMechSpec *spec, float *value);
 bool vrui_lever(VruiId id, SfxrPose base, float length, float *value, const char *label);   // 0 back .. 1 forward
 
+// HINGE (a pivot turned around): a door or lid, taken by its handle. `hinge`
+// is on the hinge line at handle height; +Y along the hinge, +X toward the
+// handle when closed, +Z out of the front (it opens toward +Z). *open 0..1.
+// The result's `part` is the door: on the hinge, +X toward the handle, so
+// draw your door there. A lid is a door on its side (hinge +Y horizontal).
+VruiMechSpec vrui_hinge_spec(float width);     // heavy, 100 deg, `width` from hinge to handle
+VruiMech vrui_hinge(VruiId id, SfxrPose hinge, const VruiMechSpec *spec, float *open);
+// A plain door: hinge_bottom is the bottom of the hinge line; handle at 1 m (or mid-height).
+bool vrui_door(VruiId id, SfxrPose hinge_bottom, float width, float height, float *open, const char *label);
+
 // LINEAR: slides along the base's X axis, centered on the base.
 VruiMechSpec vrui_slider_spec(void);           // slider / fader, 0..1
 VruiMechSpec vrui_plunger_spec(void);          // sprung pull handle, 0..1, returns on release
 VruiMech vrui_linear(VruiId id, SfxrPose base, const VruiMechSpec *spec, float *value);
 bool vrui_slider3d(VruiId id, SfxrPose base, float length, float *t, const char *label);   // t 0..1
+// Pull cord hanging straight down from `anchor` (along its -Y): pull the handle
+// 25 cm down. Returns true ONCE per full pull (past 90%); it re-arms when the
+// cord comes back up past halfway. *pull 0..1 springs back on release.
+VruiMechSpec vrui_pull_cord_spec(void);
+bool vrui_pull_cord(VruiId id, SfxrPose anchor, float *pull, const char *label);
 
 // TILT: a stick standing along the base's +Y; *value = tilt (x, y) in -1..1.
 VruiMechSpec vrui_joystick_spec(void);         // sprung, 6 cm of hand motion for full tilt

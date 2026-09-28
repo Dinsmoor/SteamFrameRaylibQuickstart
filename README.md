@@ -60,8 +60,8 @@ while (sfxr_frame_begin()) {                 // one loop iteration = one headset
   - moving the player: teleport, teleport pads, platforms and stairs, climbing walls,
     ladders and monkey bars
   - grabbable objects
-  - **reference mechanisms**: knob, selector, crank, wheel of fortune, lever, slider,
-    plunger, joystick, buttons, switches
+  - **reference mechanisms**: knob, selector, dial, crank, wheel of fortune, lever,
+    slider, plunger, pull cord, joystick, door/lid, buttons, switches
 
   Each mechanism is tuned for real hands (which never move along a perfect axis),
   documented, tested, and can wear your own graphics. There are also mechanical
@@ -136,6 +136,7 @@ with a table of contents.
 | `panel_controllers.c` | every controller input live, finger curl, a haptics tester |
 | `panel_headset.c` | worn state, refresh rate, passthrough, batteries, joints, performance counters |
 | `onboarding.c` | the hands-on setup station: learns how a player likes to use their hands |
+| `station_hinges.c` | Hinges & cords: a door, a chest lid, a bell cord, a radio dial |
 | `yard.c` | the Movement yard: teleport pads, stairs, a climbing wall with a ladder, monkey bars |
 
 **`docs/`**

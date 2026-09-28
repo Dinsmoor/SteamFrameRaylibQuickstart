@@ -93,6 +93,47 @@ VruiMechSpec vrui_knob_spec(void)
     return s;
 }
 
+VruiMechSpec vrui_dial_spec(void)
+{
+    VruiMechSpec s = vrui_knob_spec();
+    s.max = 100.0f;
+    s.travel = 300.0f * DEG2RAD;       // most of a turn, like a radio's tuning dial
+    s.detents = 21;                    // a tick every 5 units; it rests anywhere (no snap)
+    s.size = 0.045f;
+    s.value_format = "%s %.0f";
+    return s;
+}
+
+VruiMechSpec vrui_hinge_spec(float width)
+{
+    VruiMechSpec s = base_spec();
+    s.travel = 100.0f * DEG2RAD;       // closed .. open a little past square
+    s.size = width;                    // hinge to handle
+    s.reach = 0.08f;
+    s.slop = 1.0f * DEG2RAD;
+    s.max_speed = 150.0f * DEG2RAD;    // a door, not a flywheel
+    s.far_max_speed = 60.0f * DEG2RAD;
+    s.weight = 0.15f;                  // heavy: it trails a fast yank, and strains
+    s.slip = 20.0f * DEG2RAD;
+    s.haptic_stop = 0.5f;              // the frame / the stop at full open
+    s.color = (Color){ 200, 170, 90, 255 };
+    s.value_format = "%s %.0f%%";
+    s.display_scale = 100.0f;
+    return s;
+}
+
+VruiMechSpec vrui_pull_cord_spec(void)
+{
+    VruiMechSpec s = vrui_plunger_spec();
+    s.size = 0.25f;
+    s.travel = 0.25f;                  // a firm 25 cm pull
+    s.max_speed = 2.0f;
+    s.reach = 0.07f;
+    s.color = (Color){ 220, 60, 50, 255 };
+    s.value_format = NULL;
+    return s;
+}
+
 VruiMechSpec vrui_selector_spec(int positions)
 {
     VruiMechSpec s = vrui_knob_spec();
@@ -881,4 +922,98 @@ bool vrui_joystick(VruiId id, SfxrPose base, Vector2 *value, const char *label)
     VruiMechSpec s = vrui_joystick_spec();
     s.label = label;
     return vrui_tilt(id, base, &s, value).changed;
+}
+
+// ---------------------------------------------------------------------------
+// Hinged door or lid: a pivot whose axis is the hinge
+// ---------------------------------------------------------------------------
+//
+// `hinge` sits on the hinge line at handle height: its +Y runs along the
+// hinge, +X from the hinge toward the handle when closed, +Z out of the
+// door's front. Opening swings the handle toward +Z. The pivot core does the
+// work (orbit about the axis, sideways push ignored, weight, stops); this
+// only turns the frame around.
+
+VruiMech vrui_hinge(VruiId id, SfxrPose hinge, const VruiMechSpec *sp, float *open)
+{
+    float h = sp->travel * 0.5f;
+    // pivot frame: its X is the hinge (+Y here); at value 0 its handle points along +X
+    Quaternion q = QuaternionMultiply(hinge.orientation,
+                   QuaternionMultiply(QuaternionFromAxisAngle((Vector3){ 0, 1, 0 }, PI - h),
+                                      QuaternionFromAxisAngle((Vector3){ 0, 0, 1 }, PI / 2)));
+    SfxrPose base = { Vector3Subtract(hinge.position, Vector3RotateByQuaternion((Vector3){ 0, 0.02f, 0 }, q)), q };
+    VruiMechSpec ps = *sp;
+    ps.draw = false;
+    VruiMech m = vrui_pivot(id, base, &ps, open);
+    // part: the door itself, on the hinge, +X toward the handle
+    float swing = h - m.position;   // 0 closed .. travel open
+    m.part = (SfxrPose){ hinge.position, QuaternionMultiply(hinge.orientation,
+                                                            QuaternionFromAxisAngle((Vector3){ 0, 1, 0 }, -swing)) };
+    m.position = swing;
+    if (sp->draw) {
+        Vector3 handle = sfxr_pose_apply(m.part, (Vector3){ sp->size, 0, 0.04f });
+        vrui__cylinder(sfxr_pose_apply(m.part, (Vector3){ sp->size, 0, 0.01f }), handle, 0.006f, (Color){ 150, 150, 155, 255 });
+        vrui__sphere(handle, 0.022f, vrui__hover_tint(sp->color, m.hovered, m.held));
+    }
+    return m;
+}
+
+bool vrui_door(VruiId id, SfxrPose hinge_bottom, float width, float height, float *open, const char *label)
+{
+    VruiMechSpec s = vrui_hinge_spec(width);
+    s.label = label;
+    float handle_h = fminf(1.0f, height * 0.5f);
+    SfxrPose hinge = { sfxr_pose_apply(hinge_bottom, (Vector3){ 0, handle_h, 0 }), hinge_bottom.orientation };
+    VruiMech m = vrui_hinge(id, hinge, &s, open);
+    // the slab: from the hinge to the handle side, bottom to top
+    SfxrPose slab = { sfxr_pose_apply(m.part, (Vector3){ width * 0.5f, height * 0.5f - handle_h, -0.02f }), m.part.orientation };
+    vrui_box(slab, (Vector3){ width, height, 0.035f }, vrui__hover_tint((Color){ 150, 110, 70, 255 }, m.hovered, m.held));
+    if (label && *label)
+        vrui_text3d(sfxr_pose_apply(m.part, (Vector3){ width * 0.5f, height - handle_h + 0.08f, 0 }),
+                    TextFormat("%s %.0f%%", label, *open * 100.0f), 0.03f, C.style.text);
+    return m.changed;
+}
+
+// ---------------------------------------------------------------------------
+// Pull cord: a sprung handle hanging from `anchor`
+// ---------------------------------------------------------------------------
+//
+// Fires once when pulled past 90%, and re-arms only after coming back up
+// past the middle, so a hand jiggling at the bottom can't fire it again.
+
+typedef struct { bool armed_set, armed; } CordState;
+VRUI_STATE_FITS(CordState);
+
+bool vrui_pull_cord(VruiId id, SfxrPose anchor, float *pull, const char *label)
+{
+    VruiMechSpec s = vrui_pull_cord_spec();
+    s.label = label;
+    s.draw = false;
+    const float hang = 0.35f;   // cord length at rest, anchor to handle
+    // linear frame: X points down the cord, value 0 at the top of travel
+    Quaternion q = QuaternionMultiply(anchor.orientation, QuaternionFromAxisAngle((Vector3){ 0, 0, 1 }, -PI / 2));
+    SfxrPose base = { sfxr_pose_apply(anchor, (Vector3){ 0, -(hang + s.travel * 0.5f), 0 }), q };
+    // (the linear drive puts its handle 18 mm off the track: keep the track on the cord line)
+    base.position = Vector3Subtract(base.position, Vector3RotateByQuaternion((Vector3){ 0, 0.018f, 0 }, q));
+    VruiMech m = vrui_linear(id, base, &s, pull);
+
+    CordState *cs = VRUI_STATE(vrui__widget_item(id, 1), CordState);
+    if (!cs->armed_set) { cs->armed_set = true; cs->armed = true; }
+    bool fired = false;
+    float rearm = SFXR_BREAK(vrui_cord_no_rearm_margin) ? 0.9f : 0.5f;
+    if (cs->armed && *pull >= 0.9f) {
+        cs->armed = false;
+        fired = true;
+        if (m.held) vrui_haptic_pulse(m.hand, 0.8f, 0.06f, 0);   // the clunk at the bottom
+        sfxr_event("fire", "%s", vrui__who(id));
+    } else if (!cs->armed && *pull < rearm) {
+        cs->armed = true;
+    }
+
+    Vector3 top = anchor.position, handle = m.part.position;
+    vrui_line(top, handle, (Color){ 200, 200, 190, 255 });
+    SfxrPose grip = { handle, anchor.orientation };
+    vrui_box(grip, (Vector3){ 0.07f, 0.022f, 0.022f }, vrui__hover_tint(s.color, m.hovered, m.held));
+    if (label && *label) vrui_text3d(Vector3Add(top, (Vector3){ 0, 0.06f, 0 }), label, 0.025f, C.style.text);
+    return fired;
 }

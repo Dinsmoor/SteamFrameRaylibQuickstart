@@ -28,3 +28,4 @@ BREAK(vrui_loco_no_pad_snap,        "landing near a pad doesn't snap to its cent
 BREAK(vrui_loco_no_mantle,         "letting go with your head over a ledge drops you back down instead of onto it")
 BREAK(vrui_loco_pads_only_ignored, "pads_only is ignored: you can teleport anywhere")
 BREAK(vrui_events_unnamed,           "the event log shows widget ids instead of their labels")
+BREAK(vrui_cord_no_rearm_margin,    "a pull cord re-arms right below its firing point, so jiggling at the bottom fires it again")

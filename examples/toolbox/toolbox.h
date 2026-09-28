@@ -9,6 +9,7 @@
 //   panel_controllers.c  every controller input live, finger curl, a haptics tester
 //   panel_headset.c      worn state, refresh rate, passthrough, batteries, joints, counters
 //   onboarding.c         the hands-on setup station (learns the player's habits)
+//   station_hinges.c     Hinges & cords: a door, a chest lid, a bell cord, a radio dial
 //   yard.c               the Movement yard: teleport pads, stairs, climbing wall, monkey bars
 
 #ifndef TOOLBOX_H
@@ -39,6 +40,7 @@
 //   Controllers panel -110   2.2
 //   Headset panel     -160   2.2
 //   Setup station      165   2.2
+//   Hinges & cords      90   4.2 (outer ring, right)
 //   Movement yard: straight ahead past the ring, 4 to 12 m out (yard.c)
 static inline SfxrPose station_pose(float angle_deg, float radius, float y)
 {
@@ -47,7 +49,7 @@ static inline SfxrPose station_pose(float angle_deg, float radius, float y)
 }
 
 // Widget id groups: VRUI_ID2(group, index).
-enum { G_TABLE = 1, G_PANEL, G_WRIST, G_BLOCKS, G_BENCH, G_CTRL, G_HEADSET, G_LINK, G_YARD };
+enum { G_TABLE = 1, G_PANEL, G_WRIST, G_BLOCKS, G_BENCH, G_CTRL, G_HEADSET, G_LINK, G_YARD, G_HINGE };
 
 // World settings, changed by the workbench controls and the Toolbox panel.
 typedef struct {
@@ -81,6 +83,7 @@ void bench_mechanisms(void);
 void bench_linkage(void);
 void panel_controllers(void);
 void panel_headset(void);
+void station_hinges(void);
 
 // yard.c: surfaces, pads and handholds; yard_setup fills in the loco config
 void yard_setup(VruiLocoConfig *loco);

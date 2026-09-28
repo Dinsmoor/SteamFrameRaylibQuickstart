@@ -11,6 +11,7 @@
 //   Behind right: the Linkage bench -- controls wired to mechanical displays
 //   Behind:       the Hands-on setup station (docs/ONBOARDING.md)
 //   The stations stand on a ring with room to walk around each (toolbox.h).
+//   Far right:    Hinges & cords -- a door, a chest lid, a bell cord, a radio dial
 //   Far ahead:    the Movement yard -- teleport pads, stairs, climbing wall, monkey bars
 //   On your wrist: fps, hand shapes, trigger level
 //   Moving:       stick forward = teleport arc, stick sideways = snap turn
@@ -54,6 +55,7 @@ int main(void)
             bench_linkage();
             panel_controllers();
             panel_headset();
+            station_hinges();
             yard_update();
             vrui_locomotion(&loco);   // after the handholds (yard_update)
             vrui_text3d((Vector3){ 0, 2.2f, -2.5f }, "sfxr + vrui toolbox", 0.12f, RAYWHITE);

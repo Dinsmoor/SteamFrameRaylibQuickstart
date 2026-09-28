@@ -15,6 +15,10 @@ VruiMech knob_m, selector_m, crank_m, lever_m, slider_m, plunger_m, stick_m;
 VruiPress button_p, switch_p;
 int button_presses, button_releases, switch_flips, selector_changes;
 bool specs_ready;
+VruiMechSpec door_s;
+float door, cord;
+VruiMech door_m;
+int cord_fires;
 
 void scene(void)
 {
@@ -33,6 +37,7 @@ void scene(void)
         pointbtn_s.require_point = true;
         sprung_s = vrui_lever_spec();
         sprung_s.spring = true;
+        door_s = vrui_hinge_spec(DOOR_W);
         specs_ready = true;
     }
     knob_m = vrui_rotary(ID_KNOB, KNOB_AT, &knob_s, &knob);
@@ -52,4 +57,6 @@ void scene(void)
     if (vrui_press(ID_POINTBTN, POINTBTN_AT, &pointbtn_s, NULL).pressed) point_presses++;
     sprung_s.rest = set_point;   // read one value, feed it into another control's spec
     sprung_m = vrui_pivot(ID_SPRUNG, SPRUNG_AT, &sprung_s, &sprung);
+    door_m = vrui_hinge(ID_DOOR, DOOR_HINGE, &door_s, &door);
+    if (vrui_pull_cord(ID_CORD, CORD_ANCHOR, &cord, "CORD")) cord_fires++;
 }
