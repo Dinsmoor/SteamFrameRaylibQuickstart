@@ -292,6 +292,7 @@ bool vrui_button(VruiId id, Rectangle r, const char *text)
     DrawRectangleRounded(r, 0.25f, 6, bg);
     if (hot) DrawRectangleRoundedLinesEx(r, 0.25f, 6, 2, C.style.accent);
     text_in(r, text, C.style.text, true);
+    if (click) sfxr_event("click", "%s", text);
     return click;
 }
 
@@ -299,7 +300,7 @@ bool vrui_toggle(VruiId id, Rectangle r, const char *text, bool *value)
 {
     bool hot, active;
     bool click = w_click(id, r, &hot, &active);
-    if (click) *value = !*value;
+    if (click) { *value = !*value; sfxr_event("toggle", "%s %s", text, *value ? "on" : "off"); }
     if (hot) DrawRectangleRec(r, C.style.widget);
     float s = r.height * 0.6f;
     Rectangle box = { r.x + 6, r.y + (r.height - s) / 2, s, s };

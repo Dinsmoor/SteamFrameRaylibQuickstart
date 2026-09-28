@@ -174,6 +174,9 @@ void sfxr__derive_input(void)
     for (int i = 0; i < 2; i++) {
         const SfxrRawHand *r = &S.raw[i];
         SfxrHand *h = &S.hands[i];
+        if (h->active != r->active || (r->active && h->source != (SfxrInputSource)r->source))
+            sfxr_event("hand", "%s %s", i ? "R" : "L",
+                       !r->active ? "lost" : r->source == SFXR_SOURCE_HAND ? "bare hand" : "controller");
         h->active = r->active;
         h->source = (SfxrInputSource)r->source;
         h->grip  = sfxr_pose_mul(rig, r->grip);

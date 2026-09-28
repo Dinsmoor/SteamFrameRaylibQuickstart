@@ -93,6 +93,8 @@ VruiPress vrui_press(VruiId id, SfxrPose base, const VruiPressSpec *sp, bool *la
     res.pressed = res.down && !was;
     res.released = !res.down && was;
     st->down = res.down;
+    vrui__name(id, sp->label);
+    if (res.pressed) sfxr_event("press", "%s by %s", vrui__who(id), ray_down ? "laser" : "poke");
     if (res.pressed) {
         for (int h = 0; h < 2; h++) if (vrui__grab_hot(h, id) || vrui__ray_hot(h, id)) vrui__click_pulse(h);
         if (sp->latching && latched) { *latched = !*latched; res.changed = true; }
@@ -172,6 +174,8 @@ VruiPress vrui_rocker(VruiId id, SfxrPose base, const VruiRockerSpec *sp, bool *
         }
     }
     res.down = st->in != 0;
+    vrui__name(id, sp->label);
+    if (res.changed) sfxr_event("flip", "%s %s", vrui__who(id), *on ? "on" : "off");
 
     SfxrPose rocker = body;
     float tilt = (*on ? -1.0f : 1.0f) * 12.0f * DEG2RAD;

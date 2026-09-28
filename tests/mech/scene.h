@@ -175,6 +175,7 @@ static inline SfxrPose switch_jitter_path(float t, void *u)
 // The cases (one file per mechanism family)
 // ---------------------------------------------------------------------------
 void knob_orbit_quarter_turn(void);
+void knob_events_name_it(void);
 void knob_twist_quarter_turn(void);
 void knob_press_down_while_turning(void);
 void knob_side_push_while_twisting(void);

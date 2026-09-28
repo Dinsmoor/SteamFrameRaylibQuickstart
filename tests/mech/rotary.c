@@ -2,6 +2,9 @@
 
 #include "scene.h"
 
+#include <stdlib.h>
+#include <string.h>
+
 void knob_orbit_quarter_turn(void)
 {
     // Drag the knob a quarter turn clockwise by moving the hand around it
@@ -208,4 +211,24 @@ void crank_two_turns(void)
     CHECK_NEAR(crank, 2.0f, 0.03f, "two turns");
     CHECK(sfxt_haptic_count(R) - ticks0 >= 20, "ratchet clicks felt (%d)", sfxt_haptic_count(R) - ticks0);
     let_go();
+}
+
+void knob_events_name_it(void)
+{
+    // The event log (SFXR_EVENTS, set by scripts/test.sh for every case) says
+    // what was grabbed by name, and the value it was let go at.
+    const char *path = getenv("SFXR_EVENTS");
+    if (!path || !*path) { CHECK(false, "run through scripts/test.sh (it sets SFXR_EVENTS)"); return; }
+    Vector3 c = knob_center(KNOB_AT);
+    grab_at(around(c, 0.03f, 0));
+    Orbit o = { c, 0.03f, 0, -PI / 2, 0, 0, 0, 0, PALM_DOWN };
+    sfxt_hand_path(R, orbit_path, &o, 0.6f);
+    let_go();
+    sfxt_frames(2);   // the log is flushed at every frame end
+    char text[8192] = "";
+    FILE *f = fopen(path, "r");
+    if (f) { size_t n = fread(text, 1, sizeof text - 1, f); text[n] = 0; fclose(f); }
+    CHECK(strstr(text, "grab       KNOB R hand") != NULL, "grab logged by name:\n%s", text);
+    CHECK(strstr(text, "release    KNOB R") != NULL, "release logged");
+    CHECK(strstr(text, "value      KNOB 0.") != NULL, "value at release logged");
 }

@@ -20,6 +20,7 @@ void scene(void)
 {
     if (!specs_ready) {
         knob_s = vrui_knob_spec();
+        knob_s.label = "KNOB";   // names it in the event log
         selector_s = vrui_selector_spec(5);
         crank_s = vrui_crank_spec();
         lever_s = vrui_lever_spec();

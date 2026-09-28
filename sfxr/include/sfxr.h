@@ -364,6 +364,23 @@ typedef struct {
 const SfxrHandGestures *sfxr_hand_gestures(SfxrHandId hand);   // never NULL; check ->valid
 
 // ---------------------------------------------------------------------------
+// Event log (SFXR_EVENTS=<file>): one line per thing that happened
+// ---------------------------------------------------------------------------
+//
+// sfxr and vrui log what matters for reading a session afterwards: session
+// state, worn / taken off, hands appearing or switching between controller
+// and bare hand, grabs and releases (with the widget's label), presses,
+// clicks, teleports, climbing. Headset launches write it next to each session
+// recording; a failing test keeps its own (docs/TESTING.md). Add your app's
+// moments the same way:
+//
+//   sfxr_event("level", "done in %.1f s", t);
+//
+// A line: seconds since start, frame number, kind, text.
+void sfxr_event(const char *kind, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
+bool sfxr_events_on(void);   // an event file is open (skip building expensive text otherwise)
+
+// ---------------------------------------------------------------------------
 // Headset and system signals
 // ---------------------------------------------------------------------------
 

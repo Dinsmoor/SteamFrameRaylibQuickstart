@@ -35,6 +35,7 @@ VruiHandle vrui__handle_update(VruiId id, VruiItem *it, const float ray_dist[2],
         if (C.grab_active[holding] == id) C.grab_active[holding] = VRUI_ID_NONE;
         if (C.ray_active[holding] == id) C.ray_active[holding] = VRUI_ID_NONE;
         it->hold_hand = -1;
+        sfxr_event("release", "%s %s", vrui__who(id), holding ? "R" : "L");
         hd.hand = holding;
         hd.mode = mode;
         hd.released = true;
@@ -52,6 +53,7 @@ VruiHandle vrui__handle_update(VruiId id, VruiItem *it, const float ray_dist[2],
             if (vrui__grab_pressed(h) && vrui__hand_free(h)) {
                 it->hold_hand = h; it->hold_mode = VRUI_MODE_HAND;
                 C.grab_active[h] = id;
+                sfxr_event("grab", "%s %s hand", vrui__who(id), h ? "R" : "L");
                 hd.hand = h; hd.mode = VRUI_MODE_HAND; hd.grabbed = hd.held = true;
                 vrui__click_pulse(h);
                 return hd;
@@ -63,6 +65,8 @@ VruiHandle vrui__handle_update(VruiId id, VruiItem *it, const float ray_dist[2],
             if (mode >= 0 && vrui__hand_free(h)) {
                 it->hold_hand = h; it->hold_mode = mode;
                 C.ray_active[h] = id;
+                sfxr_event("grab", "%s %s laser+%s", vrui__who(id), h ? "R" : "L",
+                           mode == VRUI_MODE_RAY_TRIGGER ? "trigger" : "grip");
                 hd.hand = h; hd.mode = mode; hd.grabbed = hd.held = true;
                 vrui__click_pulse(h);
                 return hd;

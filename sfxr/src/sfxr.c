@@ -20,6 +20,32 @@ SfxrState sfxr_state;
 
 static bool shot_done;   // SFXR_SHOT taken -> exit
 static void shot_window(void);
+
+// --- event log (SFXR_EVENTS) ---------------------------------------------------
+static FILE *ev_file;
+
+static void events_open(void)
+{
+    const char *path = sfxr_env_str("SFXR_EVENTS");
+    if (!path || !*path) return;
+    ev_file = fopen(path, "w");
+    if (!ev_file) { SFXR_WARN("can't write the event log %s", path); return; }
+    SFXR_LOG("event log -> %s", path);
+    fprintf(ev_file, "# sfxr events: seconds, frame, kind, text\n");
+}
+
+bool sfxr_events_on(void) { return ev_file != NULL; }
+
+void sfxr_event(const char *kind, const char *fmt, ...)
+{
+    if (!ev_file) return;
+    fprintf(ev_file, "%9.3f f%-7llu %-10s ", S.time, (unsigned long long)S.frame, kind);
+    va_list ap;
+    va_start(ap, fmt);
+    vfprintf(ev_file, fmt, ap);
+    va_end(ap);
+    fputc('\n', ev_file);
+}
 static void shot_target(void);
 
 // Heartbeat: one log line every few seconds so a log read over SSH tells you
@@ -309,6 +335,7 @@ bool sfxr_init(const SfxrConfig *cfg)
     }
     create_msaa(target_width(), S.eye_h);
     sfxr_record_start();
+    events_open();
 
     char title[256];
     snprintf(title, sizeof(title), "%s  [%s]", S.cfg.app_name, sfxr_backend_name());
@@ -324,6 +351,7 @@ void sfxr_shutdown(void)
     if (!S.initialized) return;
     sfxr_record_stop();
     sfxr_steam_shutdown();
+    if (ev_file) { fclose(ev_file); ev_file = NULL; }
     destroy_msaa();
     S.vt->shutdown();
     S.initialized = false;
@@ -540,6 +568,7 @@ void sfxr_frame_end(void)
 {
     if (S.in_draw) sfxr_draw_end();
     hb_cpu += GetTime() - frame_t0;
+    if (ev_file) fflush(ev_file);   // a crash keeps everything up to the last frame
     S.vt->frame_end(S.rendered_this_frame);
     if (S.backend == SFXR_BACKEND_SIM && S.show_help) sfxr_sim_draw_help(10, 10);
     shot_window();

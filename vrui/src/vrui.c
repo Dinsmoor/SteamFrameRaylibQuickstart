@@ -126,6 +126,24 @@ SfxrPose vrui_in_front_of_head(float distance, float drop)
 // Items
 // ---------------------------------------------------------------------------
 
+void vrui__name(VruiId id, const char *label)
+{
+    if (!label || !*label) return;
+    VruiItem *it = vrui__item(id);
+    if (strncmp(it->name, label, sizeof it->name - 1)) snprintf(it->name, sizeof it->name, "%s", label);
+}
+
+const char *vrui__who(VruiId id)
+{
+    static char buf[4][24];
+    static int k;
+    VruiItem *it = vrui__item(id);
+    if (it->name[0] && !SFXR_BREAK(vrui_events_unnamed)) return it->name;
+    char *b = buf[k++ & 3];
+    snprintf(b, sizeof buf[0], "#%08x", (unsigned)id);
+    return b;
+}
+
 VruiItem *vrui__item(VruiId id)
 {
     uint32_t hsh = (id * 2654435761u) % VRUI_MAX_ITEMS;

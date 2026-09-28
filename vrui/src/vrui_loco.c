@@ -120,7 +120,11 @@ static bool climb_step(const VruiLocoConfig *cfg)
         if (C.climb.held_frame[h] == C.frame && (lead < 0 || C.climb.since[h] > C.climb.since[lead])) lead = h;
 
     if (lead < 0) {
-        if (L.lead >= 0) { L.airborne = true; L.vy = 0; }   // let go: come down (or up onto a ledge)
+        if (L.lead >= 0) {   // let go: come down (or up onto a ledge)
+            L.airborne = true;
+            L.vy = 0;
+            sfxr_event("climb", "let go at height %.2f", sfxr_rig_position().y);
+        }
         L.lead = -1;
         return false;
     }
@@ -128,6 +132,7 @@ static bool climb_step(const VruiLocoConfig *cfg)
     // grabbed (the rig has moved since), so switching hands never yanks you.
     if (lead != L.lead && L.lead >= 0 && C.climb.since[lead] != C.frame && !SFXR_BREAK(vrui_climb_no_reanchor))
         C.climb.anchor[lead] = sfxr_hand((SfxrHandId)lead)->grip.position;
+    if (lead != L.lead) sfxr_event("climb", "%s leads", lead ? "R" : "L");
     L.lead = lead;
     L.airborne = false;
     L.vy = 0;
@@ -163,7 +168,7 @@ static void ground_step(const VruiLocoConfig *cfg, float dt)
     if (g > rig.y + 0.001f) {
         // A step, or pulling yourself over a ledge: stand on it. A big rise
         // (mantling) blinks, a stair doesn't.
-        if (g - rig.y > cfg->step_height) blink(cfg);
+        if (g - rig.y > cfg->step_height) { blink(cfg); sfxr_event("mantle", "onto %.2f", g); }
         sfxr_rig_set((Vector3){ rig.x, g, rig.z }, sfxr_rig_yaw());
         L.airborne = false;
         L.vy = 0;
@@ -187,6 +192,7 @@ static void ground_step(const VruiLocoConfig *cfg, float dt)
             L.airborne = false;
             // a landing thump, bigger for a harder landing
             float amp = cfg->fall == VRUI_FALL_DROP ? Clamp(-L.vy * 0.08f, 0.1f, 0.6f) : 0.2f;
+            sfxr_event("land", "on %.2f after falling %.2f m", g, rig.y - g);
             for (int h = 0; h < 2; h++) vrui_haptic_pulse((SfxrHandId)h, amp, 0.04f, 0);
             L.vy = 0;
         }
@@ -335,6 +341,8 @@ void vrui_locomotion(const VruiLocoConfig *cfg)
                         if (a.pad >= 0 && cfg->pads[a.pad].face && !SFXR_BREAK(vrui_loco_no_pad_snap))
                             face_yaw(cfg->pads[a.pad].yaw_deg);
                         sfxr_rig_teleport(a.target);
+                        if (a.pad >= 0) sfxr_event("teleport", "pad %d (%.2f %.2f %.2f)", a.pad, a.target.x, a.target.y, a.target.z);
+                        else sfxr_event("teleport", "to %.2f %.2f %.2f", a.target.x, a.target.y, a.target.z);
                         L.airborne = false;
                         L.vy = 0;
                         blink(cfg);
@@ -351,6 +359,7 @@ void vrui_locomotion(const VruiLocoConfig *cfg)
         } else if (cfg->snap_turn) {
             if (L.turn_armed[h] && fabsf(s.x) > 0.7f) {
                 sfxr_rig_turn((s.x > 0 ? -1.0f : 1.0f) * cfg->snap_angle_deg * DEG2RAD);
+                sfxr_event("turn", "%s %.0f", s.x > 0 ? "right" : "left", cfg->snap_angle_deg);
                 L.turn_armed[h] = false;
                 blink(cfg);
             } else if (fabsf(s.x) < 0.35f) {

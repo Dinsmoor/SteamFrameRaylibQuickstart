@@ -60,6 +60,7 @@ typedef struct {
     int      hold_hand;   // vrui__handle_update: the holding hand, -1 none
     int      hold_mode;   // VRUI_MODE_* of that hold
     SfxrPose rel;         // grab offset (object in hand space), or a grab-time reference pose
+    char     name[24];    // the widget's label, for the event log (vrui__name)
     union { unsigned char bytes[VRUI_STATE_BYTES]; double align; } state;
 } VruiItem;
 #define VRUI_STATE(it, T) ((T *)(void *)(it)->state.bytes)
@@ -178,6 +179,9 @@ void vrui__haptics_flush(void);           // vrui_haptics.c, at vrui_end
 // Say how a widget is used ("poke it", "grab it"...). Shown next to the hand
 // or laser spot while that hand is on it (vrui_style()->show_hints).
 void vrui__hint(VruiId id, const char *how);
+// Event log (sfxr_event): name a widget after its label, and get a printable name.
+void vrui__name(VruiId id, const char *label);
+const char *vrui__who(VruiId id);         // the label, or the id in hex
 // The words for the current grab style and pull level ("grab it", "close your hand on it"...).
 const char *vrui__grab_words(void);
 const char *vrui__pull_suffix(void);   // "" at FIRM, else " (light pull)" / " (full pull)"

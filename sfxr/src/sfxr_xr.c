@@ -378,6 +378,7 @@ static void poll_events(void)
             const XrEventDataSessionStateChanged *e = (const XrEventDataSessionStateChanged *)&ev;
             X.state = e->state;
             SFXR_LOG("session state -> %s", sfxr_xr_session_state());
+            sfxr_event("session", "%s", sfxr_xr_session_state());
             if (X.state == XR_SESSION_STATE_READY) {
                 XrSessionBeginInfo bi = { XR_TYPE_SESSION_BEGIN_INFO };
                 bi.primaryViewConfigurationType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
@@ -406,6 +407,7 @@ static void poll_events(void)
             S.sig.presence_known = 1;
             S.sig.present = e->isUserPresent ? 1 : 0;
             SFXR_LOG("headset %s", e->isUserPresent ? "put on" : "taken off");
+            sfxr_event("headset", "%s", e->isUserPresent ? "put on" : "taken off");
             break;
         }
         case XR_TYPE_EVENT_DATA_DISPLAY_REFRESH_RATE_CHANGED_FB: {
@@ -451,6 +453,7 @@ static void floor_guard(void)
         }
     }
     if ((fix != 0.0f) != (X.floor_fix != 0.0f) || (fix != 0.0f && !X.floor_fix_logged)) {
+        sfxr_event("floor", "guard correction %+.2f m", fix);
         if (fix != 0.0f) SFXR_LOG("floor guard: tracking floor is %+.2f m off the room-setup floor; correcting", fix);
         else SFXR_LOG("floor guard: floors agree again (correction off)");
         X.floor_fix_logged = fix != 0.0f;

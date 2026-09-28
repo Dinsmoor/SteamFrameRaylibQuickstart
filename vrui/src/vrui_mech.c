@@ -520,8 +520,9 @@ static bool stick_adjust(VruiId id, MechState *ms, const VruiMechSpec *sp, float
 }
 
 // "How do I use this?" -- every mechanism takes a grab or the laser.
-static void mech_hint(VruiId id)
+static void mech_hint(VruiId id, const VruiMechSpec *sp)
 {
+    vrui__name(id, sp->label);
     vrui__hint(id, TextFormat("%s | or laser + trigger%s", vrui__grab_words(), vrui__pull_suffix()));
 }
 
@@ -564,7 +565,7 @@ VruiMech vrui_rotary(VruiId id, SfxrPose base, const VruiMechSpec *sp, float *va
     vrui__prox_box_all(body, half, prox);
     reach_limit(prox, sp->reach);
     VruiHandle hd = vrui__handle_update(id, it, ray, prox);
-    mech_hint(id);
+    mech_hint(id, sp);
 
     bool changed = false, have_spot = false;
     Vector3 spot = body.position;
@@ -583,6 +584,7 @@ VruiMech vrui_rotary(VruiId id, SfxrPose base, const VruiMechSpec *sp, float *va
     }
 
     VruiMech m = result_from(&hd, *value);
+    if (hd.released) sfxr_event("value", "%s %.3f", vrui__who(id), *value);
     m.changed = changed;
     m.detent = nearest_detent(sp, *value);
     m.position = -(*value - sp->min) / range_of(sp) * sp->travel;
@@ -670,7 +672,7 @@ VruiMech vrui_pivot(VruiId id, SfxrPose base, const VruiMechSpec *sp, float *val
     vrui__prox_box_all(knob_pose, knob_half, prox);
     reach_limit(prox, sp->reach);
     VruiHandle hd = vrui__handle_update(id, it, ray, prox);
-    mech_hint(id);
+    mech_hint(id, sp);
 
     bool changed = false, have_spot = false;
     Vector3 spot = knob;
@@ -686,6 +688,7 @@ VruiMech vrui_pivot(VruiId id, SfxrPose base, const VruiMechSpec *sp, float *val
     }
 
     VruiMech m = result_from(&hd, *value);
+    if (hd.released) sfxr_event("value", "%s %.3f", vrui__who(id), *value);
     m.changed = changed;
     m.detent = nearest_detent(sp, *value);
     t = range_of(sp) != 0 ? Clamp((*value - sp->min) / range_of(sp), 0, 1) : 0;
@@ -723,7 +726,7 @@ VruiMech vrui_linear(VruiId id, SfxrPose base, const VruiMechSpec *sp, float *va
     vrui__prox_box_all(hp, hhalf, prox);
     reach_limit(prox, sp->reach);
     VruiHandle hd = vrui__handle_update(id, it, ray, prox);
-    mech_hint(id);
+    mech_hint(id, sp);
 
     bool changed = false;
     if (hd.grabbed) model_grab(ms, sp, *value);
@@ -738,6 +741,7 @@ VruiMech vrui_linear(VruiId id, SfxrPose base, const VruiMechSpec *sp, float *va
     }
 
     VruiMech m = result_from(&hd, *value);
+    if (hd.released) sfxr_event("value", "%s %.3f", vrui__who(id), *value);
     m.changed = changed;
     m.detent = nearest_detent(sp, *value);
     t = range_of(sp) != 0 ? Clamp((*value - sp->min) / range_of(sp), 0, 1) : 0;
@@ -781,7 +785,7 @@ VruiMech vrui_tilt(VruiId id, SfxrPose base, const VruiMechSpec *sp, Vector2 *va
     vrui__prox_box_all(ball, bhalf, prox);
     reach_limit(prox, sp->reach);
     VruiHandle hd = vrui__handle_update(id, it, ray, prox);
-    mech_hint(id);
+    mech_hint(id, sp);
 
     bool changed = false;
     Vector3 up = Vector3RotateByQuaternion((Vector3){ 0, 1, 0 }, base.orientation);

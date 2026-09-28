@@ -27,3 +27,4 @@ BREAK(vrui_loco_arc_floor_only,     "the teleport arc ignores surfaces and lands
 BREAK(vrui_loco_no_pad_snap,        "landing near a pad doesn't snap to its center or facing")
 BREAK(vrui_loco_no_mantle,         "letting go with your head over a ledge drops you back down instead of onto it")
 BREAK(vrui_loco_pads_only_ignored, "pads_only is ignored: you can teleport anywhere")
+BREAK(vrui_events_unnamed,           "the event log shows widget ids instead of their labels")

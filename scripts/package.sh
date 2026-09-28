@@ -69,8 +69,12 @@ fi
 # (scripts/frame.sh sessions / keep).
 if [ -z "${SFXR_RECORD:-}" ] && [ "${SFQ_AUTORECORD:-1}" != 0 ]; then
   mkdir -p recordings
-  export SFXR_RECORD="recordings/session-$(date +%Y%m%d-%H%M%S).sfxrec"
+  stamp=$(date +%Y%m%d-%H%M%S)
+  export SFXR_RECORD="recordings/session-$stamp.sfxrec"
+  # ...and what happened in it, readable (grabs, presses, teleports, worn...)
+  export SFXR_EVENTS="${SFXR_EVENTS:-recordings/session-$stamp.events}"
   ls -1t recordings/session-*.sfxrec 2>/dev/null | tail -n +5 | xargs -r rm -f
+  ls -1t recordings/session-*.events 2>/dev/null | tail -n +5 | xargs -r rm -f
 fi
 # In the headset the desktop mirror window is useless (and may show up as a
 # flat window); keep the GL context's window hidden unless asked otherwise.

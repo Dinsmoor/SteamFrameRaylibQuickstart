@@ -5,10 +5,15 @@
 >   (`make regress`)
 > - the C test harness (`sfxt/`), with break switches, an automatic red leg and an audit
 >   (`make test`, `make test-audit`)
-> - 35 cases covering the reference mechanisms, trigger input and hand shapes (`tests/mech`,
->   `tests/input`)
+> - 59 cases (`make test`):
+>   - `tests/mech`: the reference mechanisms
+>   - `tests/input`: trigger input and hand shapes
+>   - `tests/move`: movement and climbing
+>   - `tests/hands`: bare hands
+>   - `tests/steam`: Steamworks
+> - the event log (`SFXR_EVENTS`)
 >
-> The scenario language, event log and widget registry are still planned. The "Staging"
+> The scenario language and widget registry are still planned. The "Staging"
 > section at the end tracks what exists.
 
 This document explains **how** apps built on this quickstart get tested, and **why** it's
@@ -76,26 +81,35 @@ higher tests don't have to.
 
 ## 4. The event log
 
-sfxr and vrui report every meaningful thing as one line of JSON. It's written to a file
-in test runs, and can be enabled any time with `SFXR_EVENTS=file.jsonl`:
+sfxr and vrui write every meaningful thing as one line of text when `SFXR_EVENTS=<file>`
+is set. `scripts/test.sh` sets it for every case, and every headset launch writes one next
+to its session recording (`recordings/session-<time>.events`). Here is a real one from
+the toolbox:
 
 ```
-{"f":211,"t":2.930,"ev":"hover",   "id":"table.lever","hand":"R","via":"hand"}
-{"f":214,"t":2.972,"ev":"grab",    "id":"table.lever","hand":"R","via":"hand"}
-{"f":215,"t":2.986,"ev":"value",   "id":"table.lever","v":0.04}
-{"f":240,"t":3.333,"ev":"haptic",  "hand":"R","amp":0.2}
-{"f":262,"t":3.639,"ev":"release", "id":"table.lever","hand":"R"}
-{"f":262,"t":3.639,"ev":"app",     "key":"sky","v":0.93}
+# sfxr events: seconds, frame, kind, text
+    0.000 f1       hand       L controller
+    3.773 f71      grab       SIZE R laser+grip
+    4.566 f86      release    SIZE R
+    4.566 f86      value      SIZE 0.750
+    5.188 f98      press      SPAWN (full pull) by laser
 ```
+
+**Why plain text, not JSON:** the first reader is a person going through a playtest
+("what did I touch when it felt wrong?"). The first three fields are fixed (seconds,
+frame, kind), so a script can still split lines on whitespace.
 
 | Source | Events |
 |---|---|
-| sfxr | `session` (state changes), `input` (button press/release per hand, tracking lost/regained), `teleport`, `turn`, `haptic` |
-| vrui | `hover`/`unhover`, `press`, `click`, `grab`/`release` (with `via` = hand / ray), `value`, `toggle` |
-| your app | `sfxr_event("key", value)`, one line wherever something meaningful happens |
+| sfxr | `session` (state), `headset` (put on / taken off), `hand` (controller, bare hand, lost), `floor` (floor-guard correction) |
+| vrui | `grab` / `release` (hand, laser+trigger, laser+grip), `value` (a control's value when let go), `press` (poke or laser), `flip`, `click`, `toggle` |
+| vrui locomotion | `teleport` (to a point or a pad), `turn`, `climb` (which hand leads, let go), `mantle`, `land` |
+| your app | `sfxr_event("kind", "printf format", ...)`, wherever something meaningful happens |
 
-`f` is the frame number and `t` is simulated time. Value events are rate-limited to
-actual changes.
+Widgets are named by their label (a mechanism's `spec.label`, a button's text), which is
+one more reason to give them one. `mech/knob-events-name-it` proves it.
+
+Not logged yet: hover, and haptics.
 
 ## 5. The widget registry
 
@@ -302,11 +316,13 @@ make test T=lever                 # one scenario file (or T=lever/push-lever-by-
 make test-watch T=lever/push-lever-by-hand   # same, in a slowed-down window
 make test-bless T=lever           # approve snapshots
 ```
-The output is a PASS/FAIL table. For each failure the runner prints the assertion and
-the ±30 frames of event log around it, and keeps:
-- `shots/test/<case>/failure.png`: the frame where it failed
-- `shots/test/<case>/run.sfxrec`: the exact inputs, so `make replay` shows what happened
-- `shots/test/<case>/events.jsonl`: the full event log
+The output is a PASS/FAIL table. For each failure the runner prints the failed checks,
+and keeps in `build/host-test/test-artifacts/<case>/`:
+- the case's output
+- its event log, meaning every grab, release, press and teleport it made
+
+Still planned: the frame where it failed, as a picture, and the exact inputs as a
+`run.sfxrec` to replay.
 
 ## 12. The device layer
 
@@ -347,8 +363,8 @@ Scenario scripts can't move real controllers, so on the headset the tests are:
 | Script backend (`SFXR_BACKEND_SCRIPT`) and the C harness `sfxt/` (`sfxt_hand_to/path`, `sfxt_grip/trigger/button`, `sfxt_wait/frames`, `CHECK`, `CHECK_NEAR`, default noise) | **done** |
 | Break switches (`SFXR_BREAK`, `sfxr/src/sfxr_breaks.def`, `vrui/src/vrui_breaks.def`), automatic red leg, `make test-audit` | **done** (20 switches, all proven) |
 | Mechanism tests (30 cases, `tests/mech`) and input tests (5 cases: pull levels, hand shapes, `tests/input`) | **done** |
-| Parallel one-process-per-case runner, `make test` (headless, private Xvfb) | **done** (failure screenshots and `run.sfxrec` artifacts still planned) |
-| Event log (`SFXR_EVENTS`), `sfxr_event()` | planned |
+| Parallel one-process-per-case runner, `make test` (headless, private Xvfb) | **done**; failing cases keep their output and event log (screenshots and `run.sfxrec` still planned) |
+| Event log (`SFXR_EVENTS`), `sfxr_event()` | **done** (text lines; headset sessions and failing tests keep one) |
 | Widget registry (names, parts, poses, values); string targets like `"table.lever/handle"` | planned (harness positions are world coordinates today) |
 | `.sfxt` scenario files (a syntax over the `sfxt_*` calls) | planned |
 | Gaze, session and dropout commands, `play` | planned |

@@ -16,6 +16,8 @@
 #   passes       still passes         UNTRUSTED  (the test doesn't detect what it claims)
 #
 # Cases without a switch pass as "unproven" and are listed, so gaps stay visible.
+# A failing case leaves its output and event log (SFXR_EVENTS: every grab,
+# press, teleport... it did) in $BUILD/test-artifacts/<case>/.
 # Exit status is non-zero on any FAIL or UNTRUSTED.
 set -uo pipefail
 cd "$(dirname "$0")/.."
@@ -59,12 +61,16 @@ fi
 export LIBGL_ALWAYS_SOFTWARE=1
 
 out=$(mktemp -d)
+ARTIFACTS="$BUILD/test-artifacts"
+rm -rf "$ARTIFACTS"
+export ARTIFACTS
 run_one() {   # bin name brk outdir
     local bin=$1 name=$2 brk=$3 o=$4 f
     f="$o/$(echo "$name" | tr '/' '_')"
     local t0=$SECONDS
-    if ! SFXR_BREAK= "$bin" "$name" >"$f.out" 2>&1; then
+    if ! SFXR_BREAK= SFXR_EVENTS="$f.events" "$bin" "$name" >"$f.out" 2>&1; then
         echo "FAIL $name" >"$f.res"
+        mkdir -p "$ARTIFACTS/$name" && cp "$f.out" "$f.events" "$ARTIFACTS/$name/" 2>/dev/null
     elif [ "$brk" = "-" ]; then
         echo "PASS $name (unproven)" >"$f.res"
     elif SFXR_BREAK=$brk "$bin" "$name" >"$f.red" 2>&1; then
@@ -81,7 +87,8 @@ for r in "$out"/*.res; do
     line=$(cat "$r")
     echo "$line"
     case $line in
-        FAIL*)      fail=$((fail + 1)); sed 's/^/    /' "${r%.res}.out" | grep -v '^    PASS\|^    FAIL' ;;
+        FAIL*)      fail=$((fail + 1)); sed 's/^/    /' "${r%.res}.out" | grep -v '^    PASS\|^    FAIL'
+                    echo "    artifacts: $ARTIFACTS/${line#FAIL }/ (output, event log)" ;;
         UNTRUSTED*) untrusted=$((untrusted + 1)) ;;
         *unproven*) pass=$((pass + 1)); unproven=$((unproven + 1)) ;;
         PASS*)      pass=$((pass + 1)) ;;
