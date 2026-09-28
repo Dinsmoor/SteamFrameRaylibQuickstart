@@ -1,0 +1,6 @@
+// The garden's break switches: BREAK(name, "what breaks"). See sfxr/include/sfxr_break.h;
+// tests/garden proves each one is caught.
+BREAK(garden_hit_at_hand,      "hammer hits are checked at your hand, not the hammer's head, so a swing whose head goes through a bug misses")
+BREAK(garden_hit_any_speed,    "resting the hammer on a bug smashes it: the swing's speed is ignored")
+BREAK(garden_bite_every_frame, "a bug touching you bites every frame instead of once a second")
+BREAK(garden_belt_world_space, "the hammer put on your belt stays where you put it instead of going with you")

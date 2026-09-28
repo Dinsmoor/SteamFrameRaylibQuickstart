@@ -11,6 +11,10 @@
 //   onboarding.c         the hands-on setup station (learns the player's habits)
 //   station_hinges.c     Hinges & cords: a door, a chest lid, a bell cord, a radio dial, a valve, a key switch
 //   yard.c               the Movement yard: teleport pads, stairs, climbing wall, monkey bars
+//   station_attach.c     Attach & label: things riding on things, every kind of world label
+//   station_smoothing.c  Smoothing: how held things follow the hand, easing curves
+//   station_menus.c, hud.c  hand menus and visor HUDs (with you everywhere)
+//   garden*.c            the Garden: part three, a small real game (garden.h)
 
 #ifndef TOOLBOX_H
 #define TOOLBOX_H
@@ -39,7 +43,9 @@
 //    2.5   Mechanisms bench              bench_mechanisms.c
 //    5.2   Linkage bench                 bench_linkage.c
 //    7.9   Attach & label bench          station_attach.c
-//   11.4   Hinges & cords (4 m wide)     station_hinges.c
+//   10.9   Smoothing                     station_smoothing.c
+//   13.9   Hinges & cords (4 m wide)     station_hinges.c
+//   19.5   the garden gate               garden.c: part three, a small game
 //
 // Behind you (+Z): the Movement yard (yard.c), and the LIFT platform on the
 // way to it.
@@ -70,7 +76,7 @@ static inline void station_sign(float x, const char *title, const char *body)
 
 // Widget id groups: VRUI_ID2(group, index).
 enum { G_TABLE = 1, G_PANEL, G_WRIST, G_BLOCKS, G_BENCH, G_CTRL, G_HEADSET, G_LINK, G_YARD, G_HINGE,
-       G_ATTACH, G_MENUS, G_HUD };
+       G_ATTACH, G_MENUS, G_HUD, G_GARDEN, G_SMOOTH };
 
 // World settings, changed by the workbench controls and the Toolbox panel.
 typedef struct {
@@ -105,6 +111,9 @@ void panel_controllers(void);
 void panel_headset(void);
 void station_hinges(void);
 void station_attach(void);
+void station_smoothing(void);
+// the smoothing settings tuned at the Smoothing station (the garden's hammer uses them)
+const VruiSmoothSpec *smoothing_spec(VruiSmoothMode mode);
 
 // hud.c: visor HUD templates (the garden uses them too)
 typedef enum { HUD_OFF, HUD_HEAD, HUD_FOLLOW, HUD_BODY, HUD_COUNT } HudStyle;

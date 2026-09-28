@@ -16,6 +16,10 @@ static int picked = -1, picks = 0;
 static bool radial_on, follow_on;
 static SfxrPose follow_pose, follow_target;
 static VruiLocoConfig loco;
+static bool smooth_on;
+static VruiSmooth sm;
+static VruiSmoothSpec sm_spec;
+static SfxrPose sm_target, sm_out;
 
 static void scene(void)
 {
@@ -24,6 +28,7 @@ static void scene(void)
         if (p >= 0 || sfxr_hand(SFXR_RIGHT)->secondary.released) { picked = p; picks++; }
     }
     if (follow_on) follow_pose = vrui_follow(2, follow_target, 20.0f, 0.45f);
+    if (smooth_on) sm_out = vrui_smooth_pose(&sm, sm_target, &sm_spec);
     vrui_locomotion(&loco);
 }
 
@@ -207,6 +212,81 @@ static void attach_keeps_the_pose(void)
     CHECK_NEAR(rode.position.z, child.position.z - 1.0f, 1e-4f, "rides along when the parent moves");
 }
 
+// --- smoothing ---------------------------------------------------------------------
+
+static void smooth_start(VruiSmoothMode mode)
+{
+    setup();
+    sm_spec = vrui_smooth_spec(mode);
+    sm_target = (SfxrPose){ { 0, 1.2f, -0.5f }, QuaternionIdentity() };
+    smooth_on = true;
+    sfxt_frames(3);
+}
+
+// Lag: after one halflife, half the gap is closed.
+static void smooth_lag_halflife(void)
+{
+    smooth_start(VRUI_SMOOTH_LAG);
+    sm_target.position.x += 1.0f;
+    sfxt_frames((int)roundf(sm_spec.halflife * 72.0f));
+    CHECK_NEAR(sm_out.position.x, 0.5f, 0.08f, "half way after one halflife");
+    sfxt_wait(1.0f);
+    CHECK_NEAR(sm_out.position.x, 1.0f, 0.005f, "arrived");
+}
+
+// Spring (default damping 0.35) overshoots a step, then settles.
+static void smooth_spring_overshoots(void)
+{
+    smooth_start(VRUI_SMOOTH_SPRING);
+    sm_target.position.x += 1.0f;
+    float peak = 0;
+    for (int i = 0; i < 72; i++) { sfxt_frames(1); peak = fmaxf(peak, sm_out.position.x); }
+    CHECK(peak > 1.15f, "overshot to %.2f", peak);
+    sfxt_wait(3.0f);
+    CHECK_NEAR(sm_out.position.x, 1.0f, 0.01f, "settled");
+}
+
+// Heavy: a 1 m jump is taken at no more than max_speed.
+static void smooth_heavy_speed_limited(void)
+{
+    smooth_start(VRUI_SMOOTH_HEAVY);
+    sm_target.position.x += 1.0f;
+    sfxt_frames(1);
+    CHECK(sm_out.position.x <= sm_spec.max_speed / 72.0f + 1e-4f, "one frame: moved %.3f m (limit %.3f)", sm_out.position.x,
+          sm_spec.max_speed / 72.0f);
+    sfxt_wait(1.5f);
+    CHECK_NEAR(sm_out.position.x, 1.0f, 0.01f, "gets there");
+}
+
+// Steady: a 3 mm, 8 Hz tremble is mostly gone; a fast move comes through.
+static void smooth_steady_quiets_tremble(void)
+{
+    smooth_start(VRUI_SMOOTH_STEADY);
+    float lo = 1e9f, hi = -1e9f;
+    for (int i = 0; i < 144; i++) {
+        sm_target.position.x = 0.003f * sinf((float)i / 72.0f * 8.0f * 2.0f * PI);
+        sfxt_frames(1);
+        if (i > 72) { lo = fminf(lo, sm_out.position.x); hi = fmaxf(hi, sm_out.position.x); }
+    }
+    CHECK((hi - lo) < 0.003f, "tremble 6 mm peak to peak in, %.1f mm out", (hi - lo) * 1000);
+    sm_target.position.x = 0.5f;   // a quick, big move
+    sfxt_frames(9);
+    CHECK(sm_out.position.x > 0.4f, "a fast move comes through in 1/8 s (%.2f of 0.5 m)", sm_out.position.x);
+}
+
+// Riding the rig: a teleport carries the smoothed thing along in the same
+// frame, instead of it lagging across the world after you.
+static void smooth_rides_the_rig(void)
+{
+    smooth_start(VRUI_SMOOTH_LAG);
+    sfxt_frames(10);
+    Vector3 before = sm_out.position;
+    sfxr_rig_move((Vector3){ 0, 0, -3 });
+    sm_target.position.z -= 3;   // the hand moved with the rig
+    sfxt_frames(1);
+    CHECK_NEAR(Vector3Distance(sm_out.position, before), 3.0f, 0.01f, "moved with the rig");
+}
+
 static const SfxtCase CASES[] = {
     { "attach/radial-picks-the-tilted-choice",  radial_picks_the_tilted_choice,  "vrui_radial_angle_from_x" },
     { "attach/radial-never-teleports",          radial_never_teleports,          "vrui_radial_no_claim" },
@@ -216,6 +296,11 @@ static const SfxtCase CASES[] = {
     { "attach/body-ignores-glances-follows-turns", body_ignores_glances_follows_turns, "vrui_body_follows_head" },
     { "attach/arrow-only-out-of-view",          arrow_only_out_of_view,          "vrui_arrow_ignores_view" },
     { "attach/attach-keeps-the-pose",           attach_keeps_the_pose,           NULL },
+    { "attach/smooth-lag-halflife",             smooth_lag_halflife,             NULL },
+    { "attach/smooth-spring-overshoots",        smooth_spring_overshoots,        NULL },
+    { "attach/smooth-heavy-speed-limited",      smooth_heavy_speed_limited,      NULL },
+    { "attach/smooth-steady-quiets-tremble",    smooth_steady_quiets_tremble,    NULL },
+    { "attach/smooth-rides-the-rig",            smooth_rides_the_rig,            "vrui_smooth_world_space" },
 };
 
 int main(int argc, char **argv) { return sfxt_main(argc, argv, CASES, SFXT_COUNT(CASES), scene); }

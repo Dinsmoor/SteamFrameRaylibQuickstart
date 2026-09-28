@@ -1,0 +1,598 @@
+// garden.c - the Garden: a small real game made from the toolbox's pieces
+// (docs/GARDEN.md). Go through the gate at the right end of the row.
+//
+// The game: the gardener is holding a hammer. Take it from his hand and the
+// bugs come, crawling at you from all sides. Swing the hammer at them (a real
+// swing: it's the speed of the hammer's head that counts, so tapping does
+// nothing). Smash 8 before they bite you 10 times.
+//
+// What it uses, and where each piece is explained:
+//   attaching      the hammer is attached to the gardener's hand bone, then
+//                  your hand, then your belt (put it on your right hip), or
+//                  nothing (drop or throw it: it tumbles as a rigid body)
+//                  -- docs/ATTACHING.md
+//   locomotion     walk with the left stick (smooth, the garden is a game),
+//                  teleport or turn with the right; the ground is sculpted
+//                  terrain, and tree trunks, rocks and the tower are solid
+//                  (your head in one fades the view) -- docs/MOVEMENT.md
+//   HUD and menus  the Menus & HUD station's choices apply here too: your
+//                  health and score on the HUD, arrows to bugs behind you,
+//                  and the hand menus offer Restart / Recall hammer / Leave
+//   labels         callouts on tough bugs (hits left), the gardener's words
+//   smoothing      how the hammer follows whatever holds it: Snap (exactly
+//                  on the hand or bone), Lag, Spring, Heavy (a weighty
+//                  swing: a flick can't whip it round), Steady -- the
+//                  Smoothing station's modes and settings (docs/SMOOTHING.md).
+//                  Pick one on the garden's board or from a hand menu.
+//   haptics        a thump per hit, scaled by how hard you swung; a jolt
+//                  when bitten
+//   Steam          winning unlocks an achievement when Steam is there
+//                  (docs/STEAM.md)
+//   the event log  every hit, bite, pick-up and drop is in it
+//
+// The game logic is plain C in this one file; the world (terrain, props,
+// the chair's rigid body, the gardener's animation) is garden_world.c,
+// garden_rigidbody.c and garden_anim.c.
+
+#include "garden.h"
+#include "rlgl.h"
+#include "sfxr_break.h"
+#include "sfxr_steam.h"
+
+#include <string.h>
+
+// the garden's own break switches (tests/garden proves each one matters)
+#define BREAK SFXR_BREAK_DECLARE
+#include "garden_breaks.def"
+#undef BREAK
+
+#define ID(n) VRUI_ID2(G_GARDEN, (n))
+
+#define SCORE_TO_WIN 8
+#define MAX_HP       10
+#define MAX_BUGS     24
+#define BUG_R        0.3f     // a bug's body radius (m)
+#define PLAYER_R     0.3f     // how close to your feet a bug must get to bite
+#define SWING_SPEED  1.3f     // the hammer's head must move this fast to hit (m/s)
+
+// The hammer, in its own frame: the handle along +Y from its end at the
+// origin; we keep the pose of the handle's middle (where it's held).
+#define HANDLE_MID   (0.40f * GARDEN_SCALE)
+#define HEAD_UP      (0.93f * GARDEN_SCALE - HANDLE_MID)   // handle middle -> head center
+#define HEAD_REACH   0.16f
+
+// The gate at the right end of the row (the toolbox side), and where you
+// come back out.
+#define GATE_X  19.5f
+#define GATE_Z  0.3f
+
+typedef struct { const char *name; Color color; float speed; int health, damage; } BugType;
+static const BugType TYPES[] = {
+    { "red",   { 210, 60, 60, 255 },  0.75f, 1, 2 },
+    { "blue",  { 60, 110, 230, 255 }, 1.0f,  1, 1 },
+    { "green", { 70, 190, 80, 255 },  0.6f,  3, 3 },
+};
+#define NTYPES ((int)(sizeof TYPES / sizeof TYPES[0]))
+
+typedef struct {
+    bool alive;
+    float squash;          // > 0: smashed, flattening out (s)
+    Vector3 pos;           // on the ground
+    int type, health;
+    float bite_cd, hit_cd, wobble;
+} Bug;
+
+typedef enum { WAITING, PLAYING, WON, LOST } Round;
+typedef enum { WITH_GARDENER, IN_HAND, ON_BELT, LOOSE } HammerAt;
+static const char *const HAMMER_WORDS[] = { "with the gardener", "in your hand", "on your belt", "on the ground" };
+
+static struct {
+    bool active;
+    Round round;
+    float t, drip, hurt;
+    int score, hp, waves_done;
+    Bug bugs[MAX_BUGS];
+    uint32_t rng;
+
+    HammerAt hammer_at;
+    SfxrPose hammer;       // the handle's middle, exactly where its parent puts it
+    SfxrPose shown;        // ...and after smoothing: where it's drawn and where it hits
+    VruiSmooth smooth;
+    int feel;              // VruiSmoothMode for the hammer
+    RigidBody hammer_body; // while loose
+    SfxrHandId hammer_hand;
+    Vector3 head_prev;     // the hammer's head last frame, in tracking space
+    bool head_prev_ok;
+    Vector3 head_vel;      // its velocity this frame (world, m/s)
+    bool test_mode;        // tests place their own bugs: no timed waves, and bugs stay put (they still bite)
+    Model hammer_model;
+    bool models_ok;
+
+    AnimModel gardener;
+    float walk;            // the gardener's way round the table (rad)
+
+    VruiLocoConfig loco;
+    SfxrPose board;        // the garden's panel (placed on entering; you can drag it)
+    bool steam_sent;
+    float gate;            // the gate's opening 0..1
+} GD = { .rng = 12345, .feel = VRUI_SMOOTH_LAG };
+
+bool garden_active(void) { return GD.active; }
+Color garden_sky(void) { return gw_sky(); }
+
+// deterministic, so replays and tests of the garden repeat exactly
+static float rnd(void) { GD.rng = GD.rng * 1664525u + 1013904223u; return (float)(GD.rng >> 8) / 16777216.0f; }
+
+// --- where things are ---------------------------------------------------------------
+
+static Vector3 on_ground(float x, float z) { return (Vector3){ x, gw_ground(x, z), z }; }
+
+// The gardener's model faces its -Z (Blender's front, after the glTF export).
+static SfxrPose gardener_pose(void)
+{
+    if (GD.round == WAITING) {   // by the spawn point, turned round to face you
+        Vector3 p = on_ground(0.9f, -1.3f);
+        return (SfxrPose){ p, QuaternionFromAxisAngle((Vector3){ 0, 1, 0 }, PI) };
+    }
+    // walking round the table, facing the way he walks: along (cos w, -sin w)
+    Vector3 c = { 4.2f, 0, -0.1f };
+    Vector3 p = on_ground(c.x + 1.7f * sinf(GD.walk), c.z + 1.7f * cosf(GD.walk));
+    return (SfxrPose){ p, QuaternionFromAxisAngle((Vector3){ 0, 1, 0 }, GD.walk - PI / 2) };
+}
+
+// The belt slot for the hammer: your right hip, head up.
+static SfxrPose belt(void)
+{
+    return sfxr_pose_mul(vrui_body(), (SfxrPose){ { 0.24f, 0.55f * vrui_eye_height() - 0.05f, -0.02f },
+                                                   QuaternionFromAxisAngle((Vector3){ 1, 0, 0 }, -15 * DEG2RAD) });
+}
+
+static Vector3 hammer_head(void) { return sfxr_pose_apply(GD.shown, (Vector3){ 0, HEAD_UP, 0 }); }
+
+static SfxrPose rig(void)
+{
+    return (SfxrPose){ sfxr_rig_position(), QuaternionFromAxisAngle((Vector3){ 0, 1, 0 }, sfxr_rig_yaw()) };
+}
+
+// How fast the hammer's head is moving. In your hand, it's measured from
+// where the head was last frame in TRACKING space (your room), not the
+// world: a flick of the wrist moves the head much faster than the hand, and
+// a teleport or stick walking moves the world, not your swing.
+static void track_head(void)
+{
+    Vector3 head = hammer_head();
+    if (GD.hammer_at == LOOSE) { GD.head_vel = rb_point_velocity(&GD.hammer_body, head); GD.head_prev_ok = false; return; }
+    if (GD.hammer_at != IN_HAND) { GD.head_vel = (Vector3){ 0 }; GD.head_prev_ok = false; return; }
+    SfxrPose r = rig();
+    Vector3 local = sfxr_pose_apply_inv(r, head);
+    float dt = sfxr_dt();
+    GD.head_vel = GD.head_prev_ok && dt > 0
+        ? Vector3RotateByQuaternion(Vector3Scale(Vector3Subtract(local, GD.head_prev), 1.0f / dt), r.orientation)
+        : (Vector3){ 0 };
+    GD.head_prev = local;
+    GD.head_prev_ok = true;
+}
+
+// --- the locomotion hooks -------------------------------------------------------------
+
+static float ground_cb(Vector3 p, void *u) { (void)u; return gw_ground(p.x, p.z); }
+static float solid_cb(Vector3 p, void *u) { (void)u; return gw_solid_depth(p); }
+static bool inside_cb(Vector3 t, void *u)
+{
+    (void)u;
+    float h = gw_half_size() - 1.0f;
+    return fabsf(t.x) < h && fabsf(t.z) < h;
+}
+
+// --- the round --------------------------------------------------------------------------
+
+static void spawn_bug(int type)
+{
+    int alive = 0;
+    for (int i = 0; i < MAX_BUGS; i++) alive += GD.bugs[i].alive;
+    if (alive >= 10) return;
+    for (int i = 0; i < MAX_BUGS; i++) {
+        Bug *b = &GD.bugs[i];
+        if (b->alive) continue;
+        if (type < 0) type = (int)(rnd() * NTYPES) % NTYPES;
+        float a = rnd() * 2 * PI, r = fminf(gw_half_size() - 1.5f, 16.0f);
+        Vector3 me = sfxr_head_floor_point();
+        float x = Clamp(me.x + r * sinf(a), -gw_half_size() + 1, gw_half_size() - 1);
+        float z = Clamp(me.z + r * cosf(a), -gw_half_size() + 1, gw_half_size() - 1);
+        gw_resolve_circle(&x, &z, BUG_R);
+        *b = (Bug){ .alive = true, .pos = on_ground(x, z), .type = type, .health = TYPES[type].health, .wobble = rnd() * 6 };
+        sfxr_event("bug", "a %s bug comes (%.1f %.1f)", TYPES[type].name, x, z);
+        return;
+    }
+}
+
+static void round_reset(void)
+{
+    memset(GD.bugs, 0, sizeof GD.bugs);
+    GD.round = WAITING;
+    GD.t = GD.drip = GD.hurt = 0;
+    GD.score = 0;
+    GD.hp = MAX_HP;
+    GD.waves_done = 0;
+    GD.hammer_at = WITH_GARDENER;
+    GD.rng = 12345;
+    gw_reset();
+}
+
+static void hit_bugs(void)
+{
+    if (GD.hammer_at != IN_HAND && GD.hammer_at != LOOSE) return;
+    Vector3 v = GD.head_vel, head = hammer_head();
+    if (SFXR_BREAK(garden_hit_at_hand) && GD.hammer_at == IN_HAND) head = sfxr_hand(GD.hammer_hand)->grip.position;
+    float speed = Vector3Length(v);
+    if (speed < SWING_SPEED && !SFXR_BREAK(garden_hit_any_speed)) return;
+    if (gw_hit_loose(head, v, 1.2f, HEAD_REACH)) {   // the chair
+        if (GD.hammer_at == IN_HAND) vrui_haptic_pulse(GD.hammer_hand, 0.4f, 0.03f, 0);
+    }
+    for (int i = 0; i < MAX_BUGS; i++) {
+        Bug *b = &GD.bugs[i];
+        if (!b->alive || b->squash > 0 || b->hit_cd > 0) continue;
+        Vector3 c = Vector3Add(b->pos, (Vector3){ 0, BUG_R * 0.9f, 0 });
+        if (Vector3Distance(head, c) > BUG_R + HEAD_REACH) continue;
+        b->hit_cd = 0.35f;   // one hit per swing
+        b->health--;
+        // the thump: stronger the harder you swung
+        if (GD.hammer_at == IN_HAND) vrui_haptic_pulse(GD.hammer_hand, Clamp(0.35f + speed * 0.12f, 0, 1), 0.05f, 0);
+        if (b->health <= 0) {
+            b->squash = 0.001f;
+            GD.score++;
+            sfxr_event("smash", "%s bug smashed at %.1f m/s (%d of %d)", TYPES[b->type].name, speed, GD.score, SCORE_TO_WIN);
+        } else {
+            Vector3 away = Vector3Normalize((Vector3){ c.x - head.x, 0, c.z - head.z });
+            b->pos = on_ground(b->pos.x + away.x * 0.4f, b->pos.z + away.z * 0.4f);
+            sfxr_event("hit", "%s bug hit, %d to go", TYPES[b->type].name, b->health);
+        }
+    }
+}
+
+static void move_bugs(float dt)
+{
+    Vector3 me = sfxr_head_floor_point();
+    for (int i = 0; i < MAX_BUGS; i++) {
+        Bug *b = &GD.bugs[i];
+        if (!b->alive) continue;
+        if (b->squash > 0) {   // smashed: flatten, then gone
+            b->squash += dt;
+            if (b->squash > 0.5f) b->alive = false;
+            continue;
+        }
+        b->hit_cd = fmaxf(0, b->hit_cd - dt);
+        b->bite_cd = fmaxf(0, b->bite_cd - dt);
+        b->wobble += dt * 9;
+        if (GD.round != PLAYING) continue;
+        Vector3 to = { me.x - b->pos.x, 0, me.z - b->pos.z };
+        float d = Vector3Length(to);
+        float x = b->pos.x, z = b->pos.z;
+        Vector3 vel = { 0 };
+        if (d > PLAYER_R + BUG_R && !GD.test_mode) {   // (tests put bugs exactly where they want them)
+            vel = Vector3Scale(to, TYPES[b->type].speed / d);
+            x += vel.x * dt;
+            z += vel.z * dt;
+        }
+        gw_resolve_circle(&x, &z, BUG_R);
+        gw_push_loose(&x, &z, BUG_R, vel, 1.0f);   // bugs nudge the chair too
+        b->pos = on_ground(x, z);
+        // a bite, then it backs off a little
+        if (d < PLAYER_R + BUG_R + 0.08f && b->bite_cd <= 0) {
+            GD.hp -= TYPES[b->type].damage;
+            b->bite_cd = SFXR_BREAK(garden_bite_every_frame) ? 0 : 1.2f;
+            GD.hurt = 0.35f;
+            if (d > 1e-3f && !SFXR_BREAK(garden_bite_every_frame)) b->pos = on_ground(b->pos.x - to.x / d * 0.5f, b->pos.z - to.z / d * 0.5f);
+            for (int h = 0; h < 2; h++) vrui_haptic_pulse((SfxrHandId)h, 0.6f, 0.12f, 0);
+            sfxr_event("bite", "a %s bug bit you: %d/%d", TYPES[b->type].name, GD.hp > 0 ? GD.hp : 0, MAX_HP);
+        }
+    }
+}
+
+static void play(float dt)
+{
+    if (GD.round != PLAYING) return;
+    GD.t += dt;
+    if (GD.test_mode) GD.waves_done = 2, GD.drip = 0;   // tests place their own bugs
+    // the waves: three at once, two tough green ones, then one every 3.5 s
+    if (GD.waves_done == 0 && GD.t > 0.5f) { for (int i = 0; i < 3; i++) spawn_bug(-1); GD.waves_done = 1; }
+    if (GD.waves_done == 1 && GD.t > 4.0f) { spawn_bug(2); spawn_bug(2); GD.waves_done = 2; }
+    if (GD.t > 6.0f && (GD.drip += dt) > 3.5f) { GD.drip = 0; spawn_bug(-1); }
+    if (GD.score >= SCORE_TO_WIN) {
+        GD.round = WON;
+        sfxr_event("round", "won in %.0f s with %d/%d left", GD.t, GD.hp, MAX_HP);
+        // Spacewar's (app 480) test achievement; your game's would be yours
+        if (!GD.steam_sent) GD.steam_sent = sfxr_steam_unlock("ACH_WIN_ONE_GAME");
+    } else if (GD.hp <= 0) {
+        GD.hp = 0;
+        GD.round = LOST;
+        sfxr_event("round", "lost after %.0f s, %d smashed", GD.t, GD.score);
+    }
+}
+
+// --- the hammer: who it's attached to --------------------------------------------------
+
+static void hammer(void)
+{
+    // Where the hammer is this frame comes from its parent (docs/ATTACHING.md):
+    switch (GD.hammer_at) {
+    case WITH_GARDENER: {
+        // His hand bone carries it: the handle sits in his fist wherever the
+        // idle sway takes the hand. The bone points along his arm, so the
+        // hammer takes its uprightness from his body instead, tipped toward you.
+        SfxrPose body = gardener_pose();
+        SfxrPose hand = anim_bone_pose(&GD.gardener, "hand.R", body, GARDEN_SCALE);
+        SfxrPose held = { hand.position, QuaternionMultiply(body.orientation, QuaternionFromAxisAngle((Vector3){ 1, 0, 0 }, -30 * DEG2RAD)) };
+        GD.hammer = sfxr_pose_mul(held, (SfxrPose){ { 0, HANDLE_MID - 0.12f, 0 }, QuaternionIdentity() });
+        break;
+    }
+    case ON_BELT: if (!SFXR_BREAK(garden_belt_world_space)) GD.hammer = belt(); break;
+    case LOOSE:
+        rb_step(&GD.hammer_body, sfxr_dt(), 9.8f, gw_ground(GD.hammer_body.pos.x, GD.hammer_body.pos.z));
+        GD.hammer = rb_pose(&GD.hammer_body);
+        break;
+    case IN_HAND: break;    // vrui_grab_region moves it with the hand
+    }
+
+    VruiGrab g = vrui_grab_region(ID(1), &GD.hammer, (Vector3){ 0.04f, HANDLE_MID, 0.04f });
+    if (g.grabbed) {
+        sfxr_event("hammer", "taken %s", HAMMER_WORDS[GD.hammer_at]);
+        GD.hammer_at = IN_HAND;
+        GD.hammer_hand = g.hand;
+        if (GD.round == WAITING) {
+            GD.round = PLAYING;
+            GD.t = 0;
+            anim_play(&GD.gardener, "walk");   // job done: off he goes round the table
+        }
+    }
+    if (g.released) {
+        // on your hip: it rides on your belt; anywhere else: it falls (or flies)
+        if (Vector3Distance(GD.hammer.position, belt().position) < 0.25f) {
+            GD.hammer_at = ON_BELT;
+        } else {
+            GD.hammer_at = LOOSE;
+            GD.hammer = GD.shown;   // it leaves your hand where you SAW it
+            rb_init(&GD.hammer_body, GD.hammer.position, (Vector3){ 0.05f, HANDLE_MID + 0.08f, 0.05f }, GD.hammer.orientation, 1.0f);
+            GD.hammer_body.vel = Vector3Scale(g.release_velocity, 1.2f);
+            GD.hammer_body.ang_vel = g.release_angular_velocity;
+        }
+        sfxr_event("hammer", "let go: %s", HAMMER_WORDS[GD.hammer_at]);
+    }
+    // How the hammer follows its parent: the chosen smoothing mode (the Smoothing
+    // station's settings). It rides the player while in your hand or on your
+    // belt, so teleports don't smear it; with the gardener it follows his bone
+    // in the world. Loose, its rigid body already moves it smoothly.
+    VruiSmoothSpec feel = *smoothing_spec(GD.hammer_at == LOOSE ? VRUI_SMOOTH_SNAP : (VruiSmoothMode)GD.feel);
+    feel.with_player = GD.hammer_at == IN_HAND || GD.hammer_at == ON_BELT;
+    GD.shown = vrui_smooth_pose(&GD.smooth, GD.hammer, &feel);
+
+    // show the belt slot while the hammer is near your hip
+    if (GD.hammer_at == IN_HAND && Vector3Distance(GD.hammer.position, belt().position) < 0.4f)
+        vrui_box(belt(), (Vector3){ 0.08f, 0.2f, 0.08f }, (Color){ 120, 200, 255, 90 });
+    if (GD.hammer_at == LOOSE && Vector3Distance(GD.hammer.position, sfxr_head().position) > 8.0f)
+        vrui_offscreen_arrow(GD.hammer.position, "hammer", (Color){ 255, 220, 120, 230 });
+}
+
+// --- the gate (in the toolbox) --------------------------------------------------------------
+
+void garden_gate(void)
+{
+    // A garden gate at the right end of the row, in a low hedge. Walk through
+    // it (open or not: nothing in VR can stop you) and you're in the garden.
+    Color hedge = { 60, 120, 60, 255 }, wood = { 140, 100, 60, 255 };
+    Quaternion I = QuaternionIdentity();
+    vrui_box((SfxrPose){ { GATE_X, 0.6f, GATE_Z - 1.8f }, I }, (Vector3){ 0.5f, 1.2f, 2.6f }, hedge);
+    vrui_box((SfxrPose){ { GATE_X, 0.6f, GATE_Z + 1.8f }, I }, (Vector3){ 0.5f, 1.2f, 2.6f }, hedge);
+    vrui_box((SfxrPose){ { GATE_X, 0.65f, GATE_Z - 0.52f }, I }, (Vector3){ 0.08f, 1.3f, 0.08f }, wood);
+    vrui_box((SfxrPose){ { GATE_X, 0.65f, GATE_Z + 0.52f }, I }, (Vector3){ 0.08f, 1.3f, 0.08f }, wood);
+    // the gate opens away from you (toward +X): its +Z faces +X, handle toward -Z
+    SfxrPose hinge = { { GATE_X, 0.02f, GATE_Z + 0.46f }, QuaternionFromAxisAngle((Vector3){ 0, 1, 0 }, PI / 2) };
+    vrui_door(ID(20), hinge, 0.92f, 1.1f, &GD.gate, NULL);
+    vrui_sign((SfxrPose){ { GATE_X - 0.3f, 2.0f, GATE_Z }, QuaternionFromAxisAngle((Vector3){ 0, 1, 0 }, -PI / 2) }, 1.4f,
+              "The garden", "part three: a small game made from these pieces.\ngo through the gate to play", (Color){ 50, 80, 50, 255 });
+    Vector3 head = sfxr_head().position;
+    if (head.x > GATE_X + 0.3f && fabsf(head.z - GATE_Z) < 2.5f) garden_enter();
+}
+
+void garden_enter(void)
+{
+    if (GD.active) return;
+    if (!gw_load()) {
+        vrui_tag((Vector3){ GATE_X + 0.5f, 1.6f, GATE_Z }, "the garden's models are missing\n(examples/toolbox/resources/garden)",
+                 0.03f, RAYWHITE, (Color){ 120, 30, 30, 220 });
+        return;
+    }
+    if (!GD.models_ok) {
+        GD.hammer_model = LoadModel(gw_path("hammer.glb"));
+        gw_light(&GD.hammer_model);
+        if (anim_load(&GD.gardener, gw_path("gardener.glb"))) gw_light(&GD.gardener.model);
+        GD.models_ok = true;
+    }
+    GD.active = true;
+    round_reset();
+    GD.board = vrui_facing(Vector3Add(on_ground(-1.3f, -0.6f), (Vector3){ 0, 1.35f, 0 }), Vector3Add(on_ground(0, 1.0f), (Vector3){ 0, 1.35f, 0 }));
+    anim_play(&GD.gardener, "idle");
+    // arrive at the spawn point facing into the garden (-Z), the gardener ahead
+    Vector3 f = sfxr_pose_forward(sfxr_head());
+    sfxr_rig_turn(atan2f(f.x, -f.z));
+    sfxr_rig_teleport(on_ground(0, 1.0f));
+    vrui_fade(1.0f);
+    sfxr_event("scene", "into the garden");
+}
+
+void garden_leave(void)
+{
+    if (!GD.active) return;
+    GD.active = false;
+    // back out through the gate, facing the row
+    Vector3 f = sfxr_pose_forward(sfxr_head());
+    sfxr_rig_turn(-(-PI / 2 - atan2f(f.x, -f.z)));
+    sfxr_rig_teleport((Vector3){ GATE_X - 1.2f, 0, GATE_Z });
+    vrui_fade(1.0f);
+    sfxr_event("scene", "back to the toolbox");
+}
+
+// --- every frame in the garden ------------------------------------------------------------------
+
+static const char *const MENU[] = { "Restart", "Recall hammer", "Leave garden", "HUD style", "Hammer feel" };
+
+void garden_update(const VruiLocoConfig *toolbox_loco)
+{
+    float dt = sfxr_dt();
+
+    // hand menus: the Menus & HUD station's choices apply here too
+    switch (menus_update(MENU, 5, TextFormat("HP %d/%d  smashed %d", GD.hp, MAX_HP, GD.score))) {
+    case 0: round_reset(); anim_play(&GD.gardener, "idle"); break;
+    case 1: if (GD.hammer_at != WITH_GARDENER) GD.hammer_at = ON_BELT; break;
+    case 2: garden_leave(); return;
+    case 3: menus_set_hud_style((HudStyle)((menus_hud_style() + 1) % HUD_COUNT)); break;
+    case 4: GD.feel = (GD.feel + 1) % VRUI_SMOOTH_COUNT; break;
+    default: break;
+    }
+
+    // the board by the spawn point: what's going on, and the two buttons
+    if (vrui_panel_begin(ID(2), &GD.board, 0.46f, 0.4f, "The garden")) {
+        vrui_layout_begin(vrui_panel_content(), 4);
+        static const char *const SAY[] = { "Take the hammer from the gardener.", "Smash 8 bugs before they get you!",
+                                           "Garden cleared! Well smashed.", "The bugs got you. Try again?" };
+        vrui_label(vrui_row(24), SAY[GD.round]);
+        vrui_label(vrui_row(24), TextFormat("health %d/%d   smashed %d/%d", GD.hp, MAX_HP, GD.score, SCORE_TO_WIN));
+        vrui_label(vrui_row(24), TextFormat("hammer: %s", HAMMER_WORDS[GD.hammer_at]));
+        static const char *FEEL[VRUI_SMOOTH_COUNT];
+        for (int m = 0; m < VRUI_SMOOTH_COUNT; m++) FEEL[m] = vrui_smooth_name((VruiSmoothMode)m);
+        vrui_label(vrui_row(22), "The hammer follows your hand:");
+        vrui_segmented(3, vrui_row(34), FEEL, VRUI_SMOOTH_COUNT, &GD.feel);
+        Rectangle cols[2];
+        vrui_row_cols(36, 2, cols);
+        if (vrui_button(1, cols[0], "Restart")) { round_reset(); anim_play(&GD.gardener, "idle"); }
+        if (vrui_button(2, cols[1], "Back to the toolbox")) { vrui_panel_end(); garden_leave(); return; }
+        vrui_panel_end();
+    }
+
+    hammer();
+    track_head();
+    hit_bugs();
+    move_bugs(dt);
+    play(dt);
+    gw_step(dt);
+
+    // you walk into the chair: it tips
+    Vector3 me = sfxr_head_floor_point();
+    float mx = me.x, mz = me.z;
+    gw_push_loose(&mx, &mz, PLAYER_R, (Vector3){ 0 }, 6.0f);
+
+    // the gardener: waits with the hammer, then strolls round the table
+    anim_update(&GD.gardener, dt);
+    if (GD.round != WAITING) GD.walk += dt * 0.35f;
+    if (GD.round == WAITING)
+        vrui_tag(sfxr_pose_apply(gardener_pose(), (Vector3){ 0, 1.95f, 0 }), "Take my hammer, the bugs are coming!", 0.05f,
+                 RAYWHITE, (Color){ 30, 50, 30, 220 });
+
+    // labels on tough bugs: how many hits they have left
+    for (int i = 0; i < MAX_BUGS; i++) {
+        const Bug *b = &GD.bugs[i];
+        if (b->alive && b->squash == 0 && b->health > 1)
+            vrui_callout(Vector3Add(b->pos, (Vector3){ 0, BUG_R * 1.8f, 0 }), TextFormat("%d hits", b->health), 0.25f, TYPES[b->type].color);
+    }
+
+    // HUD, arrows to the two nearest bugs out of view, a red flash when bitten
+    const char *hud = GD.round == WON ? "Garden cleared!\nRestart from a hand menu" :
+                      GD.round == LOST ? "The bugs got you\nRestart from a hand menu" :
+                      TextFormat("health %d/%d\nsmashed %d/%d", GD.hp, MAX_HP, GD.score, SCORE_TO_WIN);
+    hud_show(menus_hud_style(), hud, GD.hp > 3 ? vrui_style()->accent : (Color){ 230, 70, 60, 255 });
+    if (menus_edge_arrows()) {
+        int shown = 0;
+        bool used[MAX_BUGS] = { 0 };
+        while (shown < 2) {
+            int best = -1;
+            float bd = 1e9f;
+            for (int i = 0; i < MAX_BUGS; i++) {
+                const Bug *b = &GD.bugs[i];
+                float d = Vector3Distance(b->pos, me);
+                if (b->alive && b->squash == 0 && !used[i] && d < bd) { bd = d; best = i; }
+            }
+            if (best < 0) break;
+            used[best] = true;
+            vrui_offscreen_arrow(Vector3Add(GD.bugs[best].pos, (Vector3){ 0, 0.3f, 0 }), "bug", TYPES[GD.bugs[best].type].color);
+            shown++;
+        }
+    }
+    if (GD.hurt > 0) { vrui_tint((Color){ 200, 20, 20, 255 }, 0.4f * GD.hurt / 0.35f); GD.hurt -= dt; }
+
+    // moving: walk with the left stick, teleport or turn with the right; the
+    // toolbox's turning choices carry over
+    GD.loco = *toolbox_loco;
+    GD.loco.smooth_move = true;
+    GD.loco.ground_height = ground_cb;
+    GD.loco.solid_depth = solid_cb;
+    GD.loco.valid_target = inside_cb;
+    GD.loco.pads = NULL;
+    GD.loco.npads = 0;
+    GD.loco.pads_only = false;
+    vrui_locomotion(&GD.loco);
+}
+
+// --- for tests (tests/garden) ---------------------------------------------------------------------
+
+GardenState garden_state(void)
+{
+    GardenState s = { (int)GD.round, GD.score, GD.hp, (int)GD.hammer_at, GD.hammer, hammer_head(), belt(), 0, { 0 } };
+    for (int i = 0; i < MAX_BUGS; i++)
+        if (GD.bugs[i].alive && GD.bugs[i].squash == 0) {
+            if (s.bugs == 0) s.first_bug = Vector3Add(GD.bugs[i].pos, (Vector3){ 0, BUG_R * 0.9f, 0 });
+            s.bugs++;
+        }
+    return s;
+}
+
+void garden_test_bug(int type, float x, float z)
+{
+    GD.test_mode = true;
+    for (int i = 0; i < MAX_BUGS; i++) {
+        Bug *b = &GD.bugs[i];
+        if (b->alive) continue;
+        *b = (Bug){ .alive = true, .pos = on_ground(x, z), .type = type, .health = TYPES[type].health };
+        return;
+    }
+}
+
+void garden_test_start(void) { GD.test_mode = true; GD.round = PLAYING; }
+void garden_test_feel(int mode) { GD.feel = mode; }
+
+// --- drawing -------------------------------------------------------------------------------------
+
+static void draw_bug(const Bug *b)
+{
+    Color c = TYPES[b->type].color;
+    float flat = b->squash > 0 ? fmaxf(0.1f, 1 - b->squash * 2.5f) : 1.0f;   // smashed: flattens
+    float bob = b->squash > 0 ? 0 : sinf(b->wobble) * 0.03f;
+    Vector3 body = Vector3Add(b->pos, (Vector3){ 0, BUG_R * 0.9f * flat + bob, 0 });
+    rlPushMatrix();
+    rlTranslatef(body.x, body.y, body.z);
+    rlScalef(1 + (1 - flat) * 0.6f, flat, 1 + (1 - flat) * 0.6f);
+    DrawSphereEx((Vector3){ 0 }, BUG_R, 8, 10, c);
+    rlPopMatrix();
+    if (b->squash > 0) return;
+    // eyes toward you, and a dark underside
+    Vector3 me = sfxr_head_floor_point();
+    Vector3 f = Vector3Normalize((Vector3){ me.x - b->pos.x, 0, me.z - b->pos.z });
+    Vector3 r = { -f.z, 0, f.x };
+    for (int s = -1; s <= 1; s += 2) {
+        Vector3 eye = Vector3Add(body, Vector3Add(Vector3Scale(f, BUG_R * 0.75f), Vector3Add(Vector3Scale(r, s * BUG_R * 0.35f), (Vector3){ 0, BUG_R * 0.35f, 0 })));
+        DrawSphereEx(eye, BUG_R * 0.2f, 6, 6, RAYWHITE);
+        DrawSphereEx(Vector3Add(eye, Vector3Scale(f, BUG_R * 0.12f)), BUG_R * 0.1f, 4, 4, BLACK);
+    }
+    DrawCylinder(Vector3Add(b->pos, (Vector3){ 0, 0.02f, 0 }), BUG_R * 0.9f, BUG_R * 0.9f, 0.04f, 10, ColorBrightness(c, -0.5f));
+}
+
+void garden_draw(void)
+{
+    gw_draw();
+    anim_draw(&GD.gardener, gardener_pose(), GARDEN_SCALE);
+    // the hammer model: its origin is the handle's end, below the pose we keep
+    sfxr_push_pose(sfxr_pose_mul(GD.shown, (SfxrPose){ { 0, -HANDLE_MID, 0 }, QuaternionIdentity() }));
+    DrawModel(GD.hammer_model, (Vector3){ 0 }, GARDEN_SCALE, WHITE);
+    sfxr_pop_pose();
+    for (int i = 0; i < MAX_BUGS; i++)
+        if (GD.bugs[i].alive) draw_bug(&GD.bugs[i]);
+}

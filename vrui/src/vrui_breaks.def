@@ -42,3 +42,4 @@ BREAK(vrui_key_needs_regrip,        "inserting a key ends the hold, so you must 
 BREAK(vrui_key_stuck,               "pulling back on a key at its first stop doesn't take it out")
 BREAK(vrui_loco_no_wall_fade,       "putting your head into a wall shows you its inside (no fade)")
 BREAK(vrui_loco_walk_through_walls, "stick walking goes straight through walls")
+BREAK(vrui_smooth_world_space,     "a smoothed held thing ignores the rig, so a teleport smears it across the world")

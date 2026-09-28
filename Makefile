@@ -176,9 +176,10 @@ SFXT_OBJ    := $(patsubst %.c,$(BUILD)/obj/%.o,$(wildcard sfxt/src/*.c))
 
 $(BUILD)/obj/sfxt/%.o: CFLAGS += -Isfxt/include -Isfxr/src
 
-$(BUILD)/tests/%: tests/%/*.c $(SFXT_OBJ) $(VRUI_LIB) $(SFXR_LIB) $(RAYLIB_LIB) $(OPENXR_LIB)
+# (a suite may #include an example's sources, as tests/garden does: rebuild when they change)
+$(BUILD)/tests/%: tests/%/*.c $(SFXT_OBJ) $(VRUI_LIB) $(SFXR_LIB) $(RAYLIB_LIB) $(OPENXR_LIB) $(wildcard examples/*/*.c examples/*/*.h examples/*/*.def)
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -Isfxt/include -o $@ $(filter %.c,$^) $(SFXT_OBJ) $(VRUI_LIB) $(SFXR_LIB) $(RAYLIB_LIB) $(LDLIBS)
+	$(CC) $(CFLAGS) -Isfxt/include -o $@ $(filter tests/%.c,$^) $(SFXT_OBJ) $(VRUI_LIB) $(SFXR_LIB) $(RAYLIB_LIB) $(LDLIBS)
 
 -include $(SFXT_OBJ:.o=.d)
 

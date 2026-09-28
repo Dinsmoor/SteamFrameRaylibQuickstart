@@ -280,7 +280,8 @@ vrui/include/vrui.h  interaction toolkit (starts with a table of contents). vrui
                        vrui.c (context, arbitration, claims, draw)  vrui_panel.c  vrui_grab.c (grab machinery, grabbables)
                        vrui_mech.c (rotary/pivot/linear/tilt)  vrui_press.c (press/rocker)  vrui_display.c
                        vrui_haptics.c (mixer)  vrui_loco.c  vrui_label.c (world text)  vrui_attach.c (body,
-                       follow, edge arrows)  vrui_menu.c (radial). Per-widget state: typed structs in VruiItem.state
+                       follow, edge arrows)  vrui_menu.c (radial)  vrui_smooth.c (damping, springs, easing,
+                       pose smoother)  vrui_wheel.c (two-handed valve)  vrui_key.c (key switch). Per-widget state: typed structs in VruiItem.state
                        (VRUI_STATE / VRUI_STATE_FITS in vrui_internal.h), never generic slots.
 examples/<name>/     each dir with main.c -> bin/<name>   (hello, toolbox: one file per station in a row, see toolbox.h)
 apps/<name>/         your projects; same rule (make new-app NAME=foo)
@@ -293,6 +294,8 @@ docs/INPUT.md        input methods (laser/grab/poke/hand shape), input ownership
 docs/ONBOARDING.md   the hands-on setup station that learns the player's habits (template: examples/toolbox/onboarding.c)
 docs/MOVEMENT.md     teleport, pads, surfaces, falling, climbing (examples/toolbox/yard.c)
 docs/ATTACHING.md    attaching things to things, world labels, HUDs, hand menus
+docs/SMOOTHING.md    how held things follow (snap/lag/spring/heavy/steady), springs, easing
+docs/GARDEN.md       the toolbox's part three: a small game (examples/toolbox/garden*.c, tests/garden)
 tests/mech, tests/input  C test suites (make test); tests/regress/ golden replays (make regress)
 scripts/             frame.sh (headset remote control), shot-sim.sh, test-xr.sh, frame-build.sh, package.sh, new-app.sh
 tools/devkit-utils/  Valve's device-side devkit helper scripts (MIT, pinned copy; see VERSION)
@@ -434,6 +437,14 @@ while (sfxr_frame_begin()) {              // wait for runtime, sample poses and 
   posed by `vrui_follow` (lazy) or the body; `vrui_offscreen_arrow`, `vrui_tint`.
   **Hand menus**: watch, palm buttons, a tablet, `vrui_radial_menu`. All in
   `docs/ATTACHING.md`, shown at the toolbox's Attach & label bench and Menus & HUD station.
+- **Smoothing** (vrui.h section 11, `docs/SMOOTHING.md`): frame-rate independent
+  `vrui_damp*`, `vrui_spring*`, `vrui_move_toward3`/`vrui_turn_toward`, `vrui_ease`, and
+  `vrui_smooth_pose` with modes Snap / Lag / Spring / Heavy / Steady (a 1-euro jitter
+  filter); `with_player` keeps held things riding the rig. The toolbox's Smoothing station
+  tunes them; the garden's hammer uses them (hits come from the smoothed pose).
+- **The garden** (`docs/GARDEN.md`): the toolbox's part three, a small game through the
+  gate at the right end of the row. It's a separate scene: `garden_update` replaces the
+  stations while you're in it. Models in `examples/toolbox/resources/garden/`.
 - **Adding a widget:** follow the existing ones. Compute hit distance/proximity, call
   `vrui__ray_offer`/`vrui__grab_offer`, use `handle_update()` for grabbable handles, keep
   per-widget state in `vrui__item(id)`, queue drawing with `vrui_box`/`vrui__cylinder`/...,

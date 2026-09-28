@@ -13,8 +13,12 @@
 //   Mechanisms         every reference mechanism
 //   Linkage bench      controls wired to mechanical displays
 //   Attach & label     things riding on things; every kind of world label
+//   Smoothing          how held things follow the hand: snap, lag, spring,
+//                      heavy, steady; easing curves
 //   Hinges & cords     a door, a chest lid, a bell cord, a radio dial,
 //                      a two-handed valve, a key switch
+// Past the right end: the gate to the Garden, part three: a small game
+// made from these pieces (garden.c).
 // Behind you: the LIFT platform and the Movement yard (teleport pads,
 // stairs, climbing wall, monkey bars).
 // With you everywhere: the hand menus and the HUD (station_menus.c, hud.c).
@@ -22,6 +26,7 @@
 // Runs in the headset, under Monado, or in the desktop simulator (F1 = keys).
 
 #include "toolbox.h"
+#include "garden.h"
 #include "onboarding.h"
 #include "sfxr_steam.h"
 
@@ -34,7 +39,7 @@ static void toolbox_hud(void)
     static const struct { float x; const char *name; } ROW[] = {
         { -8.0f, "Menus & HUD" }, { -6.4f, "Hands-on setup" }, { -4.8f, "Headset" }, { -3.2f, "Controllers" },
         { -1.6f, "Toolbox" }, { 0, "Workbench" }, { 2.5f, "Mechanisms" }, { 5.2f, "Linkage bench" },
-        { 7.9f, "Attach & label" }, { 12.8f, "Hinges & cords" },
+        { 7.9f, "Attach & label" }, { 10.9f, "Smoothing" }, { 15.3f, "Hinges & cords" }, { 19.5f, "the garden gate" },
     };
     Vector3 me = sfxr_head().position;
     const char *near = "the yard";
@@ -72,11 +77,14 @@ int main(void)
 
     // What the hand menus offer here (every menu shows the same list; the
     // palm shows the first three).
-    static const char *const MENU[] = { "Grid", "Day / dusk", "Go home", "Reset blocks", "HUD style", "Hints" };
+    static const char *const MENU[] = { "Grid", "Day / dusk", "Go home", "Reset blocks", "HUD style", "Hints", "Garden" };
     const int NMENU = (int)(sizeof MENU / sizeof MENU[0]);
 
     while (sfxr_frame_begin()) {
         vrui_begin();
+        if (garden_active()) {
+            garden_update(&loco);   // part three: the garden replaces the stations while you're in it
+        } else {
             panels_toolbox(&loco);
             station_menus();
             switch (menus_update(MENU, NMENU, TextFormat("blocks %d", world.spawned))) {
@@ -86,10 +94,12 @@ int main(void)
             case 3: world_reset_blocks(); break;
             case 4: menus_set_hud_style((HudStyle)((menus_hud_style() + 1) % HUD_COUNT)); break;
             case 5: vrui_style()->show_hints = !vrui_style()->show_hints; break;
+            case 6: garden_enter(); break;
             default: break;
             }
             onboarding_update();
             onboarding_panel(&setup_pose);
+            station_sign(-6.4f, "Hands-on setup", "learns how you like to\ngrab, point and press");
             world_workbench();
             bench_mechanisms();
             bench_linkage();
@@ -97,18 +107,25 @@ int main(void)
             panel_headset();
             station_hinges();
             station_attach();
+            station_smoothing();
+            garden_gate();
             yard_update();
             vrui_locomotion(&loco);   // after the handholds (yard_update)
             toolbox_hud();
-            station_sign(-6.4f, "Hands-on setup", "learns how you like to\ngrab, point and press");
             vrui_text3d((Vector3){ 0, 3.0f, -1.8f }, "sfxr + vrui toolbox", 0.14f, RAYWHITE);
+        }
         vrui_end();
 
-        world_step(sfxr_dt());
+        bool garden = garden_active();
+        if (!garden) world_step(sfxr_dt());
 
-        if (sfxr_draw_begin(world_sky())) {
-            world_draw();
-            yard_draw();
+        if (sfxr_draw_begin(garden ? garden_sky() : world_sky())) {
+            if (garden) {
+                garden_draw();
+            } else {
+                world_draw();
+                yard_draw();
+            }
             vrui_draw();
             sfxr_draw_end();
         }

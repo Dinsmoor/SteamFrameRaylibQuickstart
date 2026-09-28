@@ -24,7 +24,7 @@ static struct {
     int ignition;      // 0 OFF, 1 ON, 2 START
 } H = { .dial = 40 };
 
-static SfxrPose origin(void) { return row_pose(11.4f, 0); }
+static SfxrPose origin(void) { return row_pose(13.9f, 0); }
 static SfxrPose local(float x, float y, float z, Quaternion q)
 {
     return sfxr_pose_mul(origin(), (SfxrPose){ { x, y, z }, q });
@@ -105,5 +105,5 @@ void station_hinges(void)
     if (H.ignition == 0) H.running = false;
     vrui_lamp(local(3.2f, 1.26f, -0.08f, I), H.running, (Color){ 90, 230, 120, 255 }, H.running ? "running" : "engine");
 
-    station_sign(11.4f + 3.3f, "Hinges & cords", "a door, a chest lid, a bell cord, a radio dial,\na two-handed valve, a key switch");
+    station_sign(13.9f + 3.3f, "Hinges & cords", "a door, a chest lid, a bell cord, a radio dial,\na two-handed valve, a key switch");
 }

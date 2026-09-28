@@ -20,7 +20,8 @@
 //   8. Locomotion
 //   9. Text and labels in the world
 //  10. Things that go with the player: body, HUDs, hand menus
-//  11. Queued 3D drawing helpers
+//  11. Smoothing and interpolation: damping, springs, easing, pose smoothers
+//  12. Queued 3D drawing helpers
 //
 // Naming: short forms are named after the THING and use default behavior
 // (vrui_knob, vrui_lever...). Full forms are named after the MOTION and take
@@ -604,7 +605,68 @@ int  vrui_radial_menu(VruiId id, SfxrHandId hand, const SfxrButton *hold, const 
 bool vrui_radial_open(VruiId id);
 
 // ===========================================================================
-// 11. Queued 3D drawing helpers (call from logic code; drawn by vrui_draw)
+// 11. Smoothing and interpolation (vrui_smooth.c, docs/SMOOTHING.md)
+// ===========================================================================
+//
+// Frame-rate independent: the same settings look the same at 72, 90 or 144 Hz
+// (a bare "x = lerp(x, target, 0.1)" per frame does not).
+
+// Exponential smoothing: half the remaining gap closes every `halflife`
+// seconds (0 = snap). The simplest "lag behind a little".
+float      vrui_damp(float current, float target, float halflife, float dt);
+Vector3    vrui_damp3(Vector3 current, Vector3 target, float halflife, float dt);
+Quaternion vrui_dampq(Quaternion current, Quaternion target, float halflife, float dt);
+// Springs: `frequency_hz` is how fast it swings; `damping` 1 settles fastest
+// without overshoot, below 1 it overshoots and wobbles. Keep x and v between
+// frames.
+void vrui_spring(float *x, float *v, float target, float frequency_hz, float damping, float dt);
+void vrui_spring3(Vector3 *x, Vector3 *v, Vector3 target, float frequency_hz, float damping, float dt);
+void vrui_springq(Quaternion *q, Vector3 *angular_velocity, Quaternion target, float frequency_hz, float damping, float dt);
+// Speed limits: move at most max_step (meters) / turn at most max_radians.
+Vector3    vrui_move_toward3(Vector3 current, Vector3 target, float max_step);
+Quaternion vrui_turn_toward(Quaternion current, Quaternion target, float max_radians);
+// Easing curves for tweens: t 0..1 in, 0..1 out (BACK and ELASTIC overshoot).
+typedef enum { VRUI_EASE_LINEAR, VRUI_EASE_SMOOTH, VRUI_EASE_IN, VRUI_EASE_OUT, VRUI_EASE_IN_OUT,
+               VRUI_EASE_BACK, VRUI_EASE_ELASTIC, VRUI_EASE_BOUNCE, VRUI_EASE_COUNT } VruiEase;
+float vrui_ease(VruiEase ease, float t);
+
+// A pose smoother: how a held thing (a weapon, a tool) follows the hand or
+// bone it's attached to. Keep a VruiSmooth per thing; each frame pass the
+// pose it's attached to and draw it where this returns.
+//   SNAP    exactly on it: precise, weightless
+//   LAG     trails a little (halflife): softer, a touch of weight
+//   SPRING  overshoots and wobbles (frequency, damping): floppy, cartoony
+//   HEAVY   pulled firmly, but speed-limited (max_speed, max_turn_deg): a
+//           flick can't whip it round, a committed swing carries it
+//   STEADY  a jitter filter: still hands stop trembling, fast motion has no
+//           lag (min_cutoff, beta): aiming, drawing, pointing
+// with_player (default true): the smoother rides the rig, so a teleport or
+// snap turn doesn't smear the thing across the world; turn it off for things
+// attached to the world (a character's hand bone).
+typedef enum { VRUI_SMOOTH_SNAP, VRUI_SMOOTH_LAG, VRUI_SMOOTH_SPRING, VRUI_SMOOTH_HEAVY, VRUI_SMOOTH_STEADY,
+               VRUI_SMOOTH_COUNT } VruiSmoothMode;
+typedef struct {
+    VruiSmoothMode mode;
+    float halflife;          // LAG (s)
+    float frequency, damping;// SPRING (Hz, ratio)
+    float max_speed;         // HEAVY (m/s)
+    float max_turn_deg;      // HEAVY (deg/s)
+    float min_cutoff, beta;  // STEADY: cutoff when still (Hz), and how fast it opens up with speed
+    bool  with_player;
+} VruiSmoothSpec;
+typedef struct {
+    bool init;
+    SfxrPose pose, raw, rig;
+    Vector3 vel, ang_vel;
+    float speed_r;
+} VruiSmooth;
+VruiSmoothSpec vrui_smooth_spec(VruiSmoothMode mode);   // tested defaults
+SfxrPose       vrui_smooth_pose(VruiSmooth *s, SfxrPose target, const VruiSmoothSpec *spec);
+void           vrui_smooth_reset(VruiSmooth *s, SfxrPose pose);   // jump there (e.g. on grabbing something new)
+const char    *vrui_smooth_name(VruiSmoothMode mode);            // "Snap", "Lag"...
+
+// ===========================================================================
+// 12. Queued 3D drawing helpers (call from logic code; drawn by vrui_draw)
 // ===========================================================================
 
 void vrui_box(SfxrPose pose, Vector3 size, Color color);

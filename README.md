@@ -127,6 +127,7 @@ with a table of contents.
 | `vrui_label.c` | text in the world: floating names, printed text, tags, callouts, signs |
 | `vrui_attach.c` | things that go with the player: the body estimate, lazy-follow HUDs, arrows to things out of view |
 | `vrui_menu.c` | the radial (pie) menu |
+| `vrui_smooth.c` | smoothing: damping, springs, speed limits, easing, and a pose smoother with five modes |
 
 **`examples/toolbox/`: the testbed.** The stations stand in one row in front of you
 (the layout is at the top of `toolbox.h`). One file per station, so each can be read
@@ -139,6 +140,8 @@ on its own:
 | `panels.c` | the Toolbox panel (settings) |
 | `station_menus.c` | hand menus (watch, palm buttons, a tablet in your hand, a radial menu) and the Menus & HUD station |
 | `hud.c` | visor HUD templates: head-locked, lazy follow, on your belt |
+| `station_smoothing.c` | Smoothing: a sword and five ghosts following it, one per smoothing mode; easing curves |
+| `garden*.c` | the Garden, part three: a small game (take the hammer, smash the bugs) built from the pieces above |
 | `station_attach.c` | Attach & label: things riding on things (a turntable, a lever on it, a flag on the lever, your belt) and every kind of world label |
 | `bench_mechanisms.c` | the Mechanisms bench: one of every reference control, default feel |
 | `bench_linkage.c` | the Linkage bench: controls wired to gauges, counters and lamps |
@@ -156,6 +159,8 @@ on its own:
 - `ONBOARDING.md`: fitting the controls to the player by watching them
 - `MOVEMENT.md`: moving the player comfortably: teleport, pads, surfaces, climbing
 - `ATTACHING.md`: making one thing ride on another, text in the world, HUDs, hand menus
+- `SMOOTHING.md`: how held things follow (snap, lag, spring, heavy, steady), springs, easing
+- `GARDEN.md`: the garden, the toolbox's third part: a small game made from these pieces
 - `STEAM.md`: optional Steamworks (achievements, stats, overlay) without the SDK in the repo
 - `PERFORMANCE.md`: the frame budget, depth submission, what's known about foveated
   rendering, and the experiments that will settle it
@@ -169,6 +174,8 @@ on its own:
 | Read the controllers | `sfxr_hand()` in `sfxr.h`: `button[]` has every control with press *and* touch; `trigger_at[]` has the pull levels; `shape` and `curl[]` give hand shape |
 | A knob, lever, slider or button that feels right | `docs/MECHANISMS.md`, then copy one from `examples/toolbox/bench_mechanisms.c`; set `spec.draw = false` and draw your model at the result's `part` |
 | Menus | the panel functions in `vrui.h` (section 3) and `examples/toolbox/panels.c`; menus you carry on your hands: `docs/ATTACHING.md` and `examples/toolbox/station_menus.c` |
+| A weapon or tool that follows the hand with weight (or snaps, springs, steadies) | `docs/SMOOTHING.md`, `vrui_smooth_pose()`, `examples/toolbox/station_smoothing.c` |
+| See it all in a game | `docs/GARDEN.md` and `examples/toolbox/garden.c` |
 | Labels, signs, a HUD, something riding on something | `docs/ATTACHING.md` (`sfxr_pose_mul` / `sfxr_pose_relative`, `vrui.h` sections 9 and 10) and `examples/toolbox/station_attach.c`, `hud.c` |
 | Keep the stick from teleporting people while they use your UI | "input ownership" in `docs/INPUT.md`: `vrui_claim_input()` / `vrui_input_claimed()` |
 | Move players around (pads, platforms, climbing, monkey bars) | `docs/MOVEMENT.md` and `examples/toolbox/yard.c` |
