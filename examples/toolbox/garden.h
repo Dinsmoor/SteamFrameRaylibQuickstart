@@ -2,19 +2,21 @@
 // game built from the same pieces as the stations. Walk through the gate at
 // the right end of the row to play it (docs/DADDY_BUG_SMASHER.md).
 //
-//   garden.c            the game: take the hammer from Daddy, smash the
+//   garden.c            the game: pick up your hammer, smash the
 //                       bugs before they get you; the HUD, menus, Steam
 //   garden_world.c      the level: sculpted terrain you walk on, Blender-made
 //                       props, a sun, colliders, a chair you can knock over
 //   garden_rigidbody.c  a small box rigid body (the chair, a thrown hammer)
-//   garden_anim.c       named animation clips with cross-fades, and where a
-//                       bone is (Daddy holds the hammer in his hand)
 //
 // Daddy Bug Smasher is a flat-screen raylib game the author made with their
 // kids, from the kids' drawings: Daddy smashes the bugs the Bugmaster sends
-// from his tower. The engine parts here (world, rigid body, animation) are
-// ported from its 3D mode, and its level and models came with them. Its units were about 1.4 per meter, so everything is scaled by
-// GARDEN_SCALE on the way in, and all the numbers here are meters.
+// from his tower. In VR you are Daddy. The engine parts here (world, rigid
+// body) are ported from its 3D mode, and its level, models, sounds and the
+// Bugmaster's voice came with them. (Its animated Daddy model stayed behind,
+// since you're him; the animation and bone code is in the git history as
+// garden_anim.c, for a game that needs characters.) Its units were about 1.4
+// per meter, so everything is scaled by GARDEN_SCALE on the way in, and all
+// the numbers here are meters.
 
 #ifndef GARDEN_H
 #define GARDEN_H
@@ -59,26 +61,6 @@ void   rb_step(RigidBody *rb, float dt, float gravity, float floor_y);
 void   rb_apply_impulse(RigidBody *rb, Vector3 impulse, Vector3 at);
 SfxrPose rb_pose(const RigidBody *rb);
 Vector3  rb_point_velocity(const RigidBody *rb, Vector3 at);
-
-// --- garden_anim.c ----------------------------------------------------------
-// A model with named clips ("idle", "walk"...), cross-fading between them.
-
-typedef struct {
-    Model model;
-    ModelAnimation *clips;
-    int  clip_count;
-    int  cur, prev;
-    float cur_frame, prev_frame, blend;
-} AnimModel;
-
-bool   anim_load(AnimModel *a, const char *path);
-void   anim_unload(AnimModel *a);
-void   anim_play(AnimModel *a, const char *name);   // loops; cross-fades from the current clip
-void   anim_update(AnimModel *a, float dt);
-void   anim_draw(const AnimModel *a, SfxrPose pose, float scale);
-// World pose of a bone (e.g. "hand.R") for a model drawn at `pose`, `scale`:
-// the parent to attach a held thing to (docs/ATTACHING.md).
-SfxrPose anim_bone_pose(const AnimModel *a, const char *bone, SfxrPose pose, float scale);
 
 // --- garden.c ---------------------------------------------------------------
 

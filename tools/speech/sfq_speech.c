@@ -13,9 +13,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+// whisper.cpp and ggml log every detail of loading to stderr; the app's log
+// only needs sfxr's one line ("voice: on ...").
+static void quiet(enum ggml_log_level level, const char *text, void *user) { (void)level; (void)text; (void)user; }
+
 void *sfq_speech_open(const char *model_path, int threads)
 {
     (void)threads;
+    whisper_log_set(quiet, NULL);
     struct whisper_context_params cp = whisper_context_default_params();
     cp.use_gpu = false;   // the Frame's GPU is busy drawing the frames; the CPU has cores to spare
     return whisper_init_from_file_with_params(model_path, cp);

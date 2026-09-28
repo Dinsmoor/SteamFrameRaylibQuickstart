@@ -53,7 +53,7 @@ your hand's own motion is smoothed. Turn it off for things attached to the *worl
 such as a character's hand bone, which don't move when you do.
 
 **Changing parents.** Keep one `VruiSmooth` per thing, not per parent. When the
-garden's hammer goes from Daddy's hand to yours, the smoother glides it over
+hammer in Daddy Bug Smasher goes from its stump to your hand, the smoother glides it over
 instead of popping. Call `vrui_smooth_reset` when you *want* a jump.
 
 ## Where to see it

@@ -740,7 +740,7 @@ Feedback from the session, and what was done about it:
 | world labels with documented primitives; attaching shown | `vrui_text_at`, `vrui_tag`, `vrui_callout`, `vrui_sign` (vrui.h section 9); `sfxr_pose_relative` and the attaching rule in `sfxr.h`; the **Attach & label** bench (turntable, a lever mounted on it, a flag on the lever, blocks that go on the table / in your hand / on your belt / drop); `docs/ATTACHING.md` |
 | menus attached to the hands | watch (turn the wrist), palm buttons, a tablet held in the hand, `vrui_radial_menu`; the **Menus & HUD** station switches them |
 | visor HUD examples | head-locked, lazy follow (`vrui_follow`), on the belt (`vrui_body`); `vrui_offscreen_arrow`, `vrui_tint`, `vrui_on_top_begin/end`, `vrui_panel_passive` |
-| port the 3D world and engine of the earlier raylib game as part three | **the garden** (`garden*.c`, `docs/DADDY_BUG_SMASHER.md`): terrain, props, a sun shader, a box rigid body, animation clips, Daddy with the hammer on his hand bone; take it, smash 8 bugs. Gate at the right end of the row |
+| port the 3D world and engine of the earlier raylib game as part three | **the garden** (`garden*.c`, `docs/DADDY_BUG_SMASHER.md`): terrain, props, a sun shader, a box rigid body, you are Daddy: pick your hammer up off its stump, smash 8 bugs. Gate at the right end of the row |
 | weapon control modes and interpolation tools, shown with the weapons | `vrui_smooth.c`: damping, springs, speed limits, easing, and `vrui_smooth_pose` (Snap / Lag / Spring / Heavy / Steady); the **Smoothing** station (a sword and five ghosts, the settings, easing rails); Daddy Bug Smasher's hammer follows through the chosen mode (board or hand menu); `docs/SMOOTHING.md` |
 | the remaining CLAUDE.md items | two-handed valve (`vrui_valve`) and key switch (`vrui_key_switch`) on Hinges & cords; the head-in-wall fade (`solid_depth`); the widget registry, `.sfxt` scenario files (`tests/toolbox`), failure `fail.png` + `run.sfxrec`, `scripts/clips.sh` |
 
@@ -784,9 +784,9 @@ clean, goldens pass, Frame build and package clean (the package carries
    echo-cancel source; the log's "microphone: on (...)" should name the headset's mic, not a monitor.
 3. `scripts/get-speech.sh frame`, `make package`, then the TALK button: accuracy and time
    (the panel shows ms); try `SFQ_SPEECH_THREADS=2/4/6`.
-4. The original game's sounds: copy them in locally (`resources/garden/sfx/`, `voice/`) and
-   decide whether they go in the repo. The voice recordings and music are left out until the
-   user says; one music file is a commercial song.
+4. Daddy Bug Smasher's own sounds are in (the user approved the bug sounds and the
+   Bugmaster's voice; the music stays out, one track was a commercial song added by
+   accident): do the Bugmaster's lines come from his tower, and do the subtitles match?
 
 **Still to build**
 - Animate the controller models' buttons (`xrGetRenderModelStateEXT` node poses; needs

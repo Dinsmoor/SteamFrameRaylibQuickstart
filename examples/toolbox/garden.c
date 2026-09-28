@@ -1,13 +1,14 @@
 // garden.c - Daddy Bug Smasher: a small real game made from the toolbox's pieces
 // (docs/DADDY_BUG_SMASHER.md). Go through the gate at the right end of the row.
 //
-// The game: Daddy is holding his hammer. Take it and the Bugmaster's bugs
-// come, crawling out of his tower and at you from all sides. Swing the hammer at them (a real
+// The game: you are Daddy. Your hammer is waiting on a stump; pick it up and
+// the Bugmaster's bugs come, crawling out of his tower and at you from all
+// sides. Swing the hammer at them (a real
 // swing: it's the speed of the hammer's head that counts, so tapping does
 // nothing). Smash 8 before they bite you 10 times.
 //
 // What it uses, and where each piece is explained:
-//   attaching      the hammer is attached to Daddy's hand bone, then
+//   attaching      the hammer rests on its stump (the world), then rides
 //                  your hand, then your belt (put it on your right hip), or
 //                  nothing (drop or throw it: it tumbles as a rigid body)
 //                  -- docs/ATTACHING.md
@@ -18,7 +19,7 @@
 //   HUD and menus  the Menus & HUD station's choices apply here too: your
 //                  health and score on the HUD, arrows to bugs behind you,
 //                  and the hand menus offer Restart / Recall hammer / Leave
-//   labels         callouts on tough bugs (hits left), Daddy's words
+//   labels         callouts on tough bugs (hits left), the Bugmaster's words
 //   smoothing      how the hammer follows whatever holds it: Snap (exactly
 //                  on the hand or bone), Lag, Spring, Heavy (a weighty
 //                  swing: a flick can't whip it round), Steady -- the
@@ -38,8 +39,7 @@
 //   the event log  every hit, bite, pick-up and drop is in it
 //
 // The game logic is plain C in this one file; the world (terrain, props,
-// the chair's rigid body, Daddy's animation) is garden_world.c,
-// garden_rigidbody.c and garden_anim.c.
+// the chair's rigid body) is garden_world.c and garden_rigidbody.c.
 
 #include "garden.h"
 #include "rlgl.h"
@@ -92,13 +92,13 @@ typedef struct {
 } Bug;
 
 typedef enum { WAITING, PLAYING, WON, LOST } Round;
-typedef enum { WITH_DADDY, IN_HAND, ON_BELT, LOOSE } HammerAt;
+typedef enum { ON_STUMP, IN_HAND, ON_BELT, LOOSE } HammerAt;
 // The Bugmaster's tower (the level's tower prop, in meters), and what he
 // shouts from the top of it.
 static const Vector3 TOWER = { 16 * GARDEN_SCALE, 0, -14 * GARDEN_SCALE };
 #define TOWER_TOP (14.2f * GARDEN_SCALE)
 
-static const char *const HAMMER_WORDS[] = { "with Daddy", "in your hand", "on your belt", "on the ground" };
+static const char *const HAMMER_WORDS[] = { "on its stump", "in your hand", "on your belt", "on the ground" };
 
 static struct {
     bool active;
@@ -122,8 +122,6 @@ static struct {
     Model hammer_model;
     bool models_ok;
 
-    AnimModel daddy;
-    float walk;            // Daddy's way round the table (rad)
 
     VruiLocoConfig loco;
     SfxrPose board;        // the garden's panel (placed on entering; you can drag it)
@@ -134,7 +132,6 @@ static struct {
     float shout_t;
     // the original game's recordings, when copied in (0 = not there: use the made-in-code ones)
     SfxrSound smash[3], scurry, ding_hi, ding_lo, bm_intro, bm_win, bm_lose, taunt[4];
-    int ntaunt;
     bool sounds_loaded, talking;
 } GD = { .rng = 12345, .feel = VRUI_SMOOTH_LAG };
 
@@ -148,19 +145,14 @@ static float rnd(void) { GD.rng = GD.rng * 1664525u + 1013904223u; return (float
 
 static Vector3 on_ground(float x, float z) { return (Vector3){ x, gw_ground(x, z), z }; }
 
-// Daddy's model faces its -Z (Blender's front, after the glTF export).
-static SfxrPose daddy_pose(void)
+// The stump by the spawn point where your hammer waits, and the hammer
+// standing on it (the handle's middle, leaning a little toward you).
+static Vector3 stump_top(void) { Vector3 p = on_ground(0.7f, -0.7f); p.y += 0.5f; return p; }
+static SfxrPose hammer_on_stump(void)
 {
-    if (GD.round == WAITING) {   // by the spawn point, turned round to face you
-        Vector3 p = on_ground(0.9f, -1.3f);
-        return (SfxrPose){ p, QuaternionFromAxisAngle((Vector3){ 0, 1, 0 }, PI) };
-    }
-    // walking round the table, facing the way he walks: along (cos w, -sin w)
-    Vector3 c = { 4.2f, 0, -0.1f };
-    Vector3 p = on_ground(c.x + 1.7f * sinf(GD.walk), c.z + 1.7f * cosf(GD.walk));
-    return (SfxrPose){ p, QuaternionFromAxisAngle((Vector3){ 0, 1, 0 }, GD.walk - PI / 2) };
+    return (SfxrPose){ Vector3Add(stump_top(), (Vector3){ 0, HANDLE_MID - 0.02f, 0.03f }),
+                       QuaternionFromAxisAngle((Vector3){ 1, 0, 0 }, 12 * DEG2RAD) };
 }
-
 // The belt slot for the hammer: your right hip, head up.
 static SfxrPose belt(void)
 {
@@ -244,13 +236,11 @@ static void load_sounds(void)
     GD.scurry = sfxr_sound_load(gw_path("sfx/scurry.wav"), 4);
     GD.ding_hi = sfxr_sound_load(gw_path("sfx/high ding.wav"), 1);
     GD.ding_lo = sfxr_sound_load(gw_path("sfx/low ding.wav"), 1);
+    // the Bugmaster's lines: named from the player's side ("win" plays when you win)
     GD.bm_intro = sfxr_sound_load(gw_path("voice/bugmaster_intro.wav"), 1);
     GD.bm_win = sfxr_sound_load(gw_path("voice/bugmaster_win.wav"), 1);
     GD.bm_lose = sfxr_sound_load(gw_path("voice/bugmaster_lose.wav"), 1);
-    for (int i = 0; i < 4; i++) {
-        SfxrSound t = sfxr_sound_load(gw_path(TextFormat("voice/taunt%d.wav", i + 1)), 1);
-        if (t) GD.taunt[GD.ntaunt++] = t;
-    }
+    for (int i = 0; i < 4; i++) GD.taunt[i] = sfxr_sound_load(gw_path(TextFormat("voice/taunt%d.wav", i + 1)), 1);
 }
 
 // A recording if there is one, else the sound made in code.
@@ -262,16 +252,18 @@ static void play_sound(SfxrSound recorded, SoundId made, Vector3 at, float volum
 
 static Vector3 tower_top(void) { return (Vector3){ TOWER.x, TOWER_TOP + 2.5f, TOWER.z }; }
 
-// `voice`: his recorded line for it (0 none: a made-in-code trill instead),
-// heard from the top of his tower.
-static void bugmaster_says_with(const char *line, SfxrSound voice)
+// His lines, as recorded for the flat game (the subtitles are what Whisper
+// heard in them). He says it from the top of his tower; the words hang over
+// him for as long as the line lasts.
+static const char *const TAUNT_TEXT[4] = { "Heh! My bugs, too strong!", "Go, bugs, go!", "You weakling!", "Can't even stop a bug!" };
+
+static void bugmaster_says(const char *line, SfxrSound voice)
 {
     GD.shout = line;
-    GD.shout_t = 4.0f;
+    GD.shout_t = fmaxf(3.0f, sfxr_sound_seconds(voice) + 0.5f);
     sfxr_event("bugmaster", "%s", line);
-    play_sound(voice, SND_TRILL, tower_top(), 1.0f);
+    play_sound(voice, SND_TRILL, tower_top(), 1.0f);   // no recording: a made-in-code trill
 }
-static void bugmaster_says(const char *line) { bugmaster_says_with(line, GD.ntaunt ? GD.taunt[(int)(rnd() * (float)GD.ntaunt) % GD.ntaunt] : 0); }
 
 static void round_reset(void)
 {
@@ -281,7 +273,7 @@ static void round_reset(void)
     GD.score = 0;
     GD.hp = MAX_HP;
     GD.waves_done = 0;
-    GD.hammer_at = WITH_DADDY;
+    GD.hammer_at = ON_STUMP;
     GD.rng = 12345;
     gw_reset();
 }
@@ -373,7 +365,7 @@ static void play(float dt)
     if (GD.score >= SCORE_TO_WIN) {
         GD.round = WON;
         sfxr_event("round", "won in %.0f s with %d/%d left", GD.t, GD.hp, MAX_HP);
-        bugmaster_says_with("Nooo! My bugs! You'll pay for this, Daddy!", GD.bm_lose);   // his loss
+        bugmaster_says("No, my precious bugs! My precious bugs! You may have defeated my bugs this time...", GD.bm_win);
         play_sound(GD.ding_hi, SND_BELL, sfxr_head().position, 1.0f);
         // Spacewar's (app 480) test achievement; your game's would be yours
         if (!GD.steam_sent) GD.steam_sent = sfxr_steam_unlock("ACH_WIN_ONE_GAME");
@@ -381,7 +373,7 @@ static void play(float dt)
         GD.hp = 0;
         GD.round = LOST;
         sfxr_event("round", "lost after %.0f s, %d smashed", GD.t, GD.score);
-        bugmaster_says_with("Ha! My bugs win again!", GD.bm_win);   // his win
+        bugmaster_says("Yes, yes! My wonderful bugs have won!", GD.bm_lose);
         play_sound(GD.ding_lo, SND_STOP, sfxr_head().position, 1.0f);
     }
 }
@@ -392,16 +384,7 @@ static void hammer(void)
 {
     // Where the hammer is this frame comes from its parent (docs/ATTACHING.md):
     switch (GD.hammer_at) {
-    case WITH_DADDY: {
-        // His hand bone carries it: the handle sits in his fist wherever the
-        // idle sway takes the hand. The bone points along his arm, so the
-        // hammer takes its uprightness from his body instead, tipped toward you.
-        SfxrPose body = daddy_pose();
-        SfxrPose hand = anim_bone_pose(&GD.daddy, "hand.R", body, GARDEN_SCALE);
-        SfxrPose held = { hand.position, QuaternionMultiply(body.orientation, QuaternionFromAxisAngle((Vector3){ 1, 0, 0 }, -30 * DEG2RAD)) };
-        GD.hammer = sfxr_pose_mul(held, (SfxrPose){ { 0, HANDLE_MID - 0.12f, 0 }, QuaternionIdentity() });
-        break;
-    }
+    case ON_STUMP: GD.hammer = hammer_on_stump(); break;
     case ON_BELT: if (!SFXR_BREAK(garden_belt_world_space)) GD.hammer = belt(); break;
     case LOOSE:
         rb_step(&GD.hammer_body, sfxr_dt(), 9.8f, gw_ground(GD.hammer_body.pos.x, GD.hammer_body.pos.z));
@@ -418,8 +401,7 @@ static void hammer(void)
         if (GD.round == WAITING) {
             GD.round = PLAYING;
             GD.t = 0;
-            bugmaster_says_with("Get him, my bugs!", GD.bm_intro);
-            anim_play(&GD.daddy, "walk");   // job done: off he goes round the table
+            bugmaster_says("You there! You've been smashing my bugs for too long. This time, they will smash YOU!", GD.bm_intro);
         }
     }
     if (g.released) {
@@ -437,7 +419,7 @@ static void hammer(void)
     }
     // How the hammer follows its parent: the chosen smoothing mode (the Smoothing
     // station's settings). It rides the player while in your hand or on your
-    // belt, so teleports don't smear it; with Daddy it follows his bone
+    // belt, so teleports don't smear it; on the stump it's in the world
     // in the world. Loose, its rigid body already moves it smoothly.
     VruiSmoothSpec feel = *smoothing_spec(GD.hammer_at == LOOSE ? VRUI_SMOOTH_SNAP : (VruiSmoothMode)GD.feel);
     feel.with_player = GD.hammer_at == IN_HAND || GD.hammer_at == ON_BELT;
@@ -482,7 +464,6 @@ void garden_enter(void)
     if (!GD.models_ok) {
         GD.hammer_model = LoadModel(gw_path("hammer.glb"));
         gw_light(&GD.hammer_model);
-        if (anim_load(&GD.daddy, gw_path("daddy.glb"))) gw_light(&GD.daddy.model);
         GD.models_ok = true;
     }
     GD.active = true;
@@ -490,8 +471,7 @@ void garden_enter(void)
     sound_play_here(SND_WHOOSH, 0.8f);
     round_reset();
     GD.board = vrui_facing(Vector3Add(on_ground(-1.3f, -0.6f), (Vector3){ 0, 1.35f, 0 }), Vector3Add(on_ground(0, 1.0f), (Vector3){ 0, 1.35f, 0 }));
-    anim_play(&GD.daddy, "idle");
-    // arrive at the spawn point facing into the garden (-Z), Daddy ahead
+    // arrive at the spawn point facing into the garden (-Z), your hammer ahead
     Vector3 f = sfxr_pose_forward(sfxr_head());
     sfxr_rig_turn(atan2f(f.x, -f.z));
     sfxr_rig_teleport(on_ground(0, 1.0f));
@@ -521,8 +501,8 @@ void garden_update(const VruiLocoConfig *toolbox_loco)
 
     // hand menus: the Menus & HUD station's choices apply here too
     switch (menus_update(MENU, 5, TextFormat("HP %d/%d  smashed %d", GD.hp, MAX_HP, GD.score))) {
-    case 0: round_reset(); anim_play(&GD.daddy, "idle"); break;
-    case 1: if (GD.hammer_at != WITH_DADDY) GD.hammer_at = ON_BELT; break;
+    case 0: round_reset(); break;
+    case 1: if (GD.hammer_at != ON_STUMP) GD.hammer_at = ON_BELT; break;
     case 2: garden_leave(); return;
     case 3: menus_set_hud_style((HudStyle)((menus_hud_style() + 1) % HUD_COUNT)); break;
     case 4: GD.feel = (GD.feel + 1) % VRUI_SMOOTH_COUNT; break;
@@ -537,8 +517,8 @@ void garden_update(const VruiLocoConfig *toolbox_loco)
     char said[128];
     if (sfxr_voice_result(said, sizeof said)) {
         int c = sfxr_voice_match(said, SAY, 2);
-        if (c == 0 && GD.hammer_at != WITH_DADDY) { GD.hammer_at = ON_BELT; sound_play_here(SND_WHOOSH, 0.7f); }
-        if (c == 1) { round_reset(); anim_play(&GD.daddy, "idle"); }
+        if (c == 0 && GD.hammer_at != ON_STUMP) { GD.hammer_at = ON_BELT; sound_play_here(SND_WHOOSH, 0.7f); }
+        if (c == 1) { round_reset(); }
     }
     if (GD.talking) vrui_tag(Vector3Add(rh->grip.position, (Vector3){ 0, 0.12f, 0 }), "listening: hammer / restart", 0.015f, RAYWHITE,
                              (Color){ 150, 30, 30, 220 });
@@ -546,7 +526,7 @@ void garden_update(const VruiLocoConfig *toolbox_loco)
     // the board by the spawn point: what's going on, and the two buttons
     if (vrui_panel_begin(ID(2), &GD.board, 0.46f, 0.4f, "Daddy Bug Smasher")) {
         vrui_layout_begin(vrui_panel_content(), 4);
-        static const char *const SAY[] = { "Take the hammer from Daddy.", "Smash 8 bugs before they get you!",
+        static const char *const SAY[] = { "Pick up your hammer, Daddy!", "Smash 8 bugs before they get you!",
                                            "The garden is clear! Well smashed.", "The bugs got you. Try again?" };
         vrui_label(vrui_row(24), SAY[GD.round]);
         vrui_label(vrui_row(24), TextFormat("health %d/%d   smashed %d/%d", GD.hp, MAX_HP, GD.score, SCORE_TO_WIN));
@@ -557,7 +537,7 @@ void garden_update(const VruiLocoConfig *toolbox_loco)
         vrui_segmented(3, vrui_row(34), FEEL, VRUI_SMOOTH_COUNT, &GD.feel);
         Rectangle cols[2];
         vrui_row_cols(36, 2, cols);
-        if (vrui_button(1, cols[0], "Restart")) { round_reset(); anim_play(&GD.daddy, "idle"); }
+        if (vrui_button(1, cols[0], "Restart")) { round_reset(); }
         if (vrui_button(2, cols[1], "Back to the toolbox")) { vrui_panel_end(); garden_leave(); return; }
         vrui_panel_end();
     }
@@ -574,20 +554,26 @@ void garden_update(const VruiLocoConfig *toolbox_loco)
     float mx = me.x, mz = me.z;
     gw_push_loose(&mx, &mz, PLAYER_R, (Vector3){ 0 }, 6.0f);
 
-    // Daddy: waits with the hammer, then strolls round the table
-    anim_update(&GD.daddy, dt);
-    if (GD.round != WAITING) GD.walk += dt * 0.35f;
     if (GD.round == WAITING)
-        vrui_tag(sfxr_pose_apply(daddy_pose(), (Vector3){ 0, 1.95f, 0 }), "Take my hammer: the Bugmaster's bugs are coming!", 0.05f,
-                 RAYWHITE, (Color){ 30, 50, 30, 220 });
+        vrui_callout(Vector3Add(stump_top(), (Vector3){ 0, 0.75f, 0 }), "your hammer, Daddy: pick it up", 0.1f, RAYWHITE);
 
     // the Bugmaster, up on his tower: his name, and what he's shouting
     if (GD.round == PLAYING && GD.shout_t <= 0 && fmodf(GD.t, 15.0f) < dt && GD.t > 5) {
-        static const char *const TAUNTS[] = { "You'll never smash them all!", "More bugs! MORE!", "My tower, my bugs, my garden!" };
-        bugmaster_says(TAUNTS[(int)(GD.t / 15.0f) % 3]);
+        int k = (int)(GD.t / 15.0f) % 4;
+        bugmaster_says(TAUNT_TEXT[k], GD.taunt[k]);
     }
     Vector3 top = { TOWER.x, TOWER_TOP + 4.3f, TOWER.z };
-    vrui_tag(top, GD.shout_t > 0 ? GD.shout : "the Bugmaster", 0.45f, GD.shout_t > 0 ? (Color){ 255, 220, 120, 255 } : RAYWHITE,
+    // (wrapped at about 28 letters a line: one long line would be meters wide up there)
+    char wrapped[200] = "the Bugmaster";
+    if (GD.shout_t > 0) {
+        int n = 0, col = 0;
+        for (const char *c = GD.shout; *c && n < (int)sizeof wrapped - 1; c++, col++) {
+            if (*c == ' ' && col > 28) { wrapped[n++] = '\n'; col = 0; continue; }
+            wrapped[n++] = *c;
+        }
+        wrapped[n] = 0;
+    }
+    vrui_tag(top, wrapped, 0.4f, GD.shout_t > 0 ? (Color){ 255, 220, 120, 255 } : RAYWHITE,
              (Color){ 60, 20, 70, 220 });
     GD.shout_t -= dt;
 
@@ -723,7 +709,8 @@ void garden_draw(void)
 {
     gw_draw();
     draw_bugmaster();
-    anim_draw(&GD.daddy, daddy_pose(), GARDEN_SCALE);
+    DrawCylinder(Vector3Subtract(stump_top(), (Vector3){ 0, 0.5f, 0 }), 0.2f, 0.22f, 0.5f, 12, (Color){ 110, 80, 50, 255 });   // the stump
+    DrawCylinder(Vector3Subtract(stump_top(), (Vector3){ 0, 0.01f, 0 }), 0.19f, 0.19f, 0.012f, 12, (Color){ 190, 160, 110, 255 });
     // the hammer model: its origin is the handle's end, below the pose we keep
     sfxr_push_pose(sfxr_pose_mul(GD.shown, (SfxrPose){ { 0, -HANDLE_MID, 0 }, QuaternionIdentity() }));
     DrawModel(GD.hammer_model, (Vector3){ 0 }, GARDEN_SCALE, WHITE);

@@ -40,6 +40,7 @@ SfxrSound sfxr_sound_from_wave(Wave wave, int voices);          // copies the wa
 void sfxr_sound_play(SfxrSound s, Vector3 at, float volume);
 void sfxr_sound_play_here(SfxrSound s, float volume);
 void sfxr_sound_pitch(SfxrSound s, float pitch);   // for the next plays (1 = as recorded)
+float sfxr_sound_seconds(SfxrSound s);            // how long it lasts (0: no such sound)
 
 // How a sound at `at` comes out: pan -1 (left) .. 1 (right), and gain 0..1.
 // (What sfxr_sound_play uses; exposed for your own mixing and for tests.)

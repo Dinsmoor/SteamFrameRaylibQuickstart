@@ -49,7 +49,7 @@ table turns, because its base pose is simply different each frame.
 | the body | `vrui_body()` | a belt, holsters, a readout at your waist |
 | the rig | `sfxr_rig_position()` / `sfxr_rig_yaw()` | things that travel with you but don't turn with your head |
 | a mechanism | the result's `.part` | things on a turntable, a door's handle, a lever's knob |
-| an animated bone | the bone's world matrix | a sword in a character's hand (Daddy's hammer in Daddy Bug Smasher) |
+| an animated bone | the bone's pose (raylib 6: `model.currentPose[i]`, already in model space) | a sword in a character's hand |
 
 **The body is a guess.** The headset tracks your head and hands, not your torso.
 `vrui_body()` stands on the floor under your head, a little behind your eyes, and

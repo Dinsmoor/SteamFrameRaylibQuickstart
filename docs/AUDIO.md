@@ -138,9 +138,9 @@ Also watch which source is the default. On a machine without a microphone, the d
   - smashes, hits and bites come from where they happen
   - the Bugmaster shouts from the top of his tower
   - hold the bumper and say **hammer** (it comes back to your belt) or **restart**
-  - the original game's recordings play if you copy them into
-    `examples/toolbox/resources/garden/sfx/` (death1–3, scurry, high/low ding) and `voice/`
-    (bugmaster_intro/win/lose, taunt1–4). They aren't in the public repo.
+  - the original game's recordings: the bugs' death splats, scurrying, dings, and the
+    Bugmaster's voice (`resources/garden/sfx/` and `voice/`, converted to mono so they can be
+    positioned). The subtitles over his tower are what Whisper heard in his lines.
 
 ## Tests
 

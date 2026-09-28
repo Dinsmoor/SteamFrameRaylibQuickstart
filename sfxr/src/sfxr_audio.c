@@ -107,6 +107,12 @@ SfxrSound sfxr_sound_from_wave(Wave w, int voices)
     return add(LoadSoundFromWave(w), voices);
 }
 
+float sfxr_sound_seconds(SfxrSound id)
+{
+    if (id <= 0 || id >= MAX_SOUNDS || !A.snd[id].used || !A.snd[id].base.stream.sampleRate) return 0;
+    return (float)A.snd[id].base.frameCount / (float)A.snd[id].base.stream.sampleRate;
+}
+
 void sfxr_sound_pitch(SfxrSound id, float pitch)
 {
     if (id > 0 && id < MAX_SOUNDS && A.snd[id].used) A.snd[id].pitch = pitch;
