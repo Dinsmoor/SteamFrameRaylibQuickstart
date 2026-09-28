@@ -34,6 +34,7 @@
 // sign above it (vrui_sign) saying what it is.
 //
 //      x   station                       file
+//   -9.8   Sound & voice                 station_voice.c (positional sound, voice commands)
 //   -8.0   Menus & HUD                   station_menus.c (hand menus, visor HUDs)
 //   -6.4   Hands-on setup                onboarding.c
 //   -4.8   Headset panel                 panel_headset.c
@@ -76,7 +77,7 @@ static inline void station_sign(float x, const char *title, const char *body)
 
 // Widget id groups: VRUI_ID2(group, index).
 enum { G_TABLE = 1, G_PANEL, G_WRIST, G_BLOCKS, G_BENCH, G_CTRL, G_HEADSET, G_LINK, G_YARD, G_HINGE,
-       G_ATTACH, G_MENUS, G_HUD, G_GARDEN, G_SMOOTH };
+       G_ATTACH, G_MENUS, G_HUD, G_GARDEN, G_SMOOTH, G_VOICE };
 
 // World settings, changed by the workbench controls and the Toolbox panel.
 typedef struct {
@@ -115,6 +116,17 @@ void station_attach(void);
 void station_smoothing(void);
 // the smoothing settings tuned at the Smoothing station (Daddy Bug Smasher's hammer uses them)
 const VruiSmoothSpec *smoothing_spec(VruiSmoothMode mode);
+
+// sounds.c: the toolbox's sounds, made in code (docs/AUDIO.md)
+typedef enum { SND_CLICK, SND_TICK, SND_STOP, SND_BELL, SND_CHIME, SND_THUMP, SND_SQUISH, SND_CHOMP, SND_WHOOSH,
+               SND_TRILL, SND_BLIP, SND_COUNT } SoundId;
+void sounds_init(void);
+void sound_play(SoundId id, Vector3 at, float volume);   // from a place in the world
+void sound_play_here(SoundId id, float volume);          // not positional
+void sound_pitch(SoundId id, float pitch);
+int  sound_handle(SoundId id);                           // its SfxrSound
+void sounds_vrui(VruiSound kind, Vector3 at, float strength);
+void station_voice(void);                                // station_voice.c: Sound & voice
 
 // hud.c: visor HUD templates (Daddy Bug Smasher uses them too)
 typedef enum { HUD_OFF, HUD_HEAD, HUD_FOLLOW, HUD_BODY, HUD_COUNT } HudStyle;

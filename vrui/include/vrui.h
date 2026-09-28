@@ -91,6 +91,14 @@ typedef enum {
     VRUI_GRAB_GRIP_OR_TRIGGER, // either button (players who reach with the trigger)
 } VruiGrabStyle;
 
+// Sounds vrui asks for (vrui_style()->sound): the app plays them, so vrui
+// stays free of any audio library. docs/AUDIO.md.
+typedef enum {
+    VRUI_SOUND_CLICK,   // grabbed, pressed, clicked (with the click haptic)
+    VRUI_SOUND_TICK,    // a detent passed (a knob's notch, a valve's quarter turn)
+    VRUI_SOUND_STOP,    // an end stop hit
+} VruiSound;
+
 typedef struct {
     // panels
     float px_per_m;         // panel texel density (1000 = 1 px per mm)
@@ -112,6 +120,9 @@ typedef struct {
     SfxrPull pull;          // how hard trigger/grip must be pulled (default FIRM; see vrui_push_pull)
     VruiGrabStyle grab;     // how a hand takes hold of things within reach (default GRIP)
     bool  show_hints;       // say how to use whatever a hand is on ("poke it | or laser + trigger"; default on)
+    // sound: called with what happened and where (world); strength 0..1.
+    // NULL (the default): silent. The toolbox plays sounds made in code.
+    void (*sound)(VruiSound kind, Vector3 at, float strength);
 } VruiStyle;
 
 VruiStyle *vrui_style(void);

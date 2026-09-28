@@ -13,6 +13,8 @@
 #   resources/            copied from examples|apps/<app>/resources if present
 #   libsteam_api.so       only with STEAMWORKS_SDK=<unpacked Steamworks SDK> (docs/STEAM.md),
 #   steam_appid.txt       plus the app id: SFQ_STEAM_APPID, default 480 (Valve's test app)
+#   libsfq_speech.so      voice commands, when scripts/get-speech.sh has built them for this
+#   speech/*.bin          target (build/frame-speech or build/host-speech), plus the model (docs/AUDIO.md)
 set -euo pipefail
 APP=${1:?app name}; BUILD=${2:-build/frame-release}
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -39,6 +41,13 @@ if [ -n "${STEAMWORKS_SDK:-}" ]; then
   # Needed when the game isn't launched by Steam under its own app id (devkit
   # launches, your desk). Leave it out of a real Steam release.
   echo "${SFQ_STEAM_APPID:-480}" > "$OUT/steam_appid.txt"
+fi
+# Voice commands (optional): the recognizer built for this binary's CPU, and the model.
+speech=build/host-speech; file "$BIN" | grep -q aarch64 && [ "$BUILD" = build/frame-release ] && speech=build/frame-speech
+if [ -f "$speech/libsfq_speech.so" ] && ls external/speech/*.bin >/dev/null 2>&1; then
+  cp "$speech/libsfq_speech.so" "$OUT/"
+  mkdir -p "$OUT/speech" && cp external/speech/*.bin "$OUT/speech/"
+  echo "voice commands: $speech/libsfq_speech.so + $(ls external/speech/*.bin | xargs -n1 basename)"
 fi
 cat > "$OUT/launch.sh" <<'LAUNCH'
 #!/bin/sh

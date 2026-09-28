@@ -135,6 +135,8 @@ VruiMech vrui_valve(VruiId id, SfxrPose base, const VruiMechSpec *sp, float *val
         if (effort > 0.05f && sp->haptic_strain > 0)
             vrui_haptic_hum((SfxrHandId)h, sp->haptic_strain * Clamp(0.3f + effort / 3.0f, 0, 1), 60.0f);
     }
+    if (n > 0 && tick != vs->last_tick && tick >= 0) vrui__sound(VRUI_SOUND_TICK, m.hand, sp->haptic_tick);
+    if (n > 0 && stop && !vs->at_stop) vrui__sound(VRUI_SOUND_STOP, m.hand, sp->haptic_stop);
     vs->last_tick = tick;
     vs->at_stop = stop || (vs->at_stop && (v <= sp->min || v >= sp->max));
     if (v != before) m.changed = true;

@@ -84,7 +84,7 @@ VRUI_LIB  := $(BUILD)/libvrui.a
 
 EXAMPLES  := $(notdir $(patsubst %/,%,$(dir $(wildcard examples/*/main.c apps/*/main.c))))
 EX_BINS   := $(patsubst %,$(BUILD)/bin/%,$(EXAMPLES))
-TOOLS     := xr_probe sfxrec_dump
+TOOLS     := xr_probe sfxrec_dump sfq_listen
 TOOL_BINS := $(patsubst %,$(BUILD)/bin/%,$(TOOLS))
 
 .PHONY: test test-bins test-audit
@@ -164,6 +164,10 @@ $(BUILD)/bin/sfxrec_dump: tools/sfxrec_dump.c $(RAYLIB_STAMP) $(OPENXR_STAMP)
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -DRAYMATH_STATIC_INLINE -Isfxr/src -o $@ tools/sfxrec_dump.c -lm
 
+$(BUILD)/bin/sfq_listen: tools/sfq_listen.c $(SFXR_LIB) $(RAYLIB_LIB) $(OPENXR_LIB)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -o $@ tools/sfq_listen.c $(SFXR_LIB) $(RAYLIB_LIB) $(LDLIBS)
+
 $(BUILD)/bin/xr_probe: tools/xr_probe.c $(OPENXR_LIB) $(OPENXR_STAMP)
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -o $@ tools/xr_probe.c $(OPENXR_LIB) -lstdc++ -lm -lpthread -ldl
@@ -182,6 +186,13 @@ $(BUILD)/tests/%: tests/%/*.c $(SFXT_OBJ) $(VRUI_LIB) $(SFXR_LIB) $(RAYLIB_LIB) 
 	$(CC) $(CFLAGS) -Isfxt/include -o $@ $(filter tests/%.c,$^) $(SFXT_OBJ) $(VRUI_LIB) $(SFXR_LIB) $(RAYLIB_LIB) $(LDLIBS)
 
 -include $(SFXT_OBJ:.o=.d)
+
+# tests/voice loads a fake recognizer built next to it (docs/AUDIO.md)
+$(BUILD)/tests/voice: $(BUILD)/tests/libfake_sfq_speech.so
+$(BUILD)/tests/libfake_sfq_speech.so: tests/voice/fake/sfq_speech.c
+	@mkdir -p $(dir $@)
+	$(CC) -std=gnu11 -O1 -g -fPIC -shared -o $@ $<
+	chmod -x $@
 
 # tests/steam loads a fake libsteam_api.so built next to it (docs/STEAM.md)
 $(BUILD)/tests/steam: $(BUILD)/tests/libfake_steam_api.so

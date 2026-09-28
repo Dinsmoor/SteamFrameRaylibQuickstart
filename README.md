@@ -104,6 +104,8 @@ CLAUDE.md        full technical notes: platform research, design guidance, archi
 | `sfxr_xr_input.c` | which Frame inputs are bound (every one), and reading them each frame |
 | `sfxr_xr_signals.c` | presence, refresh rate, hand trackers, batteries, performance counters, controller models |
 | `sfxr_xr_gl.c` / `sfxr_xr_vk.c` | getting raylib's OpenGL frames to the headset (directly, or through Vulkan) |
+| `sfxr_audio.c`, `include/sfxr_audio.h` | positional sound, sounds made in code, the microphone |
+| `sfxr_voice.c`, `include/sfxr_voice.h` | push-to-talk voice commands (Whisper through `tools/speech/`, loaded if built by `scripts/get-speech.sh`) |
 | `sfxr_steam.c`, `include/sfxr_steam.h` | optional Steamworks: loads `libsteam_api.so` if it's next to the app; otherwise every call is a harmless "no" |
 | `sfxr_sim.c` | the desktop simulator (mouse and keyboard play the controllers) |
 | `sfxr_replay.c`, `sfxr_rec.h` | recording every frame's input, and replaying it exactly |
@@ -140,6 +142,7 @@ on its own:
 | `panels.c` | the Toolbox panel (settings) |
 | `station_menus.c` | hand menus (watch, palm buttons, a tablet in your hand, a radial menu) and the Menus & HUD station |
 | `hud.c` | visor HUD templates: head-locked, lazy follow, on your belt |
+| `station_voice.c`, `sounds.c` | Sound & voice: a speaker to carry round your head, a push-to-talk button, bugs you point at and give voice commands; the toolbox's sounds made in code |
 | `station_smoothing.c` | Smoothing: a sword and five ghosts following it, one per smoothing mode; easing curves |
 | `garden*.c` | Daddy Bug Smasher, part three: a small game (take the hammer, smash the bugs) built from the pieces above |
 | `station_attach.c` | Attach & label: things riding on things (a turntable, a lever on it, a flag on the lever, your belt) and every kind of world label |
@@ -159,6 +162,7 @@ on its own:
 - `ONBOARDING.md`: fitting the controls to the player by watching them
 - `MOVEMENT.md`: moving the player comfortably: teleport, pads, surfaces, climbing
 - `ATTACHING.md`: making one thing ride on another, text in the world, HUDs, hand menus
+- `AUDIO.md`: positional sound, sounds made in code, the microphone, voice commands (Whisper)
 - `SMOOTHING.md`: how held things follow (snap, lag, spring, heavy, steady), springs, easing
 - `DADDY_BUG_SMASHER.md`: Daddy Bug Smasher, the toolbox's third part: a small game made from these pieces
 - `STEAM.md`: optional Steamworks (achievements, stats, overlay) without the SDK in the repo
@@ -180,6 +184,7 @@ on its own:
 | Keep the stick from teleporting people while they use your UI | "input ownership" in `docs/INPUT.md`: `vrui_claim_input()` / `vrui_input_claimed()` |
 | Move players around (pads, platforms, climbing, monkey bars) | `docs/MOVEMENT.md` and `examples/toolbox/yard.c` |
 | Bare hands (pinch, palm-up menus, a steady hand ray) | "Bare hands" in `docs/INPUT.md`, `sfxr_hand_gestures()`; press **H** in the simulator |
+| Sound from where things are, voice commands | `docs/AUDIO.md`, `sfxr_audio.h`, `sfxr_voice.h`; `scripts/get-speech.sh` for the recognizer |
 | Achievements, stats, the Steam overlay | `docs/STEAM.md`, `sfxr_steam.h`; package with `STEAMWORKS_SDK=...` |
 | Feedback players can feel | `vrui_haptic_pulse()` / `vrui_haptic_hum()` and the haptic vocabulary in `docs/INPUT.md` |
 | Know what the hardware can do | the toolbox's Controllers and Headset panels (try them in the headset), `scripts/frame.sh probe --paths`, and `CLAUDE.md` Part 1 |

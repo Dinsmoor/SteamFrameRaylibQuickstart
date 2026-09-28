@@ -278,9 +278,11 @@ static int nearest_detent(const VruiMechSpec *sp, float v)
     return step != 0.0f ? (int)floorf((v - sp->min) / step + 0.5f) : -1;
 }
 
-static void pulse(int hand, float amp, float secs)
+// A haptic pulse, and the matching sound where the hand is (vrui_style()->sound).
+static void pulse(int hand, float amp, float secs, VruiSound kind)
 {
     if (hand >= 0 && amp > 0) vrui_haptic_pulse((SfxrHandId)hand, amp, secs, 0);
+    if (hand >= 0) vrui__sound(kind, hand, amp);
 }
 
 // Physical units (rad or m) per value unit.
@@ -360,10 +362,10 @@ static bool model_drive(MechState *ms, const VruiMechSpec *sp, float *value, flo
     if (!sp->endless) {
         float margin = (hi - lo) * 0.02f;
         if (next <= lo) {
-            if (!(ms->flags & M_AT_MIN)) { ms->flags |= M_AT_MIN; pulse(hand, sp->haptic_stop, 0.02f); }
+            if (!(ms->flags & M_AT_MIN)) { ms->flags |= M_AT_MIN; pulse(hand, sp->haptic_stop, 0.02f, VRUI_SOUND_STOP); }
         } else if (next > lo + margin) ms->flags &= ~M_AT_MIN;
         if (next >= hi) {
-            if (!(ms->flags & M_AT_MAX)) { ms->flags |= M_AT_MAX; pulse(hand, sp->haptic_stop, 0.02f); }
+            if (!(ms->flags & M_AT_MAX)) { ms->flags |= M_AT_MAX; pulse(hand, sp->haptic_stop, 0.02f, VRUI_SOUND_STOP); }
         } else if (next < hi - margin) ms->flags &= ~M_AT_MAX;
     }
 
@@ -379,7 +381,7 @@ static bool model_drive(MechState *ms, const VruiMechSpec *sp, float *value, flo
             if (fabsf(pos - (float)kk) > (SFXR_BREAK(vrui_selector_chatter) ? 0.5f : 0.65f)) {
                 kk = (int)floorf(pos + 0.5f);
                 ms->detent = kk;
-                pulse(hand, sp->haptic_tick, 0.008f);
+                pulse(hand, sp->haptic_tick, 0.008f, VRUI_SOUND_TICK);
             }
             out = sp->min + (float)kk * step;
         } else {
@@ -393,7 +395,7 @@ static bool model_drive(MechState *ms, const VruiMechSpec *sp, float *value, flo
                 if (crossed != last || (ms->flags & M_TICK_ARMED)) {
                     ms->detent = crossed;
                     ms->flags &= ~M_TICK_ARMED;
-                    pulse(hand, sp->haptic_tick, 0.008f);
+                    pulse(hand, sp->haptic_tick, 0.008f, VRUI_SOUND_TICK);
                 }
             }
             ms->detent_pos_prev = pos;
@@ -877,7 +879,7 @@ VruiMech vrui_tilt(VruiId id, SfxrPose base, const VruiMechSpec *sp, Vector2 *va
             float len = sqrtf(raw.x * raw.x + raw.y * raw.y);
             if (len >= 1.0f) {
                 raw.x /= len; raw.y /= len;
-                if (!(ms->flags & M_AT_MAX)) { ms->flags |= M_AT_MAX; pulse(hd.hand, sp->haptic_stop * 0.5f, 0.015f); }
+                if (!(ms->flags & M_AT_MAX)) { ms->flags |= M_AT_MAX; pulse(hd.hand, sp->haptic_stop * 0.5f, 0.015f, VRUI_SOUND_STOP); }
             } else if (len < 0.95f) ms->flags &= ~M_AT_MAX;
             tension_hum(ms, sp, fminf(len, 1.0f), hd.hand);
             changed = raw.x != value->x || raw.y != value->y;

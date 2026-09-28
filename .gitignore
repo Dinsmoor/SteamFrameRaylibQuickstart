@@ -10,3 +10,5 @@ compile_commands.json
 .frame-host-fake
 local-data/
 prefs.cfg
+external/whisper.cpp/
+external/speech/

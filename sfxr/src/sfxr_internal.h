@@ -219,4 +219,6 @@ const Model *sfxr_xr_controller_model(SfxrHandId hand, SfxrPose *pose_stage);
 // Creates an FBO around `tex` with the given depth renderbuffer attached.
 unsigned sfxr_make_fbo(unsigned tex, unsigned depth_rb);
 
+void sfxr_voice_update(void);   // sfxr_voice.c: the microphone into the clip, every frame
+
 #endif // SFXR_INTERNAL_H

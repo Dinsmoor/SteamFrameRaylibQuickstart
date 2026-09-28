@@ -8,3 +8,6 @@ BREAK(sfxr_no_joint_hands, "bare hands tracked only as joints (no hand-interacti
 BREAK(sfxr_steam_no_dispatch, "Steam callbacks are never pumped (the overlay state never changes)")
 BREAK(sfxr_steam_no_store, "achievements are set but never stored (Steam never hears of them)")
 BREAK(sfxr_steam_claims_success, "without Steam, unlocking an achievement reports success")
+BREAK(sfxr_voice_no_prompt, "the command words are never passed to the recognizer, so short commands get misheard")
+BREAK(sfxr_voice_match_exact, "a command only matches if heard exactly: \"attach\" isn't taken as \"attack\"")
+BREAK(sfxr_audio_pan_flipped, "positional sounds come from the wrong side (left and right swapped)")

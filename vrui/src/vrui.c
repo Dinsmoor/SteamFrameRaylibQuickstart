@@ -211,8 +211,17 @@ void vrui__hover_tick(int h, VruiId id)
     if (id && C.style.haptic_hover > 0) vrui_haptic_pulse((SfxrHandId)h, C.style.haptic_hover, 0.01f, 0);
 }
 
+void vrui__sound(VruiSound kind, int h, float strength)
+{
+    if (!C.style.sound || h < 0) return;
+    // where it happens: the laser's spot when pointing, else the hand
+    Vector3 at = C.laser_hit[h] ? C.laser_to[h] : sfxr_hand((SfxrHandId)h)->grip.position;
+    C.style.sound(kind, at, strength);
+}
+
 void vrui__click_pulse(int h)
 {
+    vrui__sound(VRUI_SOUND_CLICK, h, 1.0f);
     if (C.style.haptic_click > 0) vrui_haptic_pulse((SfxrHandId)h, C.style.haptic_click, 0.03f, 0);
 }
 

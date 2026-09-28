@@ -179,7 +179,8 @@ bool  vrui__ray_hot(int hand, VruiId id);
 bool  vrui__grab_hot(int hand, VruiId id);
 bool  vrui__hand_free(int hand);          // not capturing anything
 void  vrui__hover_tick(int hand, VruiId id);
-void  vrui__click_pulse(int hand);
+void  vrui__click_pulse(int hand);        // the click: haptics and the CLICK sound
+void  vrui__sound(VruiSound kind, int hand, float strength);   // vrui_style()->sound, where that hand is acting
 Ray   vrui__hand_ray(int hand);
 Vector3 vrui__tip(int hand);              // poke point (controller tip)
 VruiItem *vrui__item(VruiId id);

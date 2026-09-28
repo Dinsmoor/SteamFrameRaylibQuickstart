@@ -294,6 +294,7 @@ docs/INPUT.md        input methods (laser/grab/poke/hand shape), input ownership
 docs/ONBOARDING.md   the hands-on setup station that learns the player's habits (template: examples/toolbox/onboarding.c)
 docs/MOVEMENT.md     teleport, pads, surfaces, falling, climbing (examples/toolbox/yard.c)
 docs/ATTACHING.md    attaching things to things, world labels, HUDs, hand menus
+docs/AUDIO.md        positional sound, sounds made in code, the mic, push-to-talk voice commands (Whisper)
 docs/SMOOTHING.md    how held things follow (snap/lag/spring/heavy/steady), springs, easing
 docs/DADDY_BUG_SMASHER.md       the toolbox's part three: a small game (examples/toolbox/garden*.c, tests/garden)
 tests/mech, tests/input  C test suites (make test); tests/regress/ golden replays (make regress)
@@ -445,6 +446,11 @@ while (sfxr_frame_begin()) {              // wait for runtime, sample poses and 
 - **Daddy Bug Smasher** (`docs/DADDY_BUG_SMASHER.md`): the toolbox's part three, a small game through the
   gate at the right end of the row. It's a separate scene: `garden_update` replaces the
   stations while you're in it. Models in `examples/toolbox/resources/garden/`.
+- **Sound and voice** (`docs/AUDIO.md`): `sfxr_audio.h` (positional sounds re-panned from the
+  head every frame, `sfxr_sound_synth`, the microphone through raylib's miniaudio) and
+  `sfxr_voice.h` (push-to-talk, Whisper tiny.en through a dlopen'd shim built by
+  `scripts/get-speech.sh`, recognition on a background thread, `sfxr_voice_match`). vrui asks
+  for sounds through `vrui_style()->sound`; it never plays audio itself.
 - **Adding a widget:** follow the existing ones. Compute hit distance/proximity, call
   `vrui__ray_offer`/`vrui__grab_offer`, use `handle_update()` for grabbable handles, keep
   per-widget state in `vrui__item(id)`, queue drawing with `vrui_box`/`vrui__cylinder`/...,
@@ -759,6 +765,28 @@ clean, goldens pass, Frame build and package clean (the package carries
 4. **The Smoothing station:** wave the sword and compare the ghosts. The Steady mode's tremble filtering is best judged on the device.
 5. **Walls:** walk into the climbing wall; is the fade right?
 6. **Pull a session** (`frame.sh pull toolbox`), then `scripts/clips.sh` it and keep a clip or two as regression tests.
+
+**Later the same day: sound, voice, and Daddy Bug Smasher's real names**
+- The garden is **Daddy Bug Smasher** (the user's family game, real names allowed; `docs/DADDY_BUG_SMASHER.md`).
+  The Bugmaster stands on his tower and shouts; Revenge of the Bugmaster (his side,
+  pointing plus voice commands) is the user's planned game on this quickstart.
+- The valve shows it needs two hands (grip pads, BOTH HANDS).
+- Sound and voice (`docs/AUDIO.md`): positional sounds, the toolbox's sounds made in code,
+  vrui's sound hook, the microphone, push-to-talk Whisper (`scripts/get-speech.sh` builds it for
+  host and Frame), the **Sound & voice** station (a speaker to carry, a TALK button with a
+  transcript board, point-and-speak bugs), sounds and "hammer"/"restart" in the game.
+  `tests/voice` (3 cases). Build machine: 115–135 ms per command.
+
+**Headset checks for sound and voice**
+1. Is there sound at all (the log's "audio: on"), and does it come from the right side? Carry
+   the speaker round your head.
+2. `scripts/frame.sh exec 'pactl list sources'`: the mic's name and channel count, and any
+   echo-cancel source; the log's "microphone: on (...)" should name the headset's mic, not a monitor.
+3. `scripts/get-speech.sh frame`, `make package`, then the TALK button: accuracy and time
+   (the panel shows ms); try `SFQ_SPEECH_THREADS=2/4/6`.
+4. The original game's sounds: copy them in locally (`resources/garden/sfx/`, `voice/`) and
+   decide whether they go in the repo. The voice recordings and music are left out until the
+   user says; one music file is a commercial song.
 
 **Still to build**
 - Animate the controller models' buttons (`xrGetRenderModelStateEXT` node poses; needs
