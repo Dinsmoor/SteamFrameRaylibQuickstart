@@ -104,6 +104,9 @@ and the status line says how to get it.
   sfxr talks to a three-function C shim (`tools/speech/sfq_speech.c`) compiled against the
   whisper.h it ships with, and loads it with `dlopen`.
 
+**On the Frame:** audio plays through PulseAudio (PipeWire), the microphone opens as "Built-in
+Audio Capture", and the recognizer and model load in about 0.2 s at startup.
+
 **Measured on the build machine** (an ARM64 workstation, 4 threads), on synthesized speech:
 "attack", "stop" and "return to the tower" were each recognized correctly in 115–135 ms.
 "go away" matched no command, correctly. **On the Frame it isn't measured yet**; expect a few
@@ -120,9 +123,12 @@ What works:
 1. **Push-to-talk:** the reason it's the default here.
 2. **Loudness:** the wearer's voice is much louder than anyone else's, because the mics are
    centimeters from the mouth. A level gate helps (`sfxr_voice_level`).
-3. **Beamforming:** only if the headset exposes the raw mic channels rather than one processed
-   stream. Check with `scripts/frame.sh exec 'pactl list sources'` (the channel count, and any
-   echo-cancel source).
+3. **Beamforming:** it needs the raw mic channels rather than one processed stream. **On the
+   Frame (checked 2026-09-28):** `pactl list sources` shows the microphone as a
+   **2-channel** 48 kHz PipeWire source (`HiFi__Mic__source`), plus a monitor of the
+   speakers, and no echo-cancel source. So there are at least two mics to compare; a
+   simple two-mic trick (the wearer's mouth is equidistant from both) might work. sfxr
+   captures mono today, which averages the channels. Not tried yet.
 
 Also watch which source is the default. On a machine without a microphone, the default
 "capture" can be the monitor of your own speakers (the log says which: "microphone: on
