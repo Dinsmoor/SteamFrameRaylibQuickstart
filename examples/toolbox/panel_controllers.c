@@ -39,21 +39,22 @@ static void hand_column(Rectangle col, SfxrHandId id)
 {
     const VruiStyle *st = vrui_style();
     const SfxrHand *h = sfxr_hand(id);
-    Font f = GetFontDefault();
+    Font f = vrui_font();
+    float fs = (float)st->font_size;
     float y = col.y;
     const char *src = !h->active ? "not tracked" : h->source == SFXR_SOURCE_HAND ? "bare hand" : "controller";
     DrawTextEx(f, TextFormat("%s: %s, %s", id == SFXR_RIGHT ? "RIGHT" : "LEFT", src, sfxr_hand_shape_name(h->shape)),
-               (Vector2){ col.x, y }, 20, 2, st->text);
+               (Vector2){ col.x, y }, fs, 2, st->text);
     y += 30;
 
     // trigger and grip: how far pulled, with the soft / firm / full marks
     const char *names[2] = { "Trigger", "Grip" };
     for (int k = 0; k < 2; k++) {
         float v = k ? h->squeeze : h->trigger;
-        DrawTextEx(f, names[k], (Vector2){ col.x, y }, 20, 2, st->text);
+        DrawTextEx(f, names[k], (Vector2){ col.x, y }, fs, 2, st->text);
         touch_press(col.x + 100, y + 9, h->button[k ? SFXR_CTL_SQUEEZE : SFXR_CTL_TRIGGER]);
         pull_bar((Rectangle){ col.x + 118, y + 4, col.width - 170, 12 }, v, k ? h->squeeze_at : h->trigger_at);
-        DrawTextEx(f, TextFormat("%.2f", v), (Vector2){ col.x + col.width - 46, y }, 20, 2, st->text_dim);
+        DrawTextEx(f, TextFormat("%.2f", v), (Vector2){ col.x + col.width - 46, y }, fs, 2, st->text_dim);
         y += 28;
     }
 
@@ -62,34 +63,34 @@ static void hand_column(Rectangle col, SfxrHandId id)
     DrawRectangleLinesEx(plot, 2, st->text_dim);
     DrawCircle((int)(plot.x + 32 + h->stick.x * 28), (int)(plot.y + 32 - h->stick.y * 28), 5,
                h->stick_btn.touched ? st->accent : st->text_dim);
-    DrawTextEx(f, "Stick", (Vector2){ col.x + 76, y + 4 }, 20, 2, st->text);
+    DrawTextEx(f, "Stick", (Vector2){ col.x + 76, y + 4 }, fs, 2, st->text);
     touch_press(col.x + 150, y + 13, h->stick_btn);
-    DrawTextEx(f, TextFormat("%+.2f %+.2f", h->stick.x, h->stick.y), (Vector2){ col.x + 76, y + 32 }, 20, 2, st->text_dim);
+    DrawTextEx(f, TextFormat("%+.1f %+.1f", h->stick.x, h->stick.y), (Vector2){ col.x + 76, y + 32 }, fs, 2, st->text_dim);
     for (int k = 0; k < 5; k++) {   // thumb .. little
         Rectangle bar = { col.x + 200 + k * 12, y, 8, 60 };
         DrawRectangleRec(bar, st->widget);
         float c = Clamp(h->curl[k], 0, 1);
         DrawRectangle((int)bar.x, (int)(bar.y + bar.height * (1 - c)), (int)bar.width, (int)(bar.height * c + 0.5f), st->accent);
     }
-    DrawTextEx(f, h->curl_from_joints ? "joints" : "touch", (Vector2){ col.x + 200, y + 62 }, 10, 1, st->text_dim);
+    DrawTextEx(f, h->curl_from_joints ? "joints" : "touch", (Vector2){ col.x + 200, y + 62 }, 16, 1, st->text_dim);
     y += 74;
 
     // bare-hand gestures, measured from the joints (sfxr_hand_gestures)
     const SfxrHandGestures *g = sfxr_hand_gestures(id);
     if (g->valid) {
-        DrawTextEx(f, TextFormat("pinch %.1f cm", g->pinch_dist[0] * 100), (Vector2){ col.x, y }, 20, 2, st->text);
+        DrawTextEx(f, TextFormat("pinch %.1f cm", g->pinch_dist[0] * 100), (Vector2){ col.x, y }, fs, 2, st->text);
         touch_press(col.x + 150, y + 9, g->pinch);
         DrawTextEx(f, TextFormat("%s%s", g->palm_up ? "palm up " : "", g->palm_to_head ? "palm to face" : ""),
-                   (Vector2){ col.x + 170, y }, 20, 2, st->accent);
+                   (Vector2){ col.x + 170, y }, fs, 2, st->accent);
     } else {
-        DrawTextEx(f, "no hand joints", (Vector2){ col.x, y }, 20, 2, st->text_dim);
+        DrawTextEx(f, "no hand joints", (Vector2){ col.x, y }, fs, 2, st->text_dim);
     }
     y += 26;
 
     // every other control on this controller
     for (int c = SFXR_CTL_BUMPER; c < SFXR_CTL_COUNT; c++) {
         if (!sfxr_control_on_hand((SfxrControl)c, id)) continue;
-        DrawTextEx(f, sfxr_control_name((SfxrControl)c), (Vector2){ col.x, y }, 20, 2, st->text);
+        DrawTextEx(f, sfxr_control_name((SfxrControl)c), (Vector2){ col.x, y }, fs, 2, st->text);
         touch_press(col.x + 150, y + 9, h->button[c]);
         y += 26;
     }
@@ -97,13 +98,13 @@ static void hand_column(Rectangle col, SfxrHandId id)
 
 void panel_controllers(void)
 {
-    station_sign(-3.2f, "Controllers", "every input, live: look at it\nand everything is yours to test");
+    station_sign(-3.2f, "Controllers", "every input, live: look at it and everything is yours to test");
     if (!K.placed) {
         K.pose = row_pose(-3.2f, 1.35f);
         K.placed = true;
     }
     vrui_panel_capture(VRUI_CAPTURE_LOOK);   // look at it: it owns both controllers
-    if (!vrui_panel_begin(VRUI_ID2(G_CTRL, 0), &K.pose, 0.62f, 0.70f, "Controllers")) return;
+    if (!vrui_panel_begin(VRUI_ID2(G_CTRL, 0), &K.pose, 0.806f, 0.91f, "Controllers")) return;
     Rectangle area = vrui_panel_content();
     hand_column((Rectangle){ area.x, area.y, area.width * 0.5f - 8, 390 }, SFXR_LEFT);
     hand_column((Rectangle){ area.x + area.width * 0.5f + 8, area.y, area.width * 0.5f - 8, 390 }, SFXR_RIGHT);

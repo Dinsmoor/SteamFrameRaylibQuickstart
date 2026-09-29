@@ -200,7 +200,7 @@ VruiKey vrui_key_switch(VruiId id, SfxrPose slot, const VruiKeySpec *sp, SfxrPos
             // printed on the plate, round the keyway: stop 0 straight up the plate (-Z), then clockwise
             SfxrPose tp = sfxr_pose_mul(slot, (SfxrPose){ { 0.05f * sinf(a), 0.009f, -0.05f * cosf(a) },
                                                          QuaternionFromAxisAngle((Vector3){ 1, 0, 0 }, -PI / 2) });
-            vrui_text_at(tp, sp->names[i], 0.012f, i == stop && ks->in ? C.style.accent : C.style.text);
+            vrui_text_at(tp, sp->names[i], 0.0168f, i == stop && ks->in ? C.style.accent : C.style.text);
         }
         // the key: blade and bow
         Color kc = vrui__hover_tint(sp->color, r.hovered, r.held);

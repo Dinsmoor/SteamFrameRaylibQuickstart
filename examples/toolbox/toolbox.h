@@ -10,6 +10,7 @@
 //   panel_headset.c      worn state, refresh rate, passthrough, batteries, joints, counters
 //   onboarding.c         the hands-on setup station (learns the player's habits)
 //   station_weights.c    Weights: feather, ball, brick, kettlebell, anvil, and a lane to throw them down
+//   station_guns.c       a physgun (Garry's Mod) and a gravity gun (Half-Life 2), beside the Weights table
 //   station_wield.c      Wielding: sword, hammer, spear, dagger held by their handles; a sandbag to hit
 //   station_sound.c      Sound: point, cone, line, box and ambient emitters, and what your ears get
 //   station_voice.c      Voice commands: one command, bound every way (context button, radial, world button, hands-free)
@@ -38,6 +39,7 @@
 // sign above it (vrui_sign) saying what it is.
 //
 //      x   station                       file
+//  -20.1   (a stand of physics guns)     station_guns.c (physgun and gravity gun, on the Weights things)
 //  -18.8   Weights                       station_weights.c (feather to anvil: how heavy should feel)
 //  -15.4   Wielding                      station_wield.c (weapons held by their handles, Blade & Sorcery style)
 //  -12.2   Voice commands                station_voice.c (ways to bind a command: button, menu, hands-free)
@@ -78,13 +80,13 @@ static inline SfxrPose row_pose(float x, float y)
 // letters from the board's width.
 static inline void station_sign(float x, const char *title, const char *body)
 {
-    vrui_sign((SfxrPose){ { x, 2.15f, ROW_Z - 0.45f }, QuaternionIdentity() }, 1.2f, title, body,
+    vrui_sign((SfxrPose){ { x, 2.3f, ROW_Z - 0.45f }, QuaternionIdentity() }, 1.2f, title, body,
               (Color){ 44, 50, 64, 255 });
 }
 
 // Widget id groups: VRUI_ID2(group, index).
 enum { G_TABLE = 1, G_PANEL, G_WRIST, G_BLOCKS, G_BENCH, G_CTRL, G_HEADSET, G_LINK, G_YARD, G_HINGE,
-       G_ATTACH, G_MENUS, G_HUD, G_GARDEN, G_SMOOTH, G_VOICE, G_SOUND, G_WIELD, G_WEIGHTS };
+       G_ATTACH, G_MENUS, G_HUD, G_GARDEN, G_SMOOTH, G_VOICE, G_SOUND, G_WIELD, G_WEIGHTS, G_GUNS };
 
 // World settings, changed by the workbench controls and the Toolbox panel.
 typedef struct {
@@ -135,6 +137,18 @@ int  sound_handle(SoundId id);                           // its SfxrSound
 void sounds_vrui(VruiSound kind, Vector3 at, float strength);
 void station_wield(void);                                // station_wield.c: Wielding (a weapon rack, a sandbag)
 void station_weights(void);                              // station_weights.c: Weights (feather to anvil, a throwing lane)
+// The Weights station's things, for the physics guns beside it (station_guns.c)
+#define WEIGHT_THINGS 5
+typedef struct {
+    VruiId id;
+    const char *name;
+    SfxrPose *pose;                  // the guns move it (with vrui_wield_set_motion)
+    const VruiWieldSpec *spec;
+    const VruiWield *w;              // last frame's
+} WeightThing;
+const WeightThing *weights_thing(int k);
+void station_guns(void);                                 // station_guns.c: a physgun and a gravity gun (run by station_weights)
+void guns_reset(void);                                   // drop whatever the guns hold; unfreeze everything
 void station_sound(void);                                // station_sound.c: Sound (emitters)
 void station_voice(void);                                // station_voice.c: Voice commands
 
@@ -142,6 +156,8 @@ void station_voice(void);                                // station_voice.c: Voi
 typedef enum { HUD_OFF, HUD_HEAD, HUD_FOLLOW, HUD_BODY, HUD_COUNT } HudStyle;
 extern const char *const HUD_STYLE_NAMES[HUD_COUNT];
 void hud_show(HudStyle style, const char *text, Color accent);
+void screenshot_start(const char *app);   // a 2 s countdown, then sfxr_screenshot into shots/
+void screenshot_update(void);             // every frame
 
 // station_menus.c: hand menus (watch, palm, tablet, radial) and the Menus &
 // HUD station that switches them on and off. Every menu offers the same list
@@ -152,6 +168,7 @@ void     station_menus(void);
 HudStyle menus_hud_style(void);
 void     menus_set_hud_style(HudStyle style);
 bool     menus_edge_arrows(void);
+SfxrHandId menus_main_hand(void);     // the player's main hand (Hands-on setup; right until then)
 
 // yard.c: surfaces, pads and handholds; yard_setup fills in the loco config
 void yard_setup(VruiLocoConfig *loco);

@@ -1002,7 +1002,7 @@ bool vrui_door(VruiId id, SfxrPose hinge_bottom, float width, float height, floa
     vrui_box(slab, (Vector3){ width, height, 0.035f }, vrui__hover_tint((Color){ 150, 110, 70, 255 }, m.hovered, m.held));
     if (label && *label)
         vrui_text3d(sfxr_pose_apply(m.part, (Vector3){ width * 0.5f, height - handle_h + 0.08f, 0 }),
-                    TextFormat("%s %.0f%%", label, *open * 100.0f), 0.03f, C.style.text);
+                    TextFormat("%s %.0f%%", label, *open * 100.0f), 0.042f, C.style.text);
     return m.changed;
 }
 
@@ -1046,6 +1046,6 @@ bool vrui_pull_cord(VruiId id, SfxrPose anchor, float *pull, const char *label)
     vrui_line(top, handle, (Color){ 200, 200, 190, 255 });
     SfxrPose grip = { handle, anchor.orientation };
     vrui_box(grip, (Vector3){ 0.07f, 0.022f, 0.022f }, vrui__hover_tint(s.color, m.hovered, m.held));
-    if (label && *label) vrui_text3d(Vector3Add(top, (Vector3){ 0, 0.06f, 0 }), label, 0.025f, C.style.text);
+    if (label && *label) vrui_text3d(Vector3Add(top, (Vector3){ 0, 0.06f, 0 }), label, 0.035f, C.style.text);
     return fired;
 }

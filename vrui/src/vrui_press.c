@@ -50,10 +50,7 @@ VruiPress vrui_press(VruiId id, SfxrPose base, const VruiPressSpec *sp, bool *la
             float r = sqrtf(l.x * l.x + l.z * l.z);
             bool above = l.y > CAP_H - 0.002f && l.y < CAP_H + 0.03f;
             if (SFXR_BREAK(vrui_button_side_entry)) above = l.y < CAP_H + 0.03f;
-            // point-to-press: only a pointing finger (bare hands: the index tip is the poke point anyway)
-            bool shape_ok = !sp->require_point || SFXR_BREAK(vrui_button_ignores_shape) ||
-                            hand->shape == SFXR_SHAPE_POINT || hand->source == SFXR_SOURCE_HAND;
-            if (!armed && above && shape_ok && r < sp->radius * 1.1f) armed = true;
+            if (!armed && above && r < sp->radius * 1.1f) armed = true;
             float keep_r = sp->radius * (was && !SFXR_BREAK(vrui_button_no_slide) ? sp->slide : 1.3f);
             if (armed && (r > keep_r || l.y > CAP_H + 0.04f || l.y < -0.03f)) armed = false;
             if (armed) {
@@ -65,22 +62,7 @@ VruiPress vrui_press(VruiId id, SfxrPose base, const VruiPressSpec *sp, bool *la
         st->armed = (st->armed & ~(1u << h)) | ((armed ? 1u : 0u) << h);
     }
     bool poke_down = depth > sp->travel * (was ? sp->release_at : sp->press_at);
-    // Point-to-press: a controller hand near it that isn't pointing is told
-    // how, and what its hand reads as now (the touch sensors can't be seen).
-    if (sp->require_point && !SFXR_BREAK(vrui_button_ignores_shape)) {
-        for (int h = 0; h < 2; h++) {
-            const SfxrHand *hand = sfxr_hand((SfxrHandId)h);
-            if (!hand->active || hand->source == SFXR_SOURCE_HAND || hand->shape == SFXR_SHAPE_POINT) continue;
-            if (Vector3Distance(vrui__tip(h), base.position) > 0.18f) continue;
-            vrui_tag(sfxr_pose_apply(base, (Vector3){ 0, CAP_H + 0.08f, 0 }),
-                     TextFormat("point to press: lift your index off the trigger,\nkeep the other fingers on the grip (now: %s)",
-                                sfxr_hand_shape_name(hand->shape)),
-                     0.011f, C.style.text, (Color){ 20, 22, 28, 220 });
-            break;
-        }
-    }
-    vrui__hint(id, TextFormat("%s | or laser + trigger%s", sp->require_point ? "poke it with a pointing finger" : "poke it",
-                              vrui__pull_suffix()));
+    vrui__hint(id, TextFormat("poke it | or laser + trigger%s", vrui__pull_suffix()));
 
     // Laser + trigger (at the current pull level).
     SfxrPose cap_pose = base;

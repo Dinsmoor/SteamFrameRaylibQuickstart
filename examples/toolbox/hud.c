@@ -18,10 +18,12 @@
 
 #include "toolbox.h"
 
+#include <time.h>
+
 const char *const HUD_STYLE_NAMES[HUD_COUNT] = { "Off", "Head", "Follow", "Body" };
 
-#define HUD_W 0.24f
-#define HUD_H 0.07f
+#define HUD_W 0.312f
+#define HUD_H 0.091f
 
 static SfxrPose head_locked(void)
 {
@@ -32,9 +34,20 @@ static SfxrPose head_locked(void)
 
 static SfxrPose follow_target(void)
 {
-    // Where the tag-along wants to be: 1 m ahead in the direction you look
-    // (level), a little below eye height, facing you.
-    SfxrPose t = vrui_in_front_of_head(1.0f, 0.3f);
+    // Where the tag-along wants to be: 1 m out, 28 degrees below wherever
+    // you look (up, level or down at a table), facing you. Below the gaze,
+    // not at a fixed height: look down at a bench and a HUD at a fixed
+    // height lands right on the bench.
+    SfxrPose head = sfxr_head();
+    Vector3 fwd = sfxr_pose_forward(head);
+    float yaw = atan2f(fwd.x, -fwd.z), pitch = asinf(Clamp(fwd.y, -1, 1));
+    pitch = Clamp(pitch - 28.0f * DEG2RAD, -80.0f * DEG2RAD, 60.0f * DEG2RAD);   // never past straight down
+    Vector3 dir = { sinf(yaw) * cosf(pitch), sinf(pitch), -cosf(yaw) * cosf(pitch) };
+    Vector3 at = Vector3Add(head.position, dir);
+    SfxrPose t = vrui_facing(at, head.position);
+    Vector3 to_eye = Vector3Normalize(Vector3Subtract(head.position, at));
+    float tilt = asinf(Clamp(to_eye.y, -1, 1));   // tip it back to face the eyes
+    t.orientation = QuaternionMultiply(t.orientation, QuaternionFromAxisAngle((Vector3){ 1, 0, 0 }, -tilt));
     return t;
 }
 
@@ -64,4 +77,40 @@ void hud_show(HudStyle style, const char *text, Color accent)
         vrui_panel_end();
     }
     vrui_on_top_end();
+}
+
+// --- screenshots from inside the headset: a menu item starts a short
+// countdown (so the menu is gone and you can aim), then sfxr_screenshot
+// saves what both eyes see into shots/ next to the app. A flash and a click
+// say it's taken (after it's taken: they're not in the picture).
+static float shot_in, shot_flash;
+static const char *shot_app;
+
+void screenshot_start(const char *app)
+{
+    shot_in = 2.0f;
+    shot_app = app;
+}
+
+void screenshot_update(void)
+{
+    if (shot_flash > 0) {
+        vrui_tint(RAYWHITE, 0.5f * shot_flash / 0.15f);
+        shot_flash -= sfxr_dt();
+    }
+    if (shot_in <= 0) return;
+    float was = shot_in;
+    shot_in -= sfxr_dt();
+    if (shot_in > 0.4f) {   // the countdown, until just before (it would be in the picture)
+        SfxrPose t = vrui_in_front_of_head(0.9f, 0.25f);
+        vrui_tag(t.position, TextFormat("screenshot in %.0f", ceilf(shot_in - 0.4f)), 0.03f, RAYWHITE, (Color){ 20, 22, 28, 200 });
+    }
+    if (was > 0 && shot_in <= 0) {
+        char stamp[32];
+        time_t now = time(NULL);
+        strftime(stamp, sizeof stamp, "%Y%m%d-%H%M%S", localtime(&now));
+        sfxr_screenshot(TextFormat("shots/%s-%s.png", shot_app ? shot_app : "app", stamp));
+        shot_flash = 0.15f;
+        sound_play_here(SND_CLICK, 0.6f);
+    }
 }

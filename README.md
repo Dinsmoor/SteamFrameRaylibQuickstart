@@ -26,6 +26,17 @@ while (sfxr_frame_begin()) {                 // one loop iteration = one headset
 **Status:** runs on a real Steam Frame (SteamOS, SteamVR 2.17.10), at the full
 1728×1728 per eye at 72 Hz, using the Frame's own controllers.
 
+![The toolbox where you start: station signs, the Toolbox panel, the workbench and the controls](docs/images/toolbox.jpg)
+
+| | |
+|---|---|
+| ![The Controllers panel: every input, live](docs/images/controllers-panel.jpg) | ![The Voice commands station: one set of orders bound four ways](docs/images/voice-commands.jpg) |
+| ![The physgun holding a brick on its beam, beside the Weights table](docs/images/physgun.jpg) | ![Daddy Bug Smasher: the Bugmaster on his tower, bugs coming, the hammer in hand](docs/images/daddy-bug-smasher.jpg) |
+
+*(Drawn by the test harness from the player's head: `SFXT_SNAPSHOT_SIZE=1600x900`; see
+[docs/TESTING.md](docs/TESTING.md). In the headset, the Screenshot hand-menu item saves
+what both eyes see.)*
+
 ---
 
 ## Contents
@@ -126,7 +137,9 @@ with a table of contents.
 | `vrui_display.c` | gauges, rolling counters, lamps |
 | `vrui_haptics.c` | the haptics mixer (ticks and hums sharing one motor) |
 | `vrui_loco.c` | moving the player: teleport, pads, turning, surfaces and falling, climbing (handholds) |
-| `vrui_label.c` | text in the world: floating names, printed text, tags, callouts, signs |
+| `vrui_label.c` | text in the world: floating names, printed text, tags, callouts, signs (word-wrapped) |
+| `vrui_wield.c` | things held by their handles, with weight (Blade & Sorcery style); things a beam moves |
+| `fonts/` | the built-in font: Atkinson Hyperlegible (SIL Open Font License), made for low-vision reading |
 | `vrui_attach.c` | things that go with the player: the body estimate, lazy-follow HUDs, arrows to things out of view |
 | `vrui_menu.c` | the radial (pie) menu |
 | `vrui_smooth.c` | smoothing: damping, springs, speed limits, easing, and a pose smoother with five modes |
@@ -141,11 +154,12 @@ on its own:
 | `world.c` | the ground, trees, sky, and the workbench with app-wired controls and throwable blocks |
 | `panels.c` | the Toolbox panel (settings) |
 | `station_menus.c` | hand menus (watch, palm buttons, a tablet in your hand, a radial menu) and the Menus & HUD station |
-| `hud.c` | visor HUD templates: head-locked, lazy follow, on your belt |
+| `hud.c` | visor HUD templates: head-locked, lazy follow, on your belt; the in-headset screenshot countdown |
 | `station_weights.c` | Weights: feather, ball, brick, kettlebell, anvil (`vrui_wield_spec` presets), and a lane to throw them down |
+| `station_guns.c` | beside Weights: a physgun (Garry's Mod: hold things on a beam, reel, twist, freeze) and a gravity gun (Half-Life 2: lift, punt) |
 | `station_wield.c` | Wielding: a sword, Daddy's hammer, a spear and a dagger held by their handles (`vrui_wield`), a sandbag to hit |
 | `station_sound.c`, `sounds.c` | Sound: point, cone, line, box and ambient emitters with a switch each, and what each ear gets; the toolbox's sounds made in code |
-| `station_voice.c` | Voice commands: one set of orders bound four ways (point + bumper, point + A ring menu, a TALK button, hands-free with a wake word) |
+| `station_voice.c` | Voice commands: one set of orders bound four ways (point + bumper: say it or tilt the stick to it; point + trigger: a pop-up menu; a TALK button; hands-free with a wake word) |
 | `station_smoothing.c` | Smoothing: a sword and five ghosts following it, one per smoothing mode; easing curves |
 | `garden*.c` | Daddy Bug Smasher, part three: a small game (take the hammer, smash the bugs) built from the pieces above |
 | `station_attach.c` | Attach & label: things riding on things (a turntable, a lever on it, a flag on the lever, your belt) and every kind of world label |
@@ -353,7 +367,7 @@ one as a test, or to review a play session:
 ```bash
 scripts/frame.sh sessions toolbox              # list recent sessions on the headset
 scripts/frame.sh keep toolbox my-test          # copy the newest one into tests/regress/my-test
-scripts/frame.sh pull toolbox                  # copy every session, the logs and prefs into local-data/
+scripts/frame.sh pull toolbox                  # copy every session, screenshots, the logs and prefs into local-data/
 build/host-debug/bin/sfxrec_dump tests/regress/my-test/input.sfxrec --summary   # what's in it
 ```
 
@@ -374,7 +388,7 @@ it (scenario files, an event log) are still being built.
 | `make frame` | build everything for the headset |
 | `make frame-go EX=name` | build, upload, register, launch, show the log |
 | `make frame-shot EX=name` | launch and save a picture of both eyes to `shots/frame/` |
-| `scripts/frame.sh pull name` | after playing: copy every recorded session, the logs and prefs into `local-data/` |
+| `scripts/frame.sh pull name` | after playing: copy every recorded session, the screenshots you took (hand menu: Screenshot), the logs and prefs into `local-data/` |
 | `make frame-logs EX=name` | download the app's logs and SteamVR's logs to `shots/frame/` |
 | `make frame-stop EX=name` | stop the app on the headset |
 | `make frame-status` | what the headset is running (Steam, SteamVR, display, GPU) |
@@ -442,6 +456,8 @@ the architecture, testing methods and lessons learned.
   source archive.
 - [OpenXR SDK](https://github.com/KhronosGroup/OpenXR-SDK), Apache-2.0. Included as the
   upstream source archive.
+- [Atkinson Hyperlegible](https://www.brailleinstitute.org/freefont/) (Braille Institute of
+  America), vrui's built-in font, SIL Open Font License 1.1 (`vrui/fonts/OFL.txt`).
 - `tools/devkit-utils`: Valve's SteamOS devkit helper scripts
   ([steamos-devkit](https://gitlab.steamos.cloud/devkit/steamos-devkit)), MIT, copied
   unchanged (see `tools/devkit-utils/LICENSE` and `VERSION`).

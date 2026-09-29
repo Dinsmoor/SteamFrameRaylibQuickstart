@@ -38,23 +38,6 @@ void button_press_then_slide(void)
     CHECK(button_presses == 1 && button_releases == 1, "exactly one press (%d, %d)", button_presses, button_releases);
 }
 
-void button_point_to_press(void)
-{
-    // A point-to-press button ignores a fist bumping into it, and presses
-    // for a pointing finger (read from the touch sensors).
-    sfxt_grip(R, 0.8f);                           // fist: grip, index on trigger, thumb on stick
-    sfxt_touch(R, SFXR_CTL_TRIGGER, true);
-    sfxt_touch(R, SFXR_CTL_STICK, true);
-    poke_point_button();
-    CHECK(point_presses == 0, "a fist doesn't press it (%d)", point_presses);
-    sfxt_touch(R, SFXR_CTL_TRIGGER, false);        // lift the index: pointing
-    sfxt_frames(5);
-    poke_point_button();
-    CHECK(point_presses == 1, "a pointing finger does (%d)", point_presses);
-    sfxt_grip(R, 0.0f);
-    sfxt_touch(R, SFXR_CTL_STICK, false);
-}
-
 void switch_poke_flips_once(void)
 {
     // Poke the switch and let the fingertip tremble on its edge for a second:

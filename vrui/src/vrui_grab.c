@@ -97,7 +97,7 @@ Color vrui__hover_tint(Color c, bool hovered, bool held)
 
 void vrui__label(SfxrPose base, Vector3 local, const char *text)
 {
-    if (text && *text) vrui_text3d(sfxr_pose_apply(base, local), text, 0.02f, C.style.text);
+    if (text && *text) vrui_text3d(sfxr_pose_apply(base, local), text, 0.028f, C.style.text);
 }
 
 bool vrui__drag_point(int hand, int mode, Vector3 origin, Vector3 normal, Vector3 *out)

@@ -355,7 +355,9 @@ The output is a PASS/FAIL table. For each failure the runner prints the failed c
 - the case's output
 - its event log: every grab, release, press and teleport it made
 - `fail.png`: the app drawn from the head at the first failed check (C suites draw vrui's
-  widgets; `sfxt_set_draw` adds your world)
+  widgets; `sfxt_set_draw` adds your world). 960 × 540, or `SFXT_SNAPSHOT_SIZE=1920x1080`
+  for one about as sharp as the headset: a way to check what's readable, and how the
+  README's pictures were made (a scenario that ends in a failing `expect`).
 - `run.sfxrec`: its exact inputs. `SFXR_REPLAY=run.sfxrec build/host-debug/bin/toolbox`
   replays a `tests/toolbox` failure in the real app, in a window or a screenshot
   (`SFXR_SHOT`). A scripted run records as if worn, at 960 px per eye, so its replay

@@ -3,6 +3,7 @@
 #include "vrui_internal.h"
 
 #include <stdio.h>
+#include "vrui_font_data.h"
 
 VruiCtx vrui_ctx;
 
@@ -13,8 +14,8 @@ VruiCtx vrui_ctx;
 static VruiStyle default_style(void)
 {
     VruiStyle s;
-    s.px_per_m      = 1000.0f;
-    s.font_size     = 20;
+    s.px_per_m      = 770.0f;   // 20 px text is 2.6 cm tall: readable at arm's length and a bit beyond
+    s.font_size     = 24;
     s.title_height  = 36;
     s.panel_bg      = (Color){  28,  31,  38, 255 };
     s.panel_border  = (Color){  70,  78,  96, 255 };
@@ -39,11 +40,30 @@ static VruiStyle default_style(void)
     return s;
 }
 
+// The default font: Atkinson Hyperlegible, made for low-vision readers,
+// which is what text in a headset is (a panel a meter away is a few
+// degrees tall, seen through lenses). Rasterized large and mipmapped, so
+// both a panel's small text and a sign's big text come out smooth; the
+// raylib default is a 10 px bitmap that goes blocky when scaled up.
+static Font load_default_font(void)
+{
+    int cps[128], n = 0;
+    for (int c = 32; c < 127; c++) cps[n++] = c;
+    static const int extra[] = { 0xB0, 0xB1, 0xB7, 0xD7, 0x2013, 0x2014, 0x2026 };   // ° ± · × – — …
+    for (size_t i = 0; i < sizeof extra / sizeof extra[0]; i++) cps[n++] = extra[i];
+    Font f = LoadFontFromMemory(".ttf", VRUI_FONT_TTF, (int)sizeof VRUI_FONT_TTF, 64, cps, n);
+    if (f.texture.id == 0 || f.glyphCount == 0) return GetFontDefault();
+    GenTextureMipmaps(&f.texture);
+    SetTextureFilter(f.texture, TEXTURE_FILTER_TRILINEAR);
+    return f;
+}
+
 void vrui_init(void)
 {
     memset(&C, 0, sizeof(C));
     C.style = default_style();
-    C.font = GetFontDefault();
+    C.font = load_default_font();
+    C.own_font = C.font.texture.id != GetFontDefault().texture.id;
     C.show_controllers = true;
     C.controller_models = true;
 }
@@ -52,11 +72,19 @@ void vrui_shutdown(void)
 {
     for (int i = 0; i < VRUI_MAX_PANELS; i++)
         if (C.panels[i].id) UnloadRenderTexture(C.panels[i].rt);
+    if (C.own_font) UnloadFont(C.font);
     memset(&C, 0, sizeof(C));
 }
 
 VruiStyle *vrui_style(void)              { return &C.style; }
-void vrui_set_font(Font font)            { C.font = font; C.custom_font = true; }
+void vrui_set_font(Font font)
+{
+    if (C.own_font) UnloadFont(C.font);
+    C.own_font = false;
+    C.font = font;
+    C.custom_font = true;
+}
+Font vrui_font(void)                     { return C.font; }
 void vrui_show_controllers(bool on)      { C.show_controllers = on; }
 void vrui_controller_models(bool on)     { C.controller_models = on; }
 void vrui_hand_joints_always(bool on)    { C.joints_always = on; }
@@ -280,6 +308,7 @@ void vrui_begin(void)
 {
     C.frame++;
     C.nhints = 0;
+    C.narrows = 0;
     for (int h = 0; h < 2; h++) {
         C.claim_prev[h] = C.claim_cur[h];
         C.claim_cur[h] = false;
@@ -353,7 +382,7 @@ void vrui_end(void)
         if (how && !C.grab_active[h] && !C.ray_active[h]) {
             Vector3 at = C.grab_hot[h] ? Vector3Add(hand->grip.position, (Vector3){ 0, 0.09f, 0 })
                                        : Vector3Add(C.laser_to[h], (Vector3){ 0, 0.05f, 0 });
-            vrui_tag(at, how, 0.014f, C.style.text, (Color){ 20, 22, 28, 200 });
+            vrui_tag(at, how, 0.0196f, C.style.text, (Color){ 20, 22, 28, 200 });
         }
     }
     vrui__haptics_flush();
@@ -381,6 +410,23 @@ void vrui_box(SfxrPose pose, Vector3 size, Color color)
     VruiCmd *c = vrui__cmd(CMD_BOX, color);
     c->pose = pose;
     c->size = size;
+}
+
+void vrui_box_wires(SfxrPose pose, Vector3 size, Color color)
+{
+    VruiCmd *c = vrui__cmd(CMD_BOX_WIRES, color);
+    c->pose = pose;
+    c->size = size;
+}
+
+void vrui_sphere(Vector3 center, float radius, Color color) { vrui__sphere(center, radius, color); }
+
+void vrui_cylinder(Vector3 a, Vector3 b, float radius_a, float radius_b, Color color)
+{
+    VruiCmd *c = vrui__cmd(CMD_CYLINDER, color);
+    c->a = a;
+    c->b = b;
+    c->size = (Vector3){ radius_a, radius_b, 0 };
 }
 
 void vrui_line(Vector3 a, Vector3 b, Color color)
@@ -628,8 +674,6 @@ static void draw_controllers(void)
         else if (hand->trigger_at[SFXR_PULL_FIRM].down) tip = YELLOW;
         else if (hand->trigger_at[SFXR_PULL_SOFT].down) tip = (Color){ 255, 245, 170, 255 };
         DrawSphereEx(hand->aim.position, 0.006f, 6, 8, tip);
-        // pointing (read from the touch sensors): a green fingertip where it pokes
-        if (hand->shape == SFXR_SHAPE_POINT) DrawSphereEx(hand->poke.position, 0.009f, 8, 10, (Color){ 90, 230, 120, 255 });
     }
 }
 

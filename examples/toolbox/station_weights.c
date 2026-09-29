@@ -37,9 +37,12 @@ static struct {
     VruiWield w[K_COUNT];
     Vector3 thrown_from[K_COUNT];
     float distance[K_COUNT];       // the last throw, meters along the floor (-1: none yet)
-    bool flying[K_COUNT];
+    bool flying[K_COUNT], was_loose[K_COUNT];
     SfxrPose panel;
 } WT;
+
+static WeightThing THING[K_COUNT];
+const WeightThing *weights_thing(int k) { return &THING[k]; }
 
 static float ground(Vector3 at)
 {
@@ -49,6 +52,7 @@ static float ground(Vector3 at)
 
 static void put_back(void)
 {
+    guns_reset();
     for (int k = 0; k < K_COUNT; k++) {
         vrui_wield_drop(VRUI_ID2(G_WEIGHTS, 1 + k));
         WT.pose[k] = WT.home[k];
@@ -68,6 +72,8 @@ static void init(void)
     WT.spec[K_BELL].mass = 8.0f;   // a kettlebell: heavy, but one hand lifts it
     WT.spec[K_BELL].lift_hands = 1;
     WT.home[K_ANVIL] = (SfxrPose){ { X0 + 0.25f, HALF[K_ANVIL].y + 0.002f, ROW_Z + 0.55f }, QuaternionIdentity() };   // on the floor
+    for (int k = 0; k < K_COUNT; k++)
+        THING[k] = (WeightThing){ VRUI_ID2(G_WEIGHTS, 1 + k), NAMES[k], &WT.pose[k], &WT.spec[k], &WT.w[k] };
     WT.panel = (SfxrPose){ { X0 + 1.05f, 1.35f, ROW_Z + 0.1f }, QuaternionFromAxisAngle((Vector3){ 0, 1, 0 }, -20 * DEG2RAD) };
     put_back();
     WT.init = true;
@@ -77,24 +83,25 @@ static void init(void)
 static const char *numbers(int k)
 {
     const VruiWieldSpec *s = &WT.spec[k];
-    return TextFormat("%s: %s, %.2g kg\nthrows up to %.0f m/s%s%s", NAMES[k], vrui_weight_name(WEIGHT[k]), s->mass, s->max_throw,
+    return TextFormat("%s, %.2g kg (%s)\nthrows up to %.0f m/s%s%s", NAMES[k], s->mass, vrui_weight_name(WEIGHT[k]), s->max_throw,
                       s->drag > 1 ? ", drifts down" : s->bounce > 0.3f ? ", bouncy" : "", s->lift_hands > 1 ? "\nlift with two hands" : "");
 }
 
 static void lane(void)
 {
+    vrui_mark(VRUI_ID2(G_WEIGHTS, 20), "lane", (SfxrPose){ { X0, 1.0f, ROW_Z - 0.3f - 6.0f }, QuaternionIdentity() });   // tests aim down it
     // the throwing lane behind the table, a line every meter
     for (int m = 1; m <= 10; m++) {
         float z = ROW_Z - 0.3f - (float)m;
         vrui_line((Vector3){ X0 - 0.8f, 0.005f, z }, (Vector3){ X0 + 0.8f, 0.005f, z }, (Color){ 255, 255, 255, 160 });
         vrui_text_at((SfxrPose){ { X0 - 0.95f, 0.01f, z }, QuaternionFromAxisAngle((Vector3){ 1, 0, 0 }, -PI / 2) },
-                     TextFormat("%d m", m), 0.08f, RAYWHITE);
+                     TextFormat("%d m", m), 0.112f, RAYWHITE);
     }
 }
 
 static void panel(void)
 {
-    if (!vrui_panel_begin(VRUI_ID2(G_WEIGHTS, 0), &WT.panel, 0.4f, 0.4f, "Weights")) return;
+    if (!vrui_panel_begin(VRUI_ID2(G_WEIGHTS, 0), &WT.panel, 0.52f, 0.52f, "Weights")) return;
     vrui_layout_begin(vrui_panel_content(), 4);
     vrui_label(vrui_row(20), "the last throw of each:");
     for (int k = 0; k < K_COUNT; k++) {
@@ -109,18 +116,20 @@ static void panel(void)
 void station_weights(void)
 {
     if (!WT.init) init();
-    station_sign(X0, "Weights", "feather to anvil: pick each up, swing it, throw\nit down the lane. Heavy should feel heavy");
+    station_sign(X0, "Weights", "feather to anvil: pick each up, swing it, throw it down the lane. Heavy should feel heavy");
     vrui_box((SfxrPose){ { X0, TABLE_H - 0.025f, ROW_Z }, QuaternionIdentity() }, (Vector3){ 1.4f, 0.05f, 0.6f }, (Color){ 120, 92, 66, 255 });
     for (int i = 0; i < 4; i++)
         vrui_box((SfxrPose){ { X0 + ((i & 1) ? 0.62f : -0.62f), TABLE_H * 0.5f - 0.025f, ROW_Z + ((i & 2) ? 0.24f : -0.24f) }, QuaternionIdentity() },
                  (Vector3){ 0.05f, TABLE_H - 0.05f, 0.05f }, (Color){ 90, 68, 52, 255 });
     lane();
+    station_guns();   // (first: a gun holding a thing sets its pose before vrui_wield sees it)
     for (int k = 0; k < K_COUNT; k++) {
         VruiWield *w = &WT.w[k];
         *w = vrui_wield(VRUI_ID2(G_WEIGHTS, 1 + k), &WT.pose[k], &WT.spec[k]);
         vrui_name_widget(VRUI_ID2(G_WEIGHTS, 1 + k), NAMES[k]);
-        // a throw: from where it left the hand to where it came to rest
-        if (w->released) { WT.thrown_from[k] = WT.pose[k].position; WT.flying[k] = true; }
+        // a throw: from where it took off (from a hand, or a gun) to where it came to rest
+        if (w->loose && !WT.was_loose[k]) { WT.thrown_from[k] = WT.pose[k].position; WT.flying[k] = true; }
+        WT.was_loose[k] = w->loose;
         if (WT.flying[k] && !w->loose) {
             WT.flying[k] = false;
             Vector3 d = Vector3Subtract(WT.pose[k].position, WT.thrown_from[k]);
@@ -130,8 +139,10 @@ void station_weights(void)
         }
         vrui_box(WT.pose[k], Vector3Scale(HALF[k], 2), (w->hovered || w->hands > 0) ? ColorBrightness(COLOR[k], 0.3f) : COLOR[k]);
         if (w->hands == 0 && !w->loose && !w->pulling)
-            vrui_text3d(Vector3Add(WT.pose[k].position, (Vector3){ 0, HALF[k].y + 0.1f, 0 }), numbers(k), 0.013f, RAYWHITE);
+            // (every other one higher: they're wider than the gap between the things)
+            vrui_text3d(Vector3Add(WT.pose[k].position, (Vector3){ 0, HALF[k].y + 0.1f + 0.12f * (float)(k & 1), 0 }), numbers(k), 0.026f, RAYWHITE);
         sfxr_report(TextFormat("%s_y", NAMES[k]), WT.pose[k].position.y);
+        sfxr_report(TextFormat("%s_throw", NAMES[k]), WT.distance[k]);
     }
     panel();
 }

@@ -1,0 +1,69 @@
+# tests/toolbox/guns.sfxt - the physgun and the gravity gun beside the Weights table.
+app   toolbox
+rate  72
+
+case physgun-lifts-and-freezes-the-brick
+  fails-if toolbox_physgun_no_freeze
+  stand   at guns.physgun back 0.6
+  look    at guns.physgun over 0.3s
+  hand    R to guns.physgun over 0.5s
+  grip    R 1
+  wait    5f
+  expect  app physgun_in_hand == 1
+  stand   at weights.brick back 0.9               # carry it round to the front of the table
+  look    at weights.brick over 0.3s
+  hand    R point at weights.brick over 0.4s
+  trigger R 1 over 0.1s
+  wait    5f
+  expect  app physgun_holding == 1
+  hand    R move 0,0.5,0 over 0.5s                # swing the gun up: the brick rises with the beam
+  wait    40f
+  expect  app brick_y > 1.3
+  button  R a down                              # A: freeze it in the air
+  wait    3f
+  button  R a up
+  trigger R 0 over 0.1s
+  wait    1s
+  expect  app brick_frozen == 1
+  expect  app brick_y > 1.3                     # still up there
+  grip    R 0
+  wait    5f
+  expect  app physgun_in_hand == 0              # the gun went back to its stand
+
+case gravity-gun-punts-the-ball-down-the-lane
+  stand   at guns.gravity_gun back 0.6
+  look    at guns.gravity_gun over 0.3s
+  hand    R to guns.gravity_gun over 0.5s
+  grip    R 1
+  wait    5f
+  stand   at weights.ball back 0.9
+  look    at weights.ball over 0.3s
+  hand    R point at weights.ball over 0.4s
+  button  R a down                              # A: lift it
+  wait    3f
+  button  R a up
+  wait    30f
+  expect  app gravgun_holding == 1              # floating in front of the gun
+  hand    R point at weights.lane over 0.4s
+  trigger R 1 over 0.1s                         # punt
+  trigger R 0 over 0.1s
+  wait    4s
+  expect  app gravgun_holding == 0
+  expect  app ball_throw > 4
+
+case gravity-gun-cant-lift-the-anvil
+  fails-if toolbox_gravgun_lifts_anything
+  stand   at guns.gravity_gun back 0.6
+  hand    R to guns.gravity_gun over 0.5s
+  grip    R 1
+  wait    5f
+  stand   at weights.anvil back 0.9
+  look    at weights.anvil over 0.3s
+  hand    R point at weights.anvil over 0.4s
+  button  R a down
+  wait    3f
+  button  R a up
+  wait    30f
+  expect  app gravgun_holding == 0
+  expect  app anvil_y < 0.3
+

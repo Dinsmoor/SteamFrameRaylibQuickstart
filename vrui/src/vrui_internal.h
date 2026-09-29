@@ -28,6 +28,7 @@
 #define VRUI_TEXT_ARENA   (32 * 1024)
 #define VRUI_MAX_ITEMS    512
 #define VRUI_MAX_PANELS   32
+#define VRUI_PANEL_SS     2    // panels are drawn at this many texels per panel pixel: sharper text up close
 #define VRUI_RAY_LENGTH   8.0f
 #define VRUI_PULL_STACK   8
 
@@ -87,6 +88,9 @@ typedef struct {
     VruiStyle style;
     Font font;
     bool custom_font;
+    bool own_font;          // the default font, loaded by vrui_init (unloaded by vrui)
+    Vector2 arrow_dir[8];   // edge arrows drawn this frame (their directions across the view)
+    int narrows;
     bool show_controllers;
     bool controller_models;   // draw the runtime's controller models when available
     bool joints_always;       // hand joints also while holding controllers
@@ -241,5 +245,7 @@ void vrui__body_update(void);
 // math
 float vrui__ray_box(Ray ray, SfxrPose pose, Vector3 half);   // distance or -1
 float vrui__point_box_dist(Vector3 p, SfxrPose pose, Vector3 half);
+
+void vrui__panel_scissor(int x, int y, int w, int h);   // BeginScissorMode, in panel pixels
 
 #endif // VRUI_INTERNAL_H

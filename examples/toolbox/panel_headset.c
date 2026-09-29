@@ -25,7 +25,7 @@ static const char *joint_source(const SfxrHandJoints *j)
 
 void panel_headset(void)
 {
-    station_sign(-4.8f, "Headset", "worn state, refresh rate,\npassthrough, batteries, joints");
+    station_sign(-4.8f, "Headset", "worn state, refresh rate, passthrough, batteries, joints");
     if (!HS.placed) {
         HS.pose = row_pose(-4.8f, 1.35f);
         HS.placed = true;
@@ -34,7 +34,7 @@ void panel_headset(void)
     if (HS.was_present && !present) HS.takeoffs++;
     HS.was_present = present;
 
-    if (!vrui_panel_begin(VRUI_ID2(G_HEADSET, 0), &HS.pose, 0.56f, 0.70f, "Headset")) return;
+    if (!vrui_panel_begin(VRUI_ID2(G_HEADSET, 0), &HS.pose, 0.728f, 0.91f, "Headset")) return;
     vrui_layout_begin(vrui_panel_content(), 6);
     Rectangle cols[2];
 

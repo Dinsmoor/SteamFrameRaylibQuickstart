@@ -343,14 +343,9 @@ again, all without letting go, like a real key.
 - Press and release happen at different depths (60% / 30% of travel).
 - Laser plus trigger presses it from afar.
 - With `latching = true` it's push-on/push-off, and it sits lower while latched.
-- With `require_point = true`, only a pointing index finger presses it (the hand shape
-  comes from the Frame's touch sensors), so a fist or palm bumping past does nothing. A
-  controller hand near it that isn't pointing gets a tag saying how (index off the trigger,
-  other fingers on the grip) and what the hand reads as now: the sensors are invisible, and
-  people guess "open hand" otherwise ([INPUT.md](INPUT.md), "Pointing, in practice").
 
 **Tests:** `button-press-from-above`, `button-side-brush-does-nothing`,
-`button-press-then-slide`, `button-point-to-press`.
+`button-press-then-slide`.
 
 ### Rocker switch (`vrui_rocker_spec`, `vrui_rocker`)
 **Players expect:** poke it and it flips, once.

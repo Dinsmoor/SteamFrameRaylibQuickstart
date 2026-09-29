@@ -10,11 +10,11 @@
 //   Tablet   press that hand's menu button (left: View, right: Menu): a panel
 //            appears held in the hand like a clipboard; use it with the other
 //            hand's laser. Room for everything; put it away with the button.
-//   Radial   hold the primary button on your main hand (right: A, left:
-//            D-pad down), tilt the stick toward a choice, let go. One hand, no
-//            aiming; the stick is yours again when you let go. (It was B:
-//            but B's click never reached the app on the Frame, only its
-//            touch -- docs/INPUT.md, "Buttons that don't arrive".)
+//   Radial   hold the bumper on your main hand (the shoulder button above
+//            the trigger), tilt the stick toward a choice, let go. One hand,
+//            no aiming: a finger holds it open while the thumb chooses. (It
+//            was A: but A and the stick are both under the thumb, so holding
+//            one and tilting the other took two thumbs.)
 //
 // "Less-used" and "main" hand come from the Hands-on setup (left-handed
 // players get everything mirrored); right-handed until then.
@@ -30,7 +30,7 @@ static struct {
     float flash;              // demo damage flash, seconds left
     SfxrPose station;
     bool placed;
-} M = { .watch = true, .palm = true, .tablet = true, .radial = true, .arrows = true, .hud = HUD_FOLLOW };
+} M = { .watch = true, .palm = true, .tablet = true, .radial = true, .arrows = false, .hud = HUD_FOLLOW };
 
 HudStyle menus_hud_style(void) { return (HudStyle)M.hud; }
 void     menus_set_hud_style(HudStyle s) { M.hud = (int)s % HUD_COUNT; }
@@ -40,6 +40,7 @@ static SfxrHandId main_hand(void)
 {
     return onboarding_prefs()->valid && onboarding_prefs()->dominant == SFXR_LEFT ? SFXR_LEFT : SFXR_RIGHT;
 }
+SfxrHandId menus_main_hand(void) { return main_hand(); }
 static SfxrHandId other(SfxrHandId h) { return h == SFXR_LEFT ? SFXR_RIGHT : SFXR_LEFT; }
 
 // Is a surface at `p`, facing `normal`, turned toward the eyes? Enters at
@@ -62,7 +63,7 @@ static void watch(SfxrHandId h, const char *text)
     M.watch_shown = M.watch_always || facing_eyes(p.position, face, M.watch_shown, 35, 55);
     if (!M.watch_shown) return;
     vrui_panel_passive();
-    if (!vrui_panel_begin(VRUI_ID2(G_MENUS, 1), &p, 0.18f, 0.12f, NULL)) return;
+    if (!vrui_panel_begin(VRUI_ID2(G_MENUS, 1), &p, 0.234f, 0.156f, NULL)) return;
     vrui_layout_begin(vrui_panel_content(), 2);
     vrui_label(vrui_row(22), TextFormat("%.0f fps", sfxr_dt() > 0 ? 1.0f / sfxr_dt() : 0.0f));   // sfxr_dt: replays stay deterministic
     vrui_label(vrui_row(22), TextFormat("L %s  R %s", sfxr_hand_shape_name(sfxr_hand(SFXR_LEFT)->shape),
@@ -114,7 +115,7 @@ static int tablet(SfxrHandId h, const char *const *items, int count)
     SfxrPose p = vrui_facing(at, sfxr_head().position);
     p.orientation = QuaternionMultiply(p.orientation, QuaternionFromAxisAngle((Vector3){ 1, 0, 0 }, -20.0f * DEG2RAD));
     int picked = -1;
-    if (!vrui_panel_begin(VRUI_ID2(G_MENUS, 3), &p, 0.3f, 0.26f, NULL)) return -1;
+    if (!vrui_panel_begin(VRUI_ID2(G_MENUS, 3), &p, 0.39f, 0.338f, NULL)) return -1;
     vrui_layout_begin(vrui_panel_content(), 6);
     Rectangle cols[2];
     for (int i = 0; i < count; i += 2) {
@@ -134,11 +135,12 @@ int menus_update(const char *const *items, int count, const char *watch_text)
     if (M.watch) watch(oh, watch_text);
     if (M.palm && (p = palm(oh, items, count)) >= 0) picked = p;
     if (M.tablet && (p = tablet(oh, items, count)) >= 0) picked = p;
-    // (a station's own ring menu on the same button -- the Voice commands
-    // bugs' orders -- opens first and claims the hand: then this one waits)
+    // (a station that binds the same button in context -- the Voice
+    // commands bugs, while you point at one -- claims the hand first: then
+    // this one waits)
     if (M.radial && (!vrui_input_claimed(mh) || vrui_radial_open(VRUI_ID2(G_MENUS, 4)))) {
         const SfxrHand *hand = sfxr_hand(mh);
-        if ((p = vrui_radial_menu(VRUI_ID2(G_MENUS, 4), mh, &hand->primary, items, count)) >= 0) picked = p;
+        if ((p = vrui_radial_menu(VRUI_ID2(G_MENUS, 4), mh, &hand->bumper, items, count)) >= 0) picked = p;
     }
 
     if (M.flash > 0) {   // the station's demo flash: strong at first, fading out
@@ -150,9 +152,9 @@ int menus_update(const char *const *items, int count, const char *watch_text)
 
 void station_menus(void)
 {
-    station_sign(-8.0f, "Menus & HUD", "menus you carry on your hands,\nreadouts that go with you");
+    station_sign(-8.0f, "Menus & HUD", "menus you carry on your hands, readouts that go with you");
     if (!M.placed) { M.station = row_pose(-8.0f, 1.35f); M.placed = true; }
-    if (!vrui_panel_begin(VRUI_ID2(G_MENUS, 0), &M.station, 0.5f, 0.56f, "Menus & HUD")) return;
+    if (!vrui_panel_begin(VRUI_ID2(G_MENUS, 0), &M.station, 0.65f, 0.728f, "Menus & HUD")) return;
     vrui_layout_begin(vrui_panel_content(), 6);
     Rectangle cols[2];
     const char *main_name = main_hand() == SFXR_RIGHT ? "right" : "left";
@@ -168,7 +170,7 @@ void station_menus(void)
     vrui_toggle(4, vrui_row(34), "Tablet", &M.tablet);
     vrui_label(vrui_row(20), TextFormat("  %s hand's %s button", other_name, main_hand() == SFXR_RIGHT ? "View" : "Menu"));
     vrui_toggle(5, vrui_row(34), "Radial", &M.radial);
-    vrui_label(vrui_row(20), TextFormat("  hold %s, tilt the %s stick, let go", main_hand() == SFXR_RIGHT ? "A" : "D-pad down", main_name));
+    vrui_label(vrui_row(20), TextFormat("  hold the %s bumper, tilt the stick, let go", main_name));
 
     vrui_space(6);
     vrui_label(vrui_row(22), "Visor HUD");

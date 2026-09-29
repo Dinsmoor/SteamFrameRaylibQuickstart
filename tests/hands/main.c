@@ -177,29 +177,40 @@ static void joint_only_fist_grabs(void)
     CHECK(!grab.held, "opening the hand lets go");
 }
 
-// Holding Frame controllers, SteamVR's skeleton (built from the touch
-// sensors) has the thumb mirrored across the controller. sfxr reflects it
-// back: the thumb drawn is where the hand's thumb is, lifted or resting.
-static void frame_thumb_on_the_right_side(void)
+// SteamVR puts the Frame controllers' thumb on the wrong control (sfxt
+// imitates it: on A for the stick, on the stick for A); sfxr poses it on
+// the one it touches, and lifts it off the face when it touches none.
+static void frame_thumb_on_what_it_touches(void)
 {
     sfxt_hand_kind(R, SFXT_FRAME_SKELETON);
     SfxrPose g = pose((Vector3){ 0.2f, 1.1f, -0.3f }, rot(X_AXIS, -20));
     sfxt_hand_set(R, g);
-    const float lifted[5] = { 0, 0.95f, 0.8f, 0.8f, 0.8f };   // (SteamVR's index is always curled)
-    sfxt_fingers(R, lifted[0], lifted[1], lifted[2], lifted[3], lifted[4]);
-    sfxt_frames(3);
+    const float held[5] = { 0, 0.95f, 0.8f, 0.8f, 0.8f };   // (SteamVR's index is always curled)
+    sfxt_fingers(R, held[0], held[1], held[2], held[3], held[4]);
+    const SfxrControl on[2] = { SFXR_CTL_STICK, SFXR_CTL_A };
+    const char *name[2] = { "stick", "A button" };
+    for (int k = 0; k < 2; k++) {
+        sfxt_touch(R, on[k], true);
+        sfxt_frames(20);   // it glides there
+        Vector3 want = sfxr_pose_apply(sfxr_hand(R)->grip, sfxr__thumb_spot(1, RAW_BIT(on[k]), (Vector2){ 0 }));
+        float off = Vector3Distance(sfxr_hand_joints(R)->joint[SFXR_JOINT_THUMB_TIP].position, want);
+        CHECK(off < 0.004f, "touching the %s, the thumb tip is on it (%.1f mm off)", name[k], off * 1000.0f);
+        sfxt_touch(R, on[k], false);
+    }
+    sfxt_frames(20);
     const SfxrHandJoints *j = sfxr_hand_joints(R);
-    CHECK(j->valid && j->source == SFXR_SOURCE_CONTROLLER, "a skeleton from the controller");
+    Vector3 face = sfxr_pose_apply(sfxr_hand(R)->grip, sfxr__thumb_spot(1, RAW_BIT(SFXR_CTL_A), (Vector2){ 0 }));
+    Vector3 n = Vector3RotateByQuaternion((Vector3){ -0.165f, 0.777f, -0.607f }, sfxr_hand(R)->grip.orientation);
+    float lift = Vector3DotProduct(Vector3Subtract(j->joint[SFXR_JOINT_THUMB_TIP].position, face), n);
+    CHECK(lift > 0.012f, "touching nothing, the thumb is lifted off the face (%.1f cm)", lift * 100.0f);
     SfxrHandJoints truth;
-    sfxr__hand_model(1, sfxr_hand(R)->grip, lifted, 0, &truth);   // the hand as it is (the rig doesn't move here)
-    float off = Vector3Distance(j->joint[SFXR_JOINT_THUMB_TIP].position, truth.joint[SFXR_JOINT_THUMB_TIP].position);
-    CHECK(off < 0.002f, "the thumb tip is where the thumb is (%.1f mm off)", off * 1000.0f);
+    sfxr__hand_model(1, sfxr_hand(R)->grip, held, 0, &truth);
     float fing = Vector3Distance(j->joint[SFXR_JOINT_INDEX_TIP].position, truth.joint[SFXR_JOINT_INDEX_TIP].position);
     CHECK(fing < 0.002f, "the fingers are left as reported (%.1f mm off)", fing * 1000.0f);
 }
 
 static const SfxtCase CASES[] = {
-    { "hands/frame-thumb-on-the-right-side",   frame_thumb_on_the_right_side,   "sfxr_thumb_as_reported" },
+    { "hands/frame-thumb-on-what-it-touches", frame_thumb_on_what_it_touches, "sfxr_thumb_as_reported" },
     { "hands/shapes-from-joints",            shapes_from_joints,            "sfxr_shapes_from_values_only" },
     { "hands/light-pinch-is-a-pinch",        light_pinch_is_a_pinch,        "sfxr_pinch_shape_from_curl_only" },
     { "hands/pinch-no-flicker-at-the-edge",  pinch_no_flicker_at_the_edge,  "sfxr_pinch_no_hysteresis" },

@@ -16,12 +16,12 @@ static struct {
 
 void panels_toolbox(VruiLocoConfig *loco)
 {
-    station_sign(-1.6f, "Toolbox", "world settings, pull level,\ngrab style");
+    station_sign(-1.6f, "Toolbox", "world settings, pull level, grab style");
     if (!P.placed) {
         P.pose = row_pose(-1.6f, 1.35f);
         P.placed = true;
     }
-    if (!vrui_panel_begin(VRUI_ID2(G_PANEL, 0), &P.pose, 0.46f, 0.78f, "Toolbox")) return;
+    if (!vrui_panel_begin(VRUI_ID2(G_PANEL, 0), &P.pose, 0.598f, 1.1f, "Toolbox")) return;
     vrui_layout_begin(vrui_panel_content(), 8);
     Rectangle cols[2];
 

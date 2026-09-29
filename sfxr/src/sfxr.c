@@ -528,8 +528,13 @@ void sfxr_draw_end(void)
 //              swapchain target -- works with the mirror window hidden.
 // Returns the output path if a screenshot is due this frame, else NULL.
 static char shot_path[1024];
+static char shot_asked[1024];   // sfxr_screenshot(): one shot, then carry on
 static const char *shot_due(void)
 {
+    if (shot_asked[0]) {
+        snprintf(shot_path, sizeof shot_path, "%s", shot_asked);
+        return shot_path;
+    }
     const char *path = sfxr_env_str("SFXR_SHOT");
     if (!path || shot_done) return NULL;
     const char *list = sfxr_env_str("SFXR_SHOT_FRAMES");
@@ -562,7 +567,20 @@ static const char *shot_due(void)
 static void shot_saved(const char *path)
 {
     SFXR_LOG("screenshot -> %s (frame %llu)", path, (unsigned long long)S.frame);
+    if (shot_asked[0]) {   // asked for by the app: note it and carry on
+        sfxr_event("screenshot", "%s", path);
+        shot_asked[0] = 0;
+        return;
+    }
     if (!sfxr_env_str("SFXR_SHOT_FRAMES")) shot_done = true;   // single shot: quit after it
+}
+
+void sfxr_screenshot(const char *path)
+{
+    if (!path || !*path) return;
+    const char *dir = GetDirectoryPath(path);
+    if (dir && *dir && !DirectoryExists(dir)) MakeDirectory(dir);
+    snprintf(shot_asked, sizeof shot_asked, "%s", path);
 }
 
 static void shot_window(void)

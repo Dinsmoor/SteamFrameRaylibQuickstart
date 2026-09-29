@@ -114,6 +114,15 @@ bool vrui_offscreen_arrow(Vector3 target, const char *label, Color color)
     Vector2 d = local.z > 0 ? (Vector2){ local.x >= 0 ? 1.0f : -1.0f, 0 } : (Vector2){ local.x, local.y };
     if (Vector2Length(d) < 1e-3f) d = (Vector2){ 1, 0 };
     d = Vector2Normalize(d);
+    // two targets the same way: fan the arrows apart so their labels don't
+    // print on top of each other
+    for (int tries = 0; tries < 8; tries++) {
+        bool clash = false;
+        for (int i = 0; i < C.narrows; i++) clash |= Vector2DotProduct(d, C.arrow_dir[i]) > cosf(12.0f * DEG2RAD);
+        if (!clash) break;
+        d = Vector2Rotate(d, (d.x >= 0 ? -14.0f : 14.0f) * DEG2RAD);
+    }
+    if (C.narrows < 8) C.arrow_dir[C.narrows++] = d;
 
     const float D = 0.8f, R = D * tanf(20.0f * DEG2RAD);   // a ring 20 degrees off center, 0.8 m out
     Vector3 c = { d.x * R, d.y * R, -D };
@@ -127,7 +136,7 @@ bool vrui_offscreen_arrow(Vector3 target, const char *label, Color color)
     if (label && *label) {
         Vector3 at = Vector3Add(c, Vector3Scale(dir, -0.035f));
         SfxrPose lp = { sfxr_pose_apply(head, at), head.orientation };
-        vrui_text_at(lp, label, 0.014f, color);
+        vrui_text_at(lp, label, 0.0196f, color);
     }
     vrui_on_top_end();
     return true;

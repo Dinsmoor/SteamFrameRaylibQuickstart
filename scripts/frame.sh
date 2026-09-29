@@ -20,8 +20,8 @@
 #   scripts/frame.sh sessions <app>                     list auto-recorded sessions (every launch records)
 #   scripts/frame.sh keep <app> <test-name> [session]   copy a session (default newest) into tests/regress/
 #   scripts/frame.sh push-recording <app> <file>        copy a recording to the headset (replay on its GPU)
-#   scripts/frame.sh pull <app> [dest]                  copy all recorded sessions + app/SteamVR logs to
-#                    local-data/<app>-<time>/ (git-ignored) for review
+#   scripts/frame.sh pull <app> [dest]                  copy all recorded sessions, screenshots taken in the
+#                    headset + app/SteamVR logs to local-data/<app>-<time>/ (git-ignored) for review
 #   scripts/frame.sh logs <app>                         pull app + Steam logs to shots/frame/
 #   scripts/frame.sh stop <app>                         kill a running instance
 #   scripts/frame.sh exec '<command>'                  run one command on the headset
@@ -274,6 +274,8 @@ cmd_pull() {   # everything from a play session, for review: recordings + app an
     rsync -az -e "ssh ${SSH_OPTS[*]}" "$(host):devkit-game/$app/logs/" "$dest/logs/" 2>/dev/null || true
     # the player's saved preferences (replay with SFQ_PREFS=<this file> to reproduce their setup)
     scp -q "${SSH_OPTS[@]}" "$(host):devkit-game/$app/prefs.cfg" "$dest/" 2>/dev/null || true
+    # screenshots taken in the headset (the toolbox's "Screenshot" menu item: sfxr_screenshot)
+    rsync -az -e "ssh ${SSH_OPTS[*]}" "$(host):devkit-game/$app/shots/" "$dest/shots/" 2>/dev/null || true
     rsync -az -e "ssh ${SSH_OPTS[*]}" --include='vrserver*.txt' --include='vrcompositor*.txt' --include='controller.txt' \
         --include='*openxr*' --exclude='*' "$(host):.local/share/Steam/logs/" "$dest/steam/" 2>/dev/null || true
     echo "== pulled into ${dest#$ROOT/}"

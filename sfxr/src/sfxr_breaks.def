@@ -14,7 +14,7 @@ BREAK(sfxr_audio_pan_flipped, "positional sounds come from the wrong side (left 
 BREAK(sfxr_voice_keeps_repeats, "Whisper's repetition loops (\"return return return\") come through as heard")
 BREAK(sfxr_audio_no_delay, "both ears hear a sound at the same moment (no interaural delay)")
 BREAK(sfxr_audio_cone_ignored, "a directional emitter is heard the same all round, like a point")
-BREAK(sfxr_thumb_as_reported, "the Frame controllers' thumb bones are drawn as SteamVR reports them: mirrored to the far side of the controller")
+BREAK(sfxr_thumb_as_reported, "the Frame controllers' thumb bones are drawn as SteamVR reports them: on A for the stick, on the stick for A")
 BREAK(sfxr_poke_from_runtime, "holding controllers, pokes use SteamVR's poke pose (12.5 cm below the controller) instead of its tip")
 BREAK(sfxr_shapes_from_controller_skeleton, "holding controllers, hand shapes come from SteamVR's skeleton, whose index never straightens: no point")
 BREAK(sfxr_voice_any_sound_starts, "hands-free: any sound at all starts a clip (the speech threshold is ignored)")

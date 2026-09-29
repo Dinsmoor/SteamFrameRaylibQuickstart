@@ -66,7 +66,7 @@ int vrui_radial_menu(VruiId id, SfxrHandId hand, const SfxrButton *hold, const c
     SfxrPose plane = vrui_facing(center, head.position);
     Vector3 right = sfxr_pose_right(plane), up = sfxr_pose_up(plane);
     float dist = Vector3Distance(head.position, center);
-    float th = Clamp(vrui_text_height(dist, 1.3f), 0.009f, 0.03f);
+    float th = Clamp(vrui_text_height(dist, 1.7f), 0.012f, 0.04f);
     float radius = th * 5.0f;
     Color plate = { 20, 22, 28, 220 }, lit = C.style.accent;
 

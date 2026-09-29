@@ -71,6 +71,38 @@ your hand, at its own speed (its motion plus its spin). The thump comes from whe
 and you feel it. The panel turns off stickiness, sliding and weight one at a time, and shows
 the handles, so you can feel what each one adds.
 
+## Physics guns
+
+Beside the Weights table (`station_guns.c`) stand two tools for moving things from afar,
+so you can feel what weight does when your hand isn't on the thing. Pick one up with the
+grip: it snaps into your hand pointing where your laser would, and goes back to its stand
+when you let go. While you hold one, that hand has no laser and its buttons are the gun's
+(`vrui_claim_input`), so reeling with the stick doesn't also turn you.
+
+| Gun | Controls | Behavior |
+|---|---|---|
+| **Physgun** (Garry's Mod) | hold the trigger on a thing; stick forward/back reels it out/in; twist your wrist to turn it; A freezes it | the thing hangs where the beam caught it and turns with the gun. Heavy things lag (a feather at once, an anvil a beat behind), and the beam bends to show it. Let go and it flies on with the swing it had. Frozen, it stays in the air in a blue cage until the beam or a hand takes it |
+| **Gravity gun** (Half-Life 2) | A lifts the thing you aim at (A again drops it); the trigger punts | the thing floats just in front of the gun. A punt is the same push for everything (12 N·s, capped at 20 m/s), so a ball flies down the lane and a kettlebell barely moves. It can't lift anything over 30 kg: the anvil only gets a tug |
+
+The guns move the Weights things with one call:
+
+```c
+// every frame the beam holds it: take it off physics, and set its pose yourself
+vrui_wield_set_motion(id, false, Vector3Zero(), Vector3Zero());
+thing_pose = where_the_beam_wants_it;
+// let go: it falls, bounces and settles by itself, with the motion it had
+vrui_wield_set_motion(id, true, w.velocity, w.angular_velocity);
+```
+
+A punt is the same call with the punt's velocity. A throw from a gun counts on the
+Weights panel like a throw from a hand.
+
+Tests: `tests/toolbox/guns.sfxt`:
+- the physgun lifts the brick and freezes it in the air (break switch
+  `toolbox_physgun_no_freeze`)
+- the gravity gun lifts the ball and punts it more than 4 m down the lane
+- it can't lift the anvil (`toolbox_gravgun_lifts_anything`)
+
 ## Tests
 
 `make test T=wield`:

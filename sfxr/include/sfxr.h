@@ -394,6 +394,14 @@ bool sfxr_events_on(void);   // someone is listening (skip building expensive te
 typedef void (*SfxrEventListener)(uint64_t frame, const char *kind, const char *text, void *user);
 void sfxr_event_listen(SfxrEventListener fn, void *user);
 
+// A screenshot of the next frame, as it's shown: in the headset both eyes
+// side by side (what SFXR_SHOT saves), in the simulator the window. PNG;
+// its folder is made if missing; the event log notes it ("screenshot").
+// On the headset a relative path is in the app's folder: the toolbox's
+// "Screenshot" menu item saves into shots/, and `scripts/frame.sh pull`
+// brings them back.
+void sfxr_screenshot(const char *path);
+
 // App state a test can check (`expect app sky >= 0.9` in a scenario): report
 // the values that say your app did the right thing, every frame. Cheap: a
 // small table of named numbers.

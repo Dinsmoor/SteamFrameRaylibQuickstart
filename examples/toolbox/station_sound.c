@@ -171,7 +171,7 @@ static void init(void)
     SN.speaker = on_table(-0.45f, 0.08f, 0.1f);
     // the radio's front (its -Z) faces the aisle
     SN.radio = (SfxrPose){ { X0 + 0.4f, TABLE_Y + 0.06f, ROW_Z + 0.05f }, QuaternionFromAxisAngle((Vector3){ 0, 1, 0 }, PI) };
-    SN.panel = (SfxrPose){ { X0, 1.62f, ROW_Z - 0.3f }, QuaternionIdentity() };
+    SN.panel = (SfxrPose){ { X0, 1.55f, ROW_Z - 0.3f }, QuaternionIdentity() };
     SN.loop[E_RADIO] = make_tune();
     SN.loop[E_STREAM] = make_stream();
     SN.loop[E_RAIN] = make_rain();
@@ -205,7 +205,7 @@ static void draw_scenery(void)
                   (Color){ 170, 210, 255, 255 });
     }
     vrui_text_at((SfxrPose){ { STREAM_X, 0.02f, STREAM_Z1 + 0.1f }, QuaternionFromAxisAngle((Vector3){ 1, 0, 0 }, -PI / 2) },
-                 "STREAM: a line emitter", 0.03f, RAYWHITE);
+                 "STREAM: a line emitter", 0.042f, RAYWHITE);
 
     // the canopy over the aisle: four posts and a roof, and rain under it when it's on
     SfxrPose c = canopy();
@@ -217,7 +217,7 @@ static void draw_scenery(void)
     }
     vrui_box((SfxrPose){ { c.position.x, 2 * h.y + 0.02f, c.position.z }, QuaternionIdentity() }, (Vector3){ 2 * h.x + 0.1f, 0.03f, 2 * h.z + 0.1f },
              (Color){ 70, 100, 130, 200 });
-    vrui_text3d((Vector3){ c.position.x, 2 * h.y + 0.15f, c.position.z + h.z }, "RAIN: a box emitter (step under it)", 0.03f, RAYWHITE);
+    vrui_text3d((Vector3){ c.position.x, 2 * h.y + 0.15f, c.position.z + h.z }, "RAIN: a box emitter (step under it)", 0.042f, RAYWHITE);
     if (SN.on[E_RAIN]) {
         unsigned seed = 5;
         for (int i = 0; i < 60; i++) {
@@ -232,7 +232,7 @@ static void draw_scenery(void)
     // lines showing its loud cone
     SfxrPose r = SN.radio;
     vrui_box(sfxr_pose_mul(r, (SfxrPose){ { 0, 0, -0.036f }, QuaternionIdentity() }), (Vector3){ 0.1f, 0.07f, 0.004f }, (Color){ 30, 30, 34, 255 });
-    vrui_text3d(sfxr_pose_apply(r, (Vector3){ 0, 0.1f, 0 }), SN.on[E_RADIO] ? "radio: turn me away from you" : "radio", 0.018f, RAYWHITE);
+    vrui_text3d(sfxr_pose_apply(r, (Vector3){ 0, 0.1f, 0 }), SN.on[E_RADIO] ? "radio: turn me away from you" : "radio", 0.0252f, RAYWHITE);
     if (SN.on[E_RADIO]) {
         const float s = sinf(30 * DEG2RAD), c = cosf(30 * DEG2RAD);   // half the inner cone: 30 degrees
         const Vector3 edge[4] = { { s, 0, -c }, { -s, 0, -c }, { 0, s, -c }, { 0, -s, -c } };
@@ -244,7 +244,7 @@ static void draw_scenery(void)
 // What each ear gets from each emitter that's on.
 static void ears_panel(void)
 {
-    if (!vrui_panel_begin(VRUI_ID2(G_SOUND, 0), &SN.panel, 0.62f, 0.62f, "What your ears get")) return;
+    if (!vrui_panel_begin(VRUI_ID2(G_SOUND, 0), &SN.panel, 0.806f, 0.806f, "What your ears get")) return;
     vrui_layout_begin(vrui_panel_content(), 3);
     vrui_label(vrui_row(20), sfxr_audio_device() ? TextFormat("sound: on (%d Hz)", sfxr_audio_rate()) : "sound: offline (no audio device)");
     int shown = 0;
@@ -281,7 +281,7 @@ static void ears_panel(void)
 void station_sound(void)
 {
     if (!SN.init) init();
-    station_sign(X0, "Sound", "five kinds of emitter: switch them on at the\nfront of the table, then walk around them");
+    station_sign(X0, "Sound", "five kinds of emitter: switch them on at the front of the table, then walk around them");
     vrui_box(on_table(0, -0.025f, 0), (Vector3){ 1.4f, 0.05f, 0.7f }, (Color){ 120, 92, 66, 255 });
 
     // the switches, along the front edge
@@ -301,7 +301,7 @@ void station_sound(void)
         sound_play(SND_CHIME, SN.speaker.position, 0.9f);
     }
     vrui_text3d(Vector3Add(SN.speaker.position, (Vector3){ 0, 0.11f, 0 }),
-                SN.on[E_CHIME] ? "speaker: carry me around" : "speaker", 0.018f, RAYWHITE);
+                SN.on[E_CHIME] ? "speaker: carry me around" : "speaker", 0.0252f, RAYWHITE);
 
     // the radio (a cone): grab it and turn it
     VruiGrab rg = vrui_grabbable(VRUI_ID2(G_SOUND, 11), &SN.radio, (Vector3){ 0.07f, 0.05f, 0.035f }, (Color){ 150, 60, 50, 255 });

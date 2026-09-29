@@ -111,6 +111,8 @@ typedef struct {
     SfxrSignals sig;
     SfxrHandShape shape_pending[2];   // hand-shape debounce (derived, not recorded)
     int shape_frames[2];
+    Vector3 thumb_tip[2];             // the Frame controllers' thumb tip, grip-local, gliding (derived)
+    bool thumb_tip_valid[2];
 
     // derived world-space input
     SfxrHand hands[2];
@@ -161,9 +163,11 @@ float    sfxr__finger_curl(const SfxrHandJoints *j, int finger);   // 0 straight
 // sfxr_hand_model.c: a procedural skeleton (tracking space) from a grip pose,
 // finger curls (SFXR_FINGER_*) and a pinch amount 0..1. Tests and the simulator.
 void     sfxr__hand_model(int hand, SfxrPose grip, const float curl[5], float pinch, SfxrHandJoints *out);
-// Reflects the thumb across the controller's side-to-side axis (sfxr_input.c): undoes SteamVR's mirrored
-// thumb on the Frame controllers, and (being its own inverse) lets sfxt imitate it.
-void     sfxr__unmirror_thumb(SfxrPose grip, SfxrHandJoints *j);
+// The Frame controllers' thumb, posed from its touch sensors (sfxr_input.c): where its tip goes
+// (grip-local) for a touch mask and stick, and its bones arced from their base to a tip there.
+// sfxt uses them to imitate SteamVR's misplaced thumb.
+Vector3  sfxr__thumb_spot(int hand, unsigned touch, Vector2 stick);
+void     sfxr__thumb_reach(int hand, SfxrPose grip, Vector3 target, SfxrHandJoints *j);
 // sfxr_hands.c: gestures from the joints; joint-only hands get raw input (called first by derive_input)
 void     sfxr__hands_update(void);
 const char *sfxr_env_str(const char *name);

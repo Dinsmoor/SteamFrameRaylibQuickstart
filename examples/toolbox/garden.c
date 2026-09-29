@@ -29,11 +29,12 @@
 //                  when bitten
 //   sound          every smash, hit and bite from where it happens; the
 //                  Bugmaster heard from the top of his tower (docs/AUDIO.md).
-//                  The original game's sounds play if you copy them into
-//                  resources/garden/sfx/ and voice/ (they aren't in the repo);
-//                  otherwise the toolbox's sounds made in code
+//                  The original game's sounds and the Bugmaster's voice lines
+//                  (resources/garden/sfx/ and voice/), the toolbox's sounds
+//                  made in code for the rest
 //   music          the original game's menu, combat, win and lose tunes
-//   voice          hold the right bumper and say "hammer" (it comes back to
+//   voice          hold the bumper on your less-used hand (the other one's
+//                  opens the hand menu) and say "hammer" (it comes back to
 //                  your belt) or "restart"
 //   Steam          winning unlocks an achievement when Steam is there
 //                  (docs/STEAM.md)
@@ -499,7 +500,7 @@ void garden_enter(void)
     if (GD.active) return;
     if (!gw_load()) {
         vrui_tag((Vector3){ GATE_X + 0.5f, 1.6f, GATE_Z }, "the garden's models are missing\n(examples/toolbox/resources/garden)",
-                 0.03f, RAYWHITE, (Color){ 120, 30, 30, 220 });
+                 0.042f, RAYWHITE, (Color){ 120, 30, 30, 220 });
         return;
     }
     if (!GD.models_ok) {
@@ -555,10 +556,12 @@ void garden_update(const VruiLocoConfig *toolbox_loco)
     default: break;
     }
 
-    // voice: hold the right bumper, say "hammer" or "restart"
+    // voice: hold the bumper on your less-used hand, say "hammer" or "restart"
+    // (the main hand's bumper is the hand menus' ring)
     static const char *const SAY[] = { "hammer", "restart" };
-    const SfxrHand *rh = sfxr_hand(SFXR_RIGHT);
-    if (rh->bumper.pressed && !vrui_input_claimed(SFXR_RIGHT)) { GD.talking = true; sfxr_voice_set_prompt("hammer, restart"); sfxr_voice_listen_begin(); }
+    SfxrHandId talk = menus_main_hand() == SFXR_RIGHT ? SFXR_LEFT : SFXR_RIGHT;
+    const SfxrHand *rh = sfxr_hand(talk);
+    if (rh->bumper.pressed && !vrui_input_claimed(talk)) { GD.talking = true; sfxr_voice_set_prompt("hammer, restart"); sfxr_voice_listen_begin(); }
     if (GD.talking && rh->bumper.released) { GD.talking = false; sfxr_voice_listen_end(); }
     char said[128];
     if (sfxr_voice_result(said, sizeof said)) {
@@ -566,11 +569,11 @@ void garden_update(const VruiLocoConfig *toolbox_loco)
         if (c == 0 && GD.hammer_at != ON_STUMP) { recall_hammer(); sound_play_here(SND_WHOOSH, 0.7f); }
         if (c == 1) { round_reset(); }
     }
-    if (GD.talking) vrui_tag(Vector3Add(rh->grip.position, (Vector3){ 0, 0.12f, 0 }), "listening: hammer / restart", 0.015f, RAYWHITE,
+    if (GD.talking) vrui_tag(Vector3Add(rh->grip.position, (Vector3){ 0, 0.12f, 0 }), "listening: hammer / restart", 0.028f, RAYWHITE,
                              (Color){ 150, 30, 30, 220 });
 
     // the board by the spawn point: what's going on, and the two buttons
-    if (vrui_panel_begin(ID(2), &GD.board, 0.46f, 0.4f, "Daddy Bug Smasher")) {
+    if (vrui_panel_begin(ID(2), &GD.board, 0.72f, 0.52f, "Daddy Bug Smasher")) {
         vrui_layout_begin(vrui_panel_content(), 4);
         static const char *const SAY[] = { "Pick up your hammer, Daddy!", "Smash 8 bugs before they get you!",
                                            "The garden is clear! Well smashed.", "The bugs got you. Try again?" };
@@ -620,7 +623,7 @@ void garden_update(const VruiLocoConfig *toolbox_loco)
         }
         wrapped[n] = 0;
     }
-    vrui_tag(top, wrapped, 0.4f, GD.shout_t > 0 ? (Color){ 255, 220, 120, 255 } : RAYWHITE,
+    vrui_tag(top, wrapped, 0.56f, GD.shout_t > 0 ? (Color){ 255, 220, 120, 255 } : RAYWHITE,
              (Color){ 60, 20, 70, 220 });
     GD.shout_t -= dt;
     sfxr_music_volume(GD.shout_t > 0 ? 0.15f : 0.35f);   // duck the music under his voice

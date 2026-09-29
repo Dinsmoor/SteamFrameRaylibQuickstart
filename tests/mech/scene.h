@@ -27,7 +27,6 @@ static inline SfxrPose at(float x, float z) { return (SfxrPose){ { x, TABLE_Y, z
 #define BUTTON_AT   at(1.0f, -0.5f)
 #define SWITCH_AT   at(1.0f, -0.9f)
 #define SPRUNG_AT   at(0.8f, -1.25f)
-#define POINTBTN_AT at(1.25f, -0.5f)
 // A door off the table to the left (hinge at handle height, opening toward
 // the player) and a pull cord hanging to the right.
 #define DOOR_HINGE  ((SfxrPose){ { -1.2f, 1.0f, -0.6f }, { 0, 0, 0, 1 } })
@@ -39,7 +38,7 @@ static inline SfxrPose at(float x, float z) { return (SfxrPose){ { x, TABLE_Y, z
 #define KEY_SLOT_AT at(1.45f, -0.9f)
 #define KEY_REST    ((SfxrPose){ { 1.45f, 1.0f, -1.2f }, { 0, 0, 0, 1 } })
 
-enum { ID_KNOB = 1, ID_SELECTOR, ID_CRANK, ID_LEVER, ID_SLIDER, ID_PLUNGER, ID_STICK, ID_BUTTON, ID_SWITCH, ID_SPRUNG, ID_POINTBTN,
+enum { ID_KNOB = 1, ID_SELECTOR, ID_CRANK, ID_LEVER, ID_SLIDER, ID_PLUNGER, ID_STICK, ID_BUTTON, ID_SWITCH, ID_SPRUNG,
        ID_DOOR, ID_CORD, ID_VALVE, ID_KEY };
 extern VruiMechSpec valve_s;
 extern float valve;
@@ -56,8 +55,7 @@ extern int cord_fires;
 extern VruiMechSpec knob_s, selector_s, crank_s, lever_s, slider_s, plunger_s, stick_s, sprung_s;
 extern float sprung, set_point;
 extern VruiMech sprung_m;
-extern VruiPressSpec button_s, pointbtn_s;
-extern int point_presses;
+extern VruiPressSpec button_s;
 extern VruiRockerSpec switch_s;
 extern float knob, selector, crank, lever, slider, plunger;
 extern Vector2 stick;
@@ -190,14 +188,6 @@ static inline SfxrPose laser_line_path(float t, void *u)
     return p;
 }
 
-static inline void poke_point_button(void)
-{
-    Vector3 top = add(POINTBTN_AT.position, v3(0, 0.02f, 0));
-    sfxt_hand_to(R, tip_at(add(top, v3(0, 0.03f, 0))), 0.3f);
-    sfxt_hand_to(R, tip_at(add(top, v3(0, -0.01f, 0))), 0.2f);
-    sfxt_hand_to(R, tip_at(add(top, v3(0, 0.04f, 0))), 0.2f);
-}
-
 static inline SfxrPose switch_jitter_path(float t, void *u)
 {
     const Jitter *j = u;
@@ -240,7 +230,6 @@ void joystick_push_down_ignored(void);
 void button_press_from_above(void);
 void button_side_brush_does_nothing(void);
 void button_press_then_slide(void);
-void button_point_to_press(void);
 void grab_by_closing_hand(void);
 void switch_poke_flips_once(void);
 void valve_two_hands_turn_it(void);

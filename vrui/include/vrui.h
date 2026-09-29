@@ -101,8 +101,8 @@ typedef enum {
 
 typedef struct {
     // panels
-    float px_per_m;         // panel texel density (1000 = 1 px per mm)
-    int   font_size;        // panel text size in px (multiples of 10 stay crisp with the default font)
+    float px_per_m;         // panel pixels per meter (770: a 20 px line is 2.6 cm tall); drawn at 2x that for sharpness
+    int   font_size;        // panel text size in px
     int   title_height;     // panel title bar height in px
     Color panel_bg, panel_border, title_bg, title_text;
     Color text, text_dim;
@@ -126,7 +126,8 @@ typedef struct {
 } VruiStyle;
 
 VruiStyle *vrui_style(void);
-void vrui_set_font(Font font);        // default: raylib's built-in font
+void vrui_set_font(Font font);        // default: Atkinson Hyperlegible, built in (vrui/fonts/, OFL)
+Font vrui_font(void);                 // the font vrui draws with (for your own drawing on a panel)
 void vrui_show_controllers(bool on);  // draw the controllers / hands (default on)
 void vrui_controller_models(bool on); // the headset's own controller models when available (default on)
 void vrui_hand_joints_always(bool on);// joints while holding controllers too (bare hands: always)
@@ -200,7 +201,8 @@ bool vrui_panel_capturing(void);      // the current panel holds both hands righ
 
 // Simple vertical layout inside a rectangle.
 void      vrui_layout_begin(Rectangle area, float spacing);
-Rectangle vrui_row(float height);                             // next full-width row
+Rectangle vrui_row(float height);                             // next full-width row (at least a line of text tall)
+void      vrui_paragraph(const char *text);                     // text wrapped to the panel's width, as many rows as it takes
 void      vrui_row_cols(float height, int n, Rectangle *out); // next row split into n columns
 void      vrui_space(float height);
 
@@ -422,7 +424,6 @@ typedef struct {
     float press_at, release_at; // fractions of travel (hysteresis)
     float slide;         // while pressed, the tip may wander this many radii from center
     bool  latching;      // push-on / push-off (*latched flips on each press)
-    bool  require_point; // only a pointing index finger presses it (SFXR_SHAPE_POINT)
     bool  draw;
     Color color;
     const char *label;
@@ -552,8 +553,9 @@ bool     vrui_airborne(void);   // falling, or just let go and not landed yet
 // Text is left-aligned inside its block, and the block is centered on the
 // position; "\n" starts a new line.
 //
-// How big: text reads comfortably at about 1 degree tall on the Frame, which
-// is 1.75 cm per meter of distance: vrui_text_height(distance, 1.0f).
+// How big: aim for about 1.4 degrees tall, 2.5 cm per meter of distance:
+// vrui_text_height(distance, 1.4f). 1 degree reads on paper; in the headset
+// it was work.
 //
 // Labels on moving things: every call takes a position or pose worked out
 // THIS frame, so a label follows whatever you compute it from:
@@ -609,8 +611,9 @@ void vrui_on_top_end(void);
 // "you can't go there" hint. Use it briefly and gently.
 void vrui_tint(Color color, float alpha);
 
-// Radial (pie) menu on one controller: hold `hold` (e.g. &hand->secondary),
-// tilt the stick toward a choice, let go of the button to pick it. Returns
+// Radial (pie) menu on one controller: hold `hold`, tilt the stick toward a
+// choice, let go of the button to pick it. Hold with a finger (&hand->bumper),
+// not the thumb: the thumb is on the stick. Returns
 // the index picked (once, on release) or -1. Letting go with the stick
 // centered cancels. The hand's stick is claimed while it is open.
 int  vrui_radial_menu(VruiId id, SfxrHandId hand, const SfxrButton *hold, const char *const *items, int count);
@@ -713,7 +716,10 @@ const VruiWidgetInfo *vrui_find_widget(const char *target, SfxrPose *pose);   //
 // ===========================================================================
 
 void vrui_box(SfxrPose pose, Vector3 size, Color color);
+void vrui_box_wires(SfxrPose pose, Vector3 size, Color color);
 void vrui_line(Vector3 a, Vector3 b, Color color);
+void vrui_sphere(Vector3 center, float radius, Color color);
+void vrui_cylinder(Vector3 a, Vector3 b, float radius_a, float radius_b, Color color);   // a cone when the radii differ
 void vrui_fade(float alpha);   // darken the whole view this frame (0..1)
 float vrui_faded(void);        // how dark the view is this frame so far (0..1): pause, mute...
 
@@ -795,6 +801,13 @@ typedef struct {
 
 VruiWield vrui_wield(VruiId id, SfxrPose *pose, const VruiWieldSpec *spec);
 void      vrui_wield_drop(VruiId id);   // let go with every hand (it falls)
+// Move it yourself for a while -- a tractor beam, a physics gun: every frame
+// you set its pose, call this with loose = false first (it lets go of any
+// hands and stops falling; its measured velocity follows what you do). To
+// let go, call it once with loose = true and the motion to fly on with
+// (the VruiWield's velocity is the one it had). Frozen in mid-air is
+// loose = false and then leaving it alone.
+void      vrui_wield_set_motion(VruiId id, bool loose, Vector3 velocity, Vector3 spin);
 
 #ifdef __cplusplus
 }

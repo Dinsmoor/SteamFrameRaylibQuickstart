@@ -27,6 +27,12 @@ typedef struct {
 } ListState;
 VRUI_STATE_FITS(ListState);
 
+// Clip drawing to a rectangle in panel pixels (the texture has more texels).
+void vrui__panel_scissor(int x, int y, int w, int h)
+{
+    BeginScissorMode(x * VRUI_PANEL_SS, y * VRUI_PANEL_SS, w * VRUI_PANEL_SS, h * VRUI_PANEL_SS);
+}
+
 static VruiPanelTex *panel_tex(VruiId id, int w, int h)
 {
     VruiPanelTex *slot = NULL;
@@ -70,7 +76,7 @@ bool vrui_panel_begin(VruiId id, SfxrPose *pose, float width_m, float height_m, 
     int w_px = (int)(width_m * st->px_per_m), h_px = (int)(height_m * st->px_per_m);
     if (w_px > 2048) w_px = 2048;
     if (h_px > 2048) h_px = 2048;
-    VruiPanelTex *pt = panel_tex(id, w_px, h_px);
+    VruiPanelTex *pt = panel_tex(id, w_px * VRUI_PANEL_SS, h_px * VRUI_PANEL_SS);
     if (!pt) return false;
 
     VruiItem *it = vrui__item(id);
@@ -171,8 +177,10 @@ bool vrui_panel_begin(VruiId id, SfxrPose *pose, float width_m, float height_m, 
         vrui__report_named(C.p.slug, title, id, "panel", *pose, *pose, 0, false);
     }
 
-    // --- chrome
+    // --- chrome (drawn in panel pixels, scaled up to the texture's texels)
     BeginTextureMode(pt->rt);
+    rlPushMatrix();
+    rlScalef((float)VRUI_PANEL_SS, (float)VRUI_PANEL_SS, 1.0f);
     ClearBackground(st->panel_bg);
     if (has_title) {
         Color tb = drag_hand >= 0 ? st->widget_active : st->title_bg;
@@ -187,7 +195,7 @@ bool vrui_panel_begin(VruiId id, SfxrPose *pose, float width_m, float height_m, 
                          capturing ? st->accent : st->panel_border);
     if (capturing && has_title) {
         const char *msg = cap == VRUI_CAPTURE_LOOK ? "controls held - look away to release" : "controls held";
-        int fs = st->font_size - 4;
+        int fs = st->font_size - 2;
         Vector2 sz = MeasureTextEx(C.font, msg, (float)fs, 1);
         DrawTextEx(C.font, msg, (Vector2){ w_px - PAD - 48 - sz.x, (float)(st->title_height - fs) / 2 }, (float)fs, 1, st->accent);
     }
@@ -203,6 +211,7 @@ void vrui_panel_end(void)
         // pointer crosshair
         DrawCircleLines((int)C.p.ptr.x, (int)C.p.ptr.y, 7, C.style.cursor);
     }
+    rlPopMatrix();
     EndTextureMode();
     VRUI_STATE(C.p.item, PanelState)->active_widget = C.p.active_widget;
     if (pt) {
@@ -240,6 +249,10 @@ void vrui_layout_begin(Rectangle area, float spacing)
 
 Rectangle vrui_row(float height)
 {
+    // never shorter than a line of text: layouts written for smaller text
+    // (or a bigger font_size) don't crowd
+    float line = (float)C.style.font_size + 4.0f;
+    if (height >= 18.0f && height < line) height = line;   // (thin rows, bars and gaps, stay thin)
     Rectangle r = { C.p.lay_area.x, C.p.lay_y, C.p.lay_area.width, height };
     C.p.lay_y += height + C.p.lay_spacing;
     return r;
@@ -310,6 +323,39 @@ static bool w_click(VruiId id, Rectangle r, bool *hot_out, bool *active_out)
 }
 
 void vrui_label(Rectangle r, const char *text) { text_in(r, text, C.style.text, false); }
+
+void vrui_paragraph(const char *text)
+{
+    // word-wrapped to the layout's width, a row per line
+    int fs = C.style.font_size;
+    float width = C.p.lay_area.width - 16;
+    char line[256];
+    int n = 0, last_space = -1;
+    for (const char *s = text;; s++) {
+        bool end = *s == 0 || *s == '\n';
+        if (!end && n < (int)sizeof line - 1) {
+            line[n] = *s;
+            line[n + 1] = 0;
+            if (*s == ' ') last_space = n;
+            if (MeasureTextEx(C.font, line, (float)fs, 2).x <= width || last_space < 0) { n++; continue; }
+            // too wide: this line ends at the last space; the rest carries on
+            line[last_space] = 0;
+            vrui_label(vrui_row((float)fs + 4), line);
+            int rest = n - last_space;
+            memmove(line, line + last_space + 1, (size_t)rest);
+            n = rest;
+            line[n] = 0;
+            last_space = -1;
+            for (int i = 0; i < n; i++) if (line[i] == ' ') last_space = i;
+            continue;
+        }
+        line[n] = 0;
+        if (n > 0 || *s == '\n') vrui_label(vrui_row((float)fs + 4), line);
+        n = 0;
+        last_space = -1;
+        if (*s == 0) break;
+    }
+}
 void vrui_label_center(Rectangle r, const char *text, Color color) { text_in(r, text, color, true); }
 
 bool vrui_button(VruiId id, Rectangle r, const char *text)
@@ -440,7 +486,7 @@ bool vrui_list(VruiId id, Rectangle r, const char *const *items, int count, int 
     *scroll = Clamp(*scroll, 0, max_scroll);
 
     DrawRectangleRec(r, C.style.widget);
-    BeginScissorMode((int)r.x, (int)r.y, (int)r.width, (int)r.height);
+    vrui__panel_scissor((int)r.x, (int)r.y, (int)r.width, (int)r.height);
     int first = (int)(*scroll / row_h);
     int hover_row = inside && !on_bar ? (int)((C.p.ptr.y - r.y + *scroll) / row_h) : -1;
     for (int i = first; i < count; i++) {
@@ -462,7 +508,7 @@ bool vrui_list(VruiId id, Rectangle r, const char *const *items, int count, int 
         DrawRectangleRounded((Rectangle){ track.x + 2, bar_y, bar_w - 4, bar_h }, 0.5f, 4, thumb);
         if (inside && !(st & L_DRAG)) {   // say how, the first time people meet it
             const char *hint = "drag to scroll";
-            int fs = C.style.font_size - 6;
+            int fs = C.style.font_size - 2;
             Vector2 sz = MeasureTextEx(C.font, hint, (float)fs, 1);
             DrawTextEx(C.font, hint, (Vector2){ r.x + r.width - bar_w - sz.x - 6, r.y + r.height - sz.y - 4 }, (float)fs, 1,
                        C.style.text_dim);

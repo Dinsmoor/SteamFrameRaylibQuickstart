@@ -50,7 +50,7 @@ static void draw_sword(SfxrPose p, Color blade)
 
 static void panel(void)
 {
-    if (!vrui_panel_begin(VRUI_ID2(G_SMOOTH, 0), &SM.panel, 0.44f, 0.5f, "Smoothing")) return;
+    if (!vrui_panel_begin(VRUI_ID2(G_SMOOTH, 0), &SM.panel, 0.572f, 0.65f, "Smoothing")) return;
     vrui_layout_begin(vrui_panel_content(), 5);
     VruiSmoothSpec *s = SM.spec;
     vrui_label(vrui_row(22), "Lag: seconds to close half the gap");
@@ -70,7 +70,7 @@ static void panel(void)
 void station_smoothing(void)
 {
     if (!SM.init) init();
-    station_sign(X0, "Smoothing", "wave the sword: five ghosts follow it, one per\nmode (Daddy Bug Smasher's hammer uses these)");
+    station_sign(X0, "Smoothing", "wave the sword: five ghosts follow it, one per mode (Daddy Bug Smasher's hammer uses these)");
     Color wood = { 120, 92, 66, 255 };
     vrui_box(on_bench(0, -0.025f, 0), (Vector3){ 1.4f, 0.05f, 0.6f }, wood);
     for (int i = 0; i < 4; i++)
@@ -103,7 +103,7 @@ void station_smoothing(void)
         SfxrPose p = vrui_smooth_pose(&SM.ghost[m], target, &spec);
         draw_sword(p, GHOST[m]);
         vrui_text_at((SfxrPose){ { X0 + dx, TABLE_Y + 0.002f, ROW_Z - 0.28f }, QuaternionFromAxisAngle((Vector3){ 1, 0, 0 }, -PI / 2) },
-                     vrui_smooth_name((VruiSmoothMode)m), 0.025f, GHOST[m]);
+                     vrui_smooth_name((VruiSmoothMode)m), 0.035f, GHOST[m]);
     }
 
     // --- easing curves: balls riding rails up the back of the bench
@@ -116,7 +116,7 @@ void station_smoothing(void)
         vrui_line(bottom, top, (Color){ 120, 120, 130, 255 });
         vrui_box((SfxrPose){ Vector3Lerp(bottom, top, vrui_ease((VruiEase)e, phase)), QuaternionIdentity() }, (Vector3){ 0.03f, 0.03f, 0.03f },
                  (Color){ 250, 210, 90, 255 });
-        vrui_text_at((SfxrPose){ Vector3Add(bottom, (Vector3){ 0, -0.03f, 0.01f }), QuaternionIdentity() }, EASE[e], 0.016f, RAYWHITE);
+        vrui_text_at((SfxrPose){ Vector3Add(bottom, (Vector3){ 0, -0.03f, 0.01f }), QuaternionIdentity() }, EASE[e], 0.03f, RAYWHITE);
     }
     vrui_box(on_bench(0, 0.85f, -0.31f), (Vector3){ 1.4f, 0.4f, 0.02f }, (Color){ 50, 54, 62, 255 });   // the board behind the rails
     vrui_box(on_bench(-0.66f, 0.4f, -0.31f), (Vector3){ 0.04f, 0.9f, 0.04f }, (Color){ 90, 68, 52, 255 });

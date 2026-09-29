@@ -6,4 +6,6 @@ BREAK(toolbox_reset_keeps_blocks, "Reset blocks adds the four new blocks but lea
 BREAK(toolbox_valve_unwired,     "the valve turns, but the pressure gauge doesn't follow it")
 BREAK(toolbox_lid_weightless,    "the chest lid stays wherever it's let go (no gravity)")
 BREAK(toolbox_lid_no_friction,   "the chest lid falls shut however far it was opened")
-BREAK(toolbox_voice_ring_everywhere, "A opens the bugs' order ring wherever you point, so the toolbox's own ring menu never opens")
+BREAK(toolbox_voice_ring_everywhere, "the bumper opens the bugs' order ring wherever you point, so the toolbox's own ring menu never opens")
+BREAK(toolbox_physgun_no_freeze, "A while the physgun holds a thing lets it fall instead of freezing it in the air")
+BREAK(toolbox_gravgun_lifts_anything, "the gravity gun lifts the anvil too (no weight limit)")

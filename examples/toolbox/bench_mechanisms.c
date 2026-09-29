@@ -34,7 +34,7 @@ static void draw_bench(void)
         vrui_box(sfxr_pose_mul(o, (SfxrPose){ { x, -TABLE_Y * 0.5f, z }, QuaternionIdentity() }),
                  (Vector3){ 0.05f, TABLE_Y - 0.05f, 0.05f }, (Color){ 90, 68, 52, 255 });
     }
-    station_sign(2.5f, "Mechanisms", "one of every reference mechanism,\ndefault feel: grab, poke or laser them");
+    station_sign(2.5f, "Mechanisms", "one of every reference mechanism, default feel: grab, poke or laser them");
 }
 
 void bench_mechanisms(void)
@@ -83,13 +83,6 @@ void bench_mechanisms(void)
     VruiPressSpec b = vrui_press_spec();
     b.label = TextFormat("BUTTON (%d)", B.presses);
     if (vrui_press(VRUI_ID2(G_BENCH, 9), on_bench(0.2f, 0.15f), &b, NULL).pressed) B.presses++;
-
-    b = vrui_press_spec();          // point-to-press: only a pointing index finger
-    b.require_point = true;
-    b.radius = 0.025f;
-    b.color = (Color){ 90, 200, 120, 255 };
-    b.label = "POINT TO PRESS";
-    vrui_press(VRUI_ID2(G_BENCH, 12), on_bench(0.2f, 0.26f), &b, NULL);
 
     b = vrui_press_spec();
     b.latching = true;

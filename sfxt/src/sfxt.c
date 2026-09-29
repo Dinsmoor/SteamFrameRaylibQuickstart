@@ -146,13 +146,18 @@ static void fill(void)
         o->touch = o->click | H->touching;
         if (H->trigger > 0) o->touch |= RAW_BIT(SFXR_CTL_TRIGGER);
         if (H->squeeze > 0) o->touch |= RAW_BIT(SFXR_CTL_SQUEEZE);
-        if (H->kind == SFXT_FRAME_SKELETON) {   // SteamVR's skeleton from the controller, its thumb mirrored
+        if (H->kind == SFXT_FRAME_SKELETON) {   // SteamVR's skeleton from the controller, its thumb misplaced
             snprintf(o->profile, sizeof o->profile, "/interaction_profiles/valve/frame_controller_valve");
             SfxrHandJoints *j = &S.sig.joints[h];
             float curl[5] = { H->curl[0], 0.95f, H->curl[2], H->curl[3], H->curl[4] };   // its index never straightens
             sfxr__hand_model(h, g, curl, 0, j);
             j->source = SFXR_SOURCE_CONTROLLER;
-            sfxr__unmirror_thumb(g, j);
+            // its thumb on A when it touches the stick, and on the stick when it touches A
+            SfxrControl home = h ? SFXR_CTL_A : SFXR_CTL_DPAD_DOWN;
+            uint32_t t = o->touch & ~(RAW_BIT(SFXR_CTL_STICK) | RAW_BIT(home));
+            if (o->touch & RAW_BIT(SFXR_CTL_STICK)) t |= RAW_BIT(home);
+            if (o->touch & RAW_BIT(home)) t |= RAW_BIT(SFXR_CTL_STICK);
+            sfxr__thumb_reach(h, g, sfxr__thumb_spot(h, t, (Vector2){ 0 }), j);
             // and its poke pose, 12.5 cm under the grip (grip-local, as recorded)
             o->poke = sfxr_pose_mul(g, (SfxrPose){ { h ? -0.046f : 0.046f, -0.125f, -0.081f }, QuaternionIdentity() });
             o->pose_valid |= RAW_POSE_POKE;
@@ -392,13 +397,18 @@ int sfxt_events(const char *kind, const char *label, int hand, uint64_t since_fr
 
 void sfxt_set_draw(void (*draw)(void)) { T.draw = draw; }
 
-// The failing moment as a picture: the app drawn from the head, 960 x 540.
+// The failing moment as a picture: the app drawn from the head, 960 x 540
+// (SFXT_SNAPSHOT_SIZE=1920x1080 for a bigger one: at that size text is
+// about as sharp as in the headset, so it shows what's readable there).
 static void snapshot(void)
 {
     const char *path = getenv("SFXT_SNAPSHOT");
     if (!path || !*path || T.snapped) return;
     T.snapped = true;
-    RenderTexture2D rt = LoadRenderTexture(960, 540);
+    int w = 960, h = 540;
+    const char *size = getenv("SFXT_SNAPSHOT_SIZE");
+    if (size && sscanf(size, "%dx%d", &w, &h) != 2) w = 960, h = 540;
+    RenderTexture2D rt = LoadRenderTexture(w, h);
     if (!rt.id) return;
     BeginTextureMode(rt);
     ClearBackground((Color){ 60, 70, 90, 255 });

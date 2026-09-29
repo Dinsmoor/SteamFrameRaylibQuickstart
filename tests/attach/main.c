@@ -24,8 +24,8 @@ static SfxrPose sm_target, sm_out;
 static void scene(void)
 {
     if (radial_on) {
-        int p = vrui_radial_menu(1, SFXR_RIGHT, &sfxr_hand(SFXR_RIGHT)->secondary, ITEMS, 4);
-        if (p >= 0 || sfxr_hand(SFXR_RIGHT)->secondary.released) { picked = p; picks++; }
+        int p = vrui_radial_menu(1, SFXR_RIGHT, &sfxr_hand(SFXR_RIGHT)->bumper, ITEMS, 4);
+        if (p >= 0 || sfxr_hand(SFXR_RIGHT)->bumper.released) { picked = p; picks++; }
     }
     if (follow_on) follow_pose = vrui_follow(2, follow_target, 20.0f, 0.45f);
     if (smooth_on) sm_out = vrui_smooth_pose(&sm, sm_target, &sm_spec);
@@ -41,15 +41,15 @@ static void setup(void)
     sfxt_frames(2);
 }
 
-// Hold B, tilt the stick, let go of B: returns what was picked.
+// Hold the bumper, tilt the stick, let go: returns what was picked.
 static int choose(Vector2 stick)
 {
     int before = picks;
-    sfxt_button(SFXR_RIGHT, SFXR_CTL_B, true);
+    sfxt_button(SFXR_RIGHT, SFXR_CTL_BUMPER, true);
     sfxt_frames(3);
     sfxt_stick(SFXR_RIGHT, stick);
     sfxt_frames(6);
-    sfxt_button(SFXR_RIGHT, SFXR_CTL_B, false);
+    sfxt_button(SFXR_RIGHT, SFXR_CTL_BUMPER, false);
     sfxt_frames(2);
     return picks > before ? picked : -99;
 }
@@ -92,12 +92,12 @@ static void radial_never_teleports(void)
     setup();
     radial_on = true;
     Vector3 before = sfxr_head_floor_point();
-    sfxt_button(SFXR_RIGHT, SFXR_CTL_B, true);
+    sfxt_button(SFXR_RIGHT, SFXR_CTL_BUMPER, true);
     sfxt_frames(3);
     sfxt_stick(SFXR_RIGHT, (Vector2){ 0, 1 });
     sfxt_frames(20);
     CHECK(vrui_input_claimed(SFXR_RIGHT), "the stick is claimed while the menu is open");
-    sfxt_button(SFXR_RIGHT, SFXR_CTL_B, false);   // pick "up"...
+    sfxt_button(SFXR_RIGHT, SFXR_CTL_BUMPER, false);   // pick "up"...
     sfxt_frames(20);                              // ...thumb still on the tilted stick
     sfxt_stick(SFXR_RIGHT, (Vector2){ 0, 0 });    // then let go of the stick
     sfxt_frames(20);
@@ -111,13 +111,13 @@ static void radial_centered_cancels(void)
 {
     setup();
     radial_on = true;
-    sfxt_button(SFXR_RIGHT, SFXR_CTL_B, true);
+    sfxt_button(SFXR_RIGHT, SFXR_CTL_BUMPER, true);
     sfxt_frames(3);
     sfxt_stick(SFXR_RIGHT, (Vector2){ -1, 0 });
     sfxt_frames(6);
     sfxt_stick(SFXR_RIGHT, (Vector2){ 0, 0 });
     sfxt_frames(6);
-    sfxt_button(SFXR_RIGHT, SFXR_CTL_B, false);
+    sfxt_button(SFXR_RIGHT, SFXR_CTL_BUMPER, false);
     sfxt_frames(2);
     CHECK(picks == 1 && picked == -1, "let go centered: nothing picked (got %d)", picked);
 }

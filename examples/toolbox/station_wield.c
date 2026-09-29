@@ -209,12 +209,12 @@ static void sandbag(void)
     vrui_box((SfxrPose){ c, QuaternionIdentity() }, (Vector3){ 2 * BAG_R, 2.4f * BAG_R, 2 * BAG_R }, (Color){ 150, 120, 80, 255 });
     vrui_box((SfxrPose){ { BAG_TOP.x + 0.6f, 1.15f, BAG_TOP.z }, QuaternionIdentity() }, (Vector3){ 0.08f, 2.3f, 0.08f }, (Color){ 90, 70, 55, 255 });
     vrui_box((SfxrPose){ { BAG_TOP.x + 0.3f, 2.33f, BAG_TOP.z }, QuaternionIdentity() }, (Vector3){ 0.68f, 0.06f, 0.06f }, (Color){ 90, 70, 55, 255 });
-    vrui_text3d(Vector3Add(c, (Vector3){ 0, 0.35f, 0 }), TextFormat("sandbag: %d hits", WD.hits), 0.022f, RAYWHITE);
+    vrui_text3d(Vector3Add(c, (Vector3){ 0, 0.35f, 0 }), TextFormat("sandbag: %d hits", WD.hits), 0.0308f, RAYWHITE);
 }
 
 static void panel(void)
 {
-    if (!vrui_panel_begin(VRUI_ID2(G_WIELD, 0), &WD.panel, 0.42f, 0.5f, "Wielding")) return;
+    if (!vrui_panel_begin(VRUI_ID2(G_WIELD, 0), &WD.panel, 0.546f, 0.47f, "Wielding")) return;
     vrui_layout_begin(vrui_panel_content(), 4);
     vrui_toggle(1, vrui_row(28), "Sticky grip (loosen, don't drop)", &WD.sticky);
     vrui_toggle(2, vrui_row(28), "Slide along the handle", &WD.slide);
@@ -225,7 +225,7 @@ static void panel(void)
     for (int i = 0; i < W_COUNT; i++) {
         const VruiWield *w = &WD.w[i];
         const char *state = w->pulling ? "flying to you" : w->hands == 2 ? "two hands" : w->hands == 1 ? "in hand"
-                          : w->loose ? "falling" : "down";
+                          : w->loose ? "falling" : "resting";
         vrui_label(vrui_row(20), TextFormat("%s: %s%s%s", NAMES[i], state, w->sliding[0] || w->sliding[1] ? ", sliding" : "",
                                             w->lag > 0.03f ? TextFormat(", %.0f cm behind", w->lag * 100) : ""));
     }
@@ -235,7 +235,7 @@ static void panel(void)
 void station_wield(void)
 {
     if (!WD.init) init();
-    station_sign(X0, "Wielding", "take a weapon by its handle: it settles into your\nhand. Loosen your grip to slide, add a hand to steer");
+    station_sign(X0, "Wielding", "take a weapon by its handle: it settles into your hand. Loosen your grip to slide, add a hand to steer");
     // the rack: two posts and two rails behind the weapons, a shelf for the dagger
     Color frame = { 90, 70, 55, 255 };
     for (int s = -1; s <= 1; s += 2)

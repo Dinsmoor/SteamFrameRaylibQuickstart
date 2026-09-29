@@ -177,28 +177,127 @@ static void derive_shapes(void)
 }
 
 // SteamVR's hand skeleton for the Frame controllers (joints from the touch
-// sensors, XR_HAND_TRACKING_DATA_SOURCE_CONTROLLER_EXT) has the thumb
-// mirrored across the controller: lift your thumb off and its bones swing
-// ~3 cm to the FAR side of the controller, away from the palm, where a real
-// thumb lifts up and out on the palm side (every recorded session, both
-// hands, as mirror images of each other). Reflect the thumb back across the
-// controller's side-to-side axis, about its own base; the palm and fingers
-// are left as reported. Applied here, after recording, so recordings keep
-// what the runtime said and replays get the same fix.
-void sfxr__unmirror_thumb(SfxrPose grip, SfxrHandJoints *j)
+// sensors, XR_HAND_TRACKING_DATA_SOURCE_CONTROLLER_EXT) puts the thumb in the
+// wrong place: touch the stick and its tip lands on the A button; touch A and
+// it lands on the stick; lifted, it hangs over the far side (every recorded
+// session, both hands; measured against the controller's own render model in
+// SteamVR's driver). So the thumb is posed here instead, from the same touch
+// sensors: its tip on the control it touches (following the stick as it
+// tilts), or hovering over the face when it touches nothing; its bones arc
+// from the reported base to there. The palm and fingers are left as
+// reported. Applied after recording, so recordings keep what the runtime
+// said and replays get the same fix.
+
+// Where the thumb goes on the RIGHT controller, grip-local (the left one is
+// its mirror image in x: D-pad where the buttons are, view where menu is).
+// From frame_controller_right.json: each part's origin, into the grip frame.
+static const Vector3 FACE_N = { -0.165f, 0.777f, -0.607f };   // out of the thumb face
+static const struct { Vector3 p; SfxrControl right, left; } THUMB_SPOT[] = {
+    { { -0.0278f, 0.0111f, -0.0537f }, SFXR_CTL_STICK, SFXR_CTL_STICK },
+    { { 0.0009f, 0.0096f, -0.0539f }, SFXR_CTL_A, SFXR_CTL_DPAD_DOWN },
+    { { 0.0087f, 0.0044f, -0.0621f }, SFXR_CTL_B, SFXR_CTL_DPAD_LEFT },
+    { { -0.0087f, 0.0037f, -0.0593f }, SFXR_CTL_X, SFXR_CTL_DPAD_RIGHT },
+    { { -0.0009f, -0.0015f, -0.0676f }, SFXR_CTL_Y, SFXR_CTL_DPAD_UP },
+    { { -0.0165f, -0.0057f, -0.0670f }, SFXR_CTL_MENU, SFXR_CTL_VIEW },
+};
+#define THUMB_PAD 0.010f     // the tip joint sits this far off a control (the pad's thickness)
+#define THUMB_STICK 0.005f   // the stick's cap stands this far above its origin
+#define THUMB_HOVER 0.028f   // a lifted thumb, above the face
+
+static Vector3 mirror_for(int hand, Vector3 v) { return hand ? v : (Vector3){ -v.x, v.y, v.z }; }
+
+Vector3 sfxr__thumb_spot(int hand, unsigned touch, Vector2 stick)
 {
-    Quaternion gi = QuaternionInvert(grip.orientation);
-    Vector3 base = Vector3RotateByQuaternion(Vector3Subtract(j->joint[SFXR_JOINT_THUMB_METACARPAL].position, grip.position), gi);
-    for (int k = SFXR_JOINT_THUMB_METACARPAL; k <= SFXR_JOINT_THUMB_TIP; k++) {
-        SfxrPose *p = &j->joint[k];
-        Vector3 l = Vector3RotateByQuaternion(Vector3Subtract(p->position, grip.position), gi);
-        l.x = 2.0f * base.x - l.x;
-        p->position = Vector3Add(grip.position, Vector3RotateByQuaternion(l, grip.orientation));
-        // the same reflection for its orientation: x -> -x is (x, y, z, w) -> (x, -y, -z, w)
-        Quaternion q = QuaternionMultiply(gi, p->orientation);
-        q = (Quaternion){ q.x, -q.y, -q.z, q.w };
-        p->orientation = QuaternionMultiply(grip.orientation, q);
+    Vector3 n = mirror_for(hand, FACE_N), sum = { 0 };
+    int count = 0;
+    for (size_t k = 0; k < sizeof THUMB_SPOT / sizeof THUMB_SPOT[0]; k++) {
+        SfxrControl c = hand ? THUMB_SPOT[k].right : THUMB_SPOT[k].left;
+        if (!(touch & RAW_BIT(c))) continue;
+        Vector3 p = Vector3Add(mirror_for(hand, THUMB_SPOT[k].p), Vector3Scale(n, THUMB_PAD));
+        if (c == SFXR_CTL_STICK) {   // on top of the cap, which tilts with the stick
+            Vector3 u = Vector3Normalize(Vector3Subtract((Vector3){ 1, 0, 0 }, Vector3Scale(n, n.x)));   // right, along the face
+            Vector3 v = Vector3CrossProduct(n, u);                                                       // up the face
+            p = Vector3Add(p, Vector3Scale(n, THUMB_STICK));
+            p = Vector3Add(p, Vector3Add(Vector3Scale(u, stick.x * 0.006f), Vector3Scale(v, stick.y * 0.006f)));
+        }
+        sum = Vector3Add(sum, p);
+        count++;
     }
+    if (count) return Vector3Scale(sum, 1.0f / (float)count);
+    // touching nothing: over the middle of the face, between the stick and the buttons
+    Vector3 mid = Vector3Lerp(mirror_for(hand, THUMB_SPOT[0].p), mirror_for(hand, THUMB_SPOT[1].p), 0.5f);
+    return Vector3Add(mid, Vector3Scale(n, THUMB_HOVER));
+}
+
+// Pose the thumb's bones (grip-local target) as an arc from its base
+// (the metacarpal, kept) to the tip at `target`, bulging out of the face
+// (the nail side up), with the bone lengths it has.
+void sfxr__thumb_reach(int hand, SfxrPose grip, Vector3 target, SfxrHandJoints *j)
+{
+    const int first = SFXR_JOINT_THUMB_METACARPAL;
+    Vector3 p[4];
+    float len[3], total = 0;
+    static const float fallback[3] = { 0.040f, 0.032f, 0.025f };
+    for (int k = 0; k < 4; k++) p[k] = j->joint[first + k].position;
+    for (int k = 0; k < 3; k++) {
+        len[k] = Vector3Distance(p[k], p[k + 1]);
+        if (len[k] < 0.01f || len[k] > 0.08f) len[k] = fallback[k];
+        total += len[k];
+    }
+    Vector3 base = p[0], tip = sfxr_pose_apply(grip, target);
+    Vector3 n = Vector3RotateByQuaternion(mirror_for(hand, FACE_N), grip.orientation);
+    Vector3 chord = Vector3Subtract(tip, base);
+    float d = Vector3Length(chord);
+    // SteamVR's thumb is a little short for the far side of the face (the
+    // stick): stretch it up to a third to get there
+    if (d > total) {
+        float grow = fminf(d / total, 1.35f);
+        for (int k = 0; k < 3; k++) len[k] *= grow;
+        total *= grow;
+    }
+    Vector3 e = d > 1e-5f ? Vector3Scale(chord, 1.0f / d) : sfxr_pose_forward(grip);
+    Vector3 b = Vector3Subtract(n, Vector3Scale(e, Vector3DotProduct(n, e)));   // the bulge: away from the face
+    b = Vector3Length(b) > 1e-4f ? Vector3Normalize(b) : Vector3RotateByQuaternion((Vector3){ 0, 1, 0 }, grip.orientation);
+    // the arc of length `total` over the chord: sin(t/2)/(t/2) = d/total
+    float ratio = Clamp(d / total, 0.0f, 1.0f), lo = 0, hi = 3.5f;
+    for (int it = 0; it < 30; it++) {
+        float t = 0.5f * (lo + hi);
+        if (sinf(t * 0.5f) / (t * 0.5f) > ratio) lo = t; else hi = t;
+    }
+    float theta = 0.5f * (lo + hi);
+    float s = 0;
+    for (int k = 0; k < 4; k++) {
+        Vector3 at, fwd, up;
+        if (theta < 1e-3f) {   // straight (or out of reach: pointing at it)
+            at = Vector3Add(base, Vector3Scale(e, s));
+            fwd = e;
+            up = b;
+        } else {
+            float r = total / theta, phi = -0.5f * theta + s / r;
+            Vector3 center = Vector3Subtract(Vector3Add(base, Vector3Scale(e, 0.5f * d)), Vector3Scale(b, r * cosf(0.5f * theta)));
+            up = Vector3Add(Vector3Scale(b, cosf(phi)), Vector3Scale(e, sinf(phi)));   // out from the arc's center
+            at = Vector3Add(center, Vector3Scale(up, r));
+            fwd = Vector3Add(Vector3Scale(b, -sinf(phi)), Vector3Scale(e, cosf(phi)));
+        }
+        // OpenXR joints: -Z along the bone toward the tip, +Y out of the back (the nail)
+        Vector3 z = Vector3Negate(fwd), y = Vector3Normalize(Vector3Subtract(up, Vector3Scale(z, Vector3DotProduct(up, z))));
+        Vector3 x = Vector3CrossProduct(y, z);
+        Matrix m = { x.x, y.x, z.x, 0, x.y, y.y, z.y, 0, x.z, y.z, z.z, 0, 0, 0, 0, 1 };
+        j->joint[first + k] = (SfxrPose){ at, QuaternionNormalize(QuaternionFromMatrix(m)) };
+        if (k < 3) s += len[k];
+    }
+}
+
+// The thumb's tip glides to where the sensors say it is (a touch is a
+// step; a real thumb takes a moment to get there).
+static void pose_thumb(int i, SfxrHandJoints *j)
+{
+    const SfxrRawHand *r = &S.raw[i];
+    Vector3 want = sfxr__thumb_spot(i, r->touch | r->click, r->stick);
+    float k = 1.0f - expf(-sfxr_dt() * 30.0f);
+    S.thumb_tip[i] = S.thumb_tip_valid[i] ? Vector3Lerp(S.thumb_tip[i], want, k) : want;
+    S.thumb_tip_valid[i] = true;
+    sfxr__thumb_reach(i, r->grip, S.thumb_tip[i], j);
 }
 
 void sfxr__derive_input(void)
@@ -259,7 +358,7 @@ void sfxr__derive_input(void)
         if (in->valid && in->source == SFXR_SOURCE_CONTROLLER && strstr(S.raw[i].profile, "frame_controller") &&
             !SFXR_BREAK(sfxr_thumb_as_reported)) {
             fixed = *in;
-            sfxr__unmirror_thumb(S.raw[i].grip, &fixed);
+            pose_thumb(i, &fixed);
             in = &fixed;
         }
         for (int j = 0; j < SFXR_JOINT_COUNT; j++) {

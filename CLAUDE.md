@@ -421,8 +421,9 @@ while (sfxr_frame_begin()) {              // wait for runtime, sample poses and 
   `sfxr_haptic()` directly, or ticks and hums cut each other off.
   `vrui_style()->haptic_scale` scales all of it.
 - **Hand shape** (`sfxr_hand()->shape`, `->curl[5]`, from touch sensors or joints),
-  **grab styles** (`vrui_style()->grab`: grip / closing hand / grip-or-trigger) and
-  **point-to-press** buttons (`VruiPressSpec.require_point`).
+  **grab styles** (`vrui_style()->grab`: grip / closing hand / grip-or-trigger). Don't
+  gate controls on the Frame's shape guess: point-to-press was tried and removed (the index
+  sensor wasn't dependable enough, sixth session).
 - **Displays:** `vrui_gauge`, `vrui_odometer`, `vrui_lamp` (read-only; passive panels
   take no input).
 - Locomotion: `vrui_locomotion(&cfg)` is the only thing that moves the rig. It leaves a
@@ -801,7 +802,7 @@ showed, and what was done:
 | voice via world button + pointing was awkward; show each binding type | the **Voice commands** station (x -12.2): point + bumper (context), point + A (an orders ring, context), TALK intercom, hands-free with the wake word "bugs" (`sfxr_voice_hands_free`: a speech detector) |
 | the radial menu never worked | **B's click never reaches the app on the Frame** (touch yes, click 0 in every recording). The radial is on **A** now; `docs/INPUT.md` "Buttons that don't arrive". Ask the user to press B on the Controllers panel to confirm |
 | finger poke never worked | **SteamVR's poke pose for the Frame controllers is 12.5 cm below the grip**, and **its controller skeleton never straightens the index** (curl 0.97 off the trigger). With controllers, sfxr pokes from the tip and reads shapes from the touch sensors; a green fingertip shows a point; point-to-press buttons coach a nearby hand |
-| thumb bones on the wrong side | SteamVR's controller skeleton has the thumb **mirrored across the controller** (lifting swings it ~3 cm to the far side). sfxr reflects it back (`sfxr__unmirror_thumb`, controller-sourced joints on the Frame profile only) |
+| thumb bones on the wrong side | first fixed by reflecting the thumb; that was wrong (sixth session: see there) |
 | checkerboard tag on the board | above it, on a stand |
 | smoothing ghosts moved on teleport | `with_player` only while the sword is held |
 | chest and doors too stiff; lid should fall | hinge weight 0.08 s, 220 deg/s; the lid has gravity and friction (stays open past ~70%) |
@@ -814,19 +815,41 @@ showed, and what was done:
 `make test`: 117 cases (19 unproven), audit clean, goldens re-blessed once (bigger knob,
 the green fingertip).
 
+**Sixth session (2026-09-28): the fifth session's build in the headset**
+
+Session data: `local-data/toolbox-20260928-162841/` on spark. The user: weapons much
+better; didn't know the radial's button, and holding A while steering with the stick takes
+two thumbs; the index finger isn't reliable enough as an interface control; the thumbs
+"inverted sort of correct but broken"; fonts too small in the headset; wanted README
+screenshots, a way to take screenshots in the headset, a Garry's Mod physgun and a
+Half-Life 2 gravity gun at the throwing table, and a consistency pass over the 2D UI.
+
+| Feedback / finding | Done |
+|---|---|
+| radial on A needs two thumbs | the hand menus' radial is on the **main hand's bumper**; Daddy Bug Smasher's push-to-talk moved to the less-used hand's bumper. The Voice station's context binding is point + bumper: a ring AND listening (tilt = ring, centered = voice); binding 2 is now point + trigger, a pop-up menu clicked by laser (`Orders` panel) |
+| index finger unreliable | `VruiPressSpec.require_point`, its coaching tag, break switch and test, and the green fingertip are **gone**; `docs/INPUT.md` says why |
+| thumbs still wrong | measured against the controller's render model from SteamVR's driver (`/opt/steamvr/drivers/frame_controller/resources/rendermodels/`, grip = its `openxr_grip` component): SteamVR puts the thumb tip **on A when the stick is touched and on the stick when A is**, and over the far side when lifted. The reflection fixed neither. sfxr now **poses the thumb itself** from the touch sensors: tip on the touched control (right-controller spots in grip space in `sfxr_input.c`, left mirrored; the stick's tilt followed), hovering 2.8 cm when none, bones arced from the reported base, gliding. `sfxr__thumb_spot`, `sfxr__thumb_reach`; test `hands/frame-thumb-on-what-it-touches` |
+| fonts too small | vrui's font is **Atkinson Hyperlegible** (embedded, `vrui/fonts/`, OFL), panels 770 px/m at 24 px text drawn at 2× density, rows at least a line tall, `vrui_paragraph` wraps, signs wrap, world text 1.4× (aim 1.4 degrees), callouts 1.5 degrees; every toolbox panel 1.3× bigger in meters (same pixel layouts). `vrui_font()` for custom panel drawing (the Controllers panel used raylib's font) |
+| screenshots in the headset | `sfxr_screenshot(path)`; hand menu **Screenshot** (2 s countdown, then shots/ next to the app); `frame.sh pull` brings shots back |
+| README screenshots | `docs/images/` from `SFXT_SNAPSHOT_SIZE=1600x900` snapshots (HUD off while taking them) |
+| physgun and gravity gun | `station_guns.c` beside Weights (x -20.1); `vrui_wield_set_motion`; `tests/toolbox/guns.sfxt` (3 cases, 2 break switches) |
+| consistency pass | follow HUD rides 28 degrees below the gaze (it sat on every bench); home/yard edge arrows off by default, fanned apart when two point the same way; gauge and counter labels printed on their plane (they poked through tilted boards); a **Controls** sign at the start; Voice placards on a strip under the table edge; wrapped/shortened overflowing lines; `vrui_box_wires`, `vrui_sphere`, `vrui_cylinder` public |
+
+`make test`: 120 cases (21 unproven), audit clean, goldens re-blessed (font and sizes).
+
 **Next headset session: check these first**
-1. Sound station: can you now tell left from right, and behind? The radio's back, the
-   stream swapping ears, the rain canopy.
-2. B button: press it on the Controllers panel. If it never lights, it's SteamVR's binding
-   (look for a SteamVR binding override for the app); the radial is on A anyway.
-3. Point-to-press on the Mechanisms bench: index off the trigger, others on the grip, green
-   fingertip, push the tip in. Plain buttons with the controller tip.
-4. The thumb bones with "Joints while holding" on (Headset panel): on the palm side now?
-5. Wielding: does each weapon settle naturally? Sliding by loosening; two hands; the
-   hammer's weight at the end of its shaft (too laggy? `spring_rates` in `vrui_wield.c`);
-   laser pull. Then Daddy Bug Smasher with the new hammer.
-6. Weights: does the anvil read as "too heavy"? Throw distances sane?
-7. Voice commands: the four bindings; hands-free false starts from the game's own sounds.
+1. Thumbs, with "Joints while holding" on (Headset panel): tip on the stick, on A/B/X/Y,
+   hovering when lifted; left hand on the D-pad.
+2. Text: readable at arm's length on the panels, the signs, the labels? Anything still too
+   small or overflowing?
+3. Radial on the bumper (main hand); the Voice station's point + bumper (ring and voice)
+   and point + trigger (pop-up).
+4. Physgun and gravity gun: the feel of holding, reeling, freezing, punting; does the gun
+   point where the laser did?
+5. Screenshot from the hand menu, then `scripts/frame.sh pull toolbox`: is the image the
+   eyes' view?
+6. Still open from the fifth session: left/right sound at the Sound station; B on the
+   Controllers panel; Weights and Wielding feel.
 
 **Still to build**
 - Animate the controller models' buttons (`xrGetRenderModelStateEXT` node poses; needs

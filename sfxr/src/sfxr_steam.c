@@ -90,7 +90,7 @@ bool sfxr_steam_init(void)
     if (St.up) return true;
     St.lib = open_library();
     if (!St.lib) {
-        snprintf(St.status, sizeof St.status, "Steam: off (no libsteam_api.so next to the app; see docs/STEAM.md)");
+        snprintf(St.status, sizeof St.status, "Steam: off (no libsteam_api.so by the app: docs/STEAM.md)");
         SFXR_LOG("%s", St.status);
         return false;
     }

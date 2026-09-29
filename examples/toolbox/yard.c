@@ -160,9 +160,9 @@ void yard_update(void)
     SfxrPose gate = vrui_facing(W((Vector3){ 0, 3.2f, YARD_Z1 }), (Vector3){ 0, 3.2f, 0 });   // faces the row
     vrui_sign(gate, 2.4f, "Movement yard", "in here you can only teleport onto pads", (Color){ 44, 50, 64, 255 });
     vrui_text3d(W((Vector3){ -2.0f, WALL_TOP + 0.5f, WALL_FACE_Z + 0.3f }),
-                "climb: grab, pull down, push over the top, let go", 0.06f, RAYWHITE);
-    vrui_text3d(W((Vector3){ 2.0f, BAR_Y + 0.35f, -7.5f }), "monkey bars: hand over hand", 0.06f, RAYWHITE);
-    vrui_text3d(W((Vector3){ 2.0f, 1.2f, -3.9f }), "stairs: walk up in your room", 0.05f, RAYWHITE);
+                "climb: grab, pull down, push over the top, let go", 0.084f, RAYWHITE);
+    vrui_text3d(W((Vector3){ 2.0f, BAR_Y + 0.35f, -7.5f }), "monkey bars: hand over hand", 0.084f, RAYWHITE);
+    vrui_text3d(W((Vector3){ 2.0f, 1.2f, -3.9f }), "stairs: walk up in your room", 0.07f, RAYWHITE);
 }
 
 void yard_draw(void)

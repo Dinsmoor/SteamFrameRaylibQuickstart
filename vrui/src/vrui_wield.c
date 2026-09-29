@@ -281,6 +281,16 @@ void vrui_wield_drop(VruiId id)
     for (int h = 0; h < 2; h++) let_go(id, h, ws);
 }
 
+void vrui_wield_set_motion(VruiId id, bool loose, Vector3 velocity, Vector3 spin)
+{
+    WieldState *ws = VRUI_STATE(vrui__item(id), WieldState);
+    for (int h = 0; h < 2; h++) let_go(id, h, ws);
+    ws->fly_hand = -1;
+    ws->loose = loose;
+    ws->vel = loose ? velocity : Vector3Zero();
+    ws->ang = loose ? spin : Vector3Zero();
+}
+
 static int hands_on(VruiId id) { return (int)hold_of(id, 0)->on + (int)hold_of(id, 1)->on; }
 
 VruiWield vrui_wield(VruiId id, SfxrPose *pose, const VruiWieldSpec *sp)

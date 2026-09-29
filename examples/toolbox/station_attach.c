@@ -106,11 +106,11 @@ static void labels_gallery(void)
     Color ink = { 235, 235, 240, 255 };
     // printed ON the bench's front edge, facing you: gone when you walk behind it
     SfxrPose front = on_bench(0.35f, -0.03f, BENCH_D * 0.5f + 0.002f);
-    vrui_text_at(front, "vrui_text_at: printed on the bench (walk behind it: gone)", 0.014f, (Color){ 250, 220, 150, 255 });
+    vrui_text_at(front, "vrui_text_at: printed on the bench (walk behind it: gone)", 0.03f, (Color){ 250, 220, 150, 255 });
 
     // a floating name over a ball
     vrui_box(on_bench(0.15f, 0.04f, 0.05f), (Vector3){ 0.06f, 0.08f, 0.06f }, (Color){ 200, 170, 90, 255 });
-    vrui_text3d(sfxr_pose_apply(origin(), (Vector3){ 0.15f, 0.15f, 0.05f }), "vrui_text3d\n(turns to face you)", 0.016f, ink);
+    vrui_text3d(sfxr_pose_apply(origin(), (Vector3){ 0.15f, 0.15f, 0.05f }), "vrui_text3d\n(turns to face you)", 0.03f, ink);
 
     // a tag above a thing, on a plate: the plate keeps it readable whatever
     // is behind it (here, a checkerboard on a stand, when you look down at it)
@@ -118,7 +118,7 @@ static void labels_gallery(void)
     for (int i = 0; i < 16; i++)
         vrui_box(on_bench(0.42f + 0.03f * (float)(i % 4), 0.06f + 0.03f * (float)(i / 4), -0.2f),
                  (Vector3){ 0.03f, 0.03f, 0.01f }, (i + i / 4) % 2 ? (Color){ 240, 240, 240, 255 } : (Color){ 30, 30, 30, 255 });
-    vrui_tag(sfxr_pose_apply(origin(), (Vector3){ 0.465f, 0.21f, -0.2f }), "vrui_tag: a checkerboard", 0.016f, ink,
+    vrui_tag(sfxr_pose_apply(origin(), (Vector3){ 0.465f, 0.21f, -0.2f }), "vrui_tag: a checkerboard", 0.03f, ink,
              (Color){ 20, 22, 28, 220 });
 
     // a callout pointing at one small screw; walk away and it stays readable
@@ -130,7 +130,7 @@ static void labels_gallery(void)
 void station_attach(void)
 {
     if (!A.init) init();
-    station_sign(BENCH_X, "Attach & label", "things riding on things, and every kind\nof world label (docs/ATTACHING.md)");
+    station_sign(BENCH_X, "Attach & label", "things riding on things, and every kind of world label (docs/ATTACHING.md)");
 
     // the bench
     Color wood = { 120, 92, 66, 255 };
@@ -185,7 +185,7 @@ void station_attach(void)
         if (A.r[i].parent == IN_HAND && Vector3Distance(A.r[i].world.position, belt_slot().position) < 0.35f) {
             SfxrPose s = belt_slot();
             vrui_box(s, (Vector3){ 0.08f, 0.08f, 0.08f }, (Color){ 120, 200, 255, 90 });
-            vrui_tag(Vector3Add(s.position, (Vector3){ 0, 0.09f, 0 }), "belt slot: let go here", 0.014f, RAYWHITE,
+            vrui_tag(Vector3Add(s.position, (Vector3){ 0, 0.09f, 0 }), "belt slot: let go here", 0.028f, RAYWHITE,
                      (Color){ 20, 22, 28, 200 });
         }
 

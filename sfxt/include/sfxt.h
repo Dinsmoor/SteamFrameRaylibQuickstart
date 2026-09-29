@@ -89,7 +89,7 @@ typedef enum {
                             // (its own pinch -> trigger, grasp -> grip, aim and poke poses)
     SFXT_BARE_JOINTS_ONLY,  // bare hand, and the runtime reports only joints (sfxr builds the rest)
     SFXT_FRAME_SKELETON,    // holding Frame controllers, as SteamVR reports them: a skeleton from the touch
-                            // sensors (thumb mirrored across the controller, index always curled) and a
+                            // sensors (thumb on the wrong control, index always curled) and a
                             // poke pose 12.5 cm under the grip
 } SfxtHandKind;
 void sfxt_hand_kind(SfxrHandId h, SfxtHandKind kind);

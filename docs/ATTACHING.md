@@ -81,11 +81,25 @@ outcomes:
 | sign | `vrui_sign(pose, width, title, body, board)` | a board with a title and lines (every station has one) |
 
 **How big.** The Frame shows about 16 pixels per degree at its default render
-size. Text reads comfortably at **about 1 degree tall**, which is 1.75 cm for every
-meter away. Below about 0.6 degrees it turns to mush. `vrui_text_height(distance,
-degrees)` does the arithmetic. A callout does it for you: it keeps about 1.1 degrees as
-you step back, up to 5 cm letters, and it hides past 8 m, because a room full of
-callouts seen from afar is clutter.
+size. On paper, text 1 degree tall (1.75 cm for every meter away) is readable. In the
+headset it was work: the lenses soften everything away from the center, and you read
+while your head moves. So aim for **about 1.4 degrees, 2.5 cm per meter**. Below about
+0.6 degrees text turns to mush. `vrui_text_height(distance, degrees)` does the
+arithmetic. A callout does it for you: it keeps about 1.5 degrees as you step back, up to
+7 cm letters, and it hides past 8 m, because a room full of callouts seen from afar is
+clutter.
+
+What vrui does about it:
+- **The font** is Atkinson Hyperlegible (Braille Institute, made for low-vision
+  readers; SIL Open Font License), built in and rasterized large with mipmaps. raylib's
+  default is a 10-pixel bitmap font, which goes blocky scaled up.
+- **Panels** are 770 pixels per meter (`VruiStyle.px_per_m`), with 24-pixel text: a line
+  is 3.1 cm tall. They're drawn at twice that density, so text stays sharp up close. A
+  layout row is never shorter than a line of text, and `vrui_paragraph(text)` wraps text
+  to the panel's width.
+- **Signs** (`vrui_sign`) word-wrap their body to the board's width.
+- A snapshot from the test harness at `SFXT_SNAPSHOT_SIZE=1920x1080` is about as sharp
+  as the headset, so what's readable there is readable in it ([TESTING.md](TESTING.md)).
 
 **Fixed or billboard?** Text that belongs to a surface (a label on a button, a
 frequency on a radio's face) should be printed on it with `vrui_text_at`. It
@@ -112,12 +126,15 @@ them (`hud.c`):
 | Style | Pose from | Verdict |
 |---|---|---|
 | **Head** | `sfxr_head()` plus an offset | always readable, but it swims with every head movement and you can't turn to look at it. Fine for one or two words at the edge of the view; tiring for more |
-| **Follow** | `vrui_follow(id, target, 20 deg, 0.45 s)` | stays where it is while you glance around, and glides back in front of you once you've turned more than 20 degrees away. The comfortable default for something you check often |
+| **Follow** | `vrui_follow(id, target, 20 deg, 0.45 s)`, the target 28 degrees below where you look | stays where it is while you glance around, and glides back once you've turned more than 20 degrees away. Below your gaze, not at a fixed height: at a fixed height it landed right on whatever bench you looked down at. The comfortable default for something you check often |
 | **Body** | `vrui_body()`: waist height, 35 cm out, tilted up | look down to read it. Out of the way until wanted |
 
 **Edge arrows** (`vrui_offscreen_arrow(target, label, color)`) point at things out
 of view: toward home, toward a bug behind you. Behind you they only say "left" or
-"right", since up or down would point at the sky or your feet.
+"right", since up or down would point at the sky or your feet. Two targets the same way
+get their arrows fanned apart, so the labels don't print over each other. Use them for
+what matters now (the garden's nearest bug); the toolbox's home and yard arrows are off
+until you switch them on, because arrows that are always there become clutter.
 
 **Flashes** (`vrui_tint(color, alpha)`) wash the whole view with a color for a
 frame. Call it every frame with a falling alpha for a damage flash. Keep it gentle
@@ -134,7 +151,7 @@ passes in (the toolbox and Daddy Bug Smasher each have their own).
 | **Watch** | turn the back of your less-used wrist toward your face | status, not choices. Read-only |
 | **Palm** | turn that hand's palm toward your face (held a quarter second): three buttons float above it; poke one with your other hand's finger | the two or three things you do most. Fast, needs both hands |
 | **Tablet** | that hand's menu button (left: View, right: Menu) toggles a panel held in the hand like a clipboard; use it with the other hand's laser | everything. Room for settings |
-| **Radial** | hold the primary button on your main hand (right: A, left: D-pad down), tilt the stick toward a choice, let go | one hand, no aiming. Quick once the positions are learned: you remember a direction, you don't read a list |
+| **Radial** | hold the **bumper** on your main hand, tilt the stick toward a choice, let go. A finger holds it open while the thumb chooses: it was on A first, and A and the stick are both under the thumb | one hand, no aiming. Quick once the positions are learned: you remember a direction, you don't read a list |
 
 Why the cues look like this:
 - **"Turn toward your face"** cues (watch, palm) only count within about 35–40

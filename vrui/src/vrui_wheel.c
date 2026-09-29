@@ -151,7 +151,7 @@ VruiMech vrui_valve(VruiId id, SfxrPose base, const VruiMechSpec *sp, float *val
 
     // Holding it with one hand when it needs two: say so, next to the wheel.
     if (n > 0 && n < sp->hands && sp->one_hand <= 0)
-        vrui_tag(sfxr_pose_apply(plane, (Vector3){ 0, 0.06f, 0 }), "won't budge: use both hands", 0.018f, RAYWHITE,
+        vrui_tag(sfxr_pose_apply(plane, (Vector3){ 0, 0.06f, 0 }), "won't budge: use both hands", 0.0252f, RAYWHITE,
                  (Color){ 120, 30, 30, 220 });
 
     if (sp->draw) {

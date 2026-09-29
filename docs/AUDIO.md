@@ -148,20 +148,21 @@ four ways, side by side:
 
 | # | Binding | How | Good for | Cost |
 |---|---|---|---|---|
-| 1 | **Point + bumper** (in context) | point at a bug: it says "hold the bumper". Hold it, speak, let go | ordering *this* one | the bumper talks only while pointing at a bug, so it's free for other things everywhere else |
-| 2 | **Point + A: a ring menu** (in context) | point at a bug, hold A, tilt the stick to an order, let go | no voice at all: noisy rooms, no recognizer, speed once learned | A opens *this* ring on a bug and the toolbox's own ring menu anywhere else: the same button, chosen by what you point at |
+| 1 | **Point + bumper** (in context) | point at a bug: it says what its buttons do. Hold the bumper: its orders open in a ring *and* it listens. Tilt the stick to an order and let go, or say it and let go | ordering *this* one, by voice or, in a noisy room or with no recognizer, by the ring; quick once learned | on a bug the bumper orders it; anywhere else the same bumper opens the toolbox's own ring menu. The button is chosen by what you point at |
+| 2 | **Point + trigger: a pop-up menu** (in context) | point at a bug, pull the trigger: its orders pop up beside it; click one with the laser | nothing to learn and nothing to say (the mouse's right-click) | slow: two aims and two clicks |
 | 3 | **A button in the world** (an intercom) | hold TALK on the table, speak | orders for everyone; nothing to aim | you have to be at it, and a hand is on it |
 | 4 | **Hands-free** | flip the switch, say "bugs, attack" | hands busy (a sword, a steering wheel) | the microphone hears everything, so a wake word ("bugs") gates it, and a pause ends it |
 
-And a **global** binding, for comparison: in Daddy Bug Smasher the bumper means "listen"
+And a **global** binding, for comparison: in Daddy Bug Smasher the bumper on your less-used hand means "listen"
 everywhere, for "hammer" and "restart".
 
 Context bindings are what make one controller go a long way: *what you point at* picks what
-a button does. Show the binding where the player is looking (the pointed-at bug says "hold
-the bumper") and they never have to remember it. In code it's an `if`: offer the ring menu
-only while `pointed >= 0`, and let an open ring claim the hand
-(`vrui_claim_input`), which the toolbox's own ring checks before opening
-(`station_menus.c`).
+a button does. Show the binding where the player is looking (the pointed-at bug says what
+its buttons do) and they never have to remember it. In code it's an `if`: while
+`pointed >= 0` (or its ring is open), claim the hand (`vrui_claim_input`) and offer the
+ring; the toolbox's own ring checks the claim before opening (`station_menus.c`, which
+runs after the stations). Keep a held button and the thing you choose with on different
+fingers: a ring you hold open with A and steer with the stick needs two thumbs.
 
 **Hands-free** is `sfxr_voice_hands_free(true, threshold, pause_s)`: a speech detector on
 20 ms blocks starts a clip after 60 ms above the threshold (keeping the 0.3 s before it),
@@ -169,7 +170,7 @@ and a pause ends it; a clip also ends at 6 s. `sfxr_voice_hands_free_heard()` sa
 transcript came from it rather than a button, so the station can insist on the wake word.
 Test: `voice/hands-free-speech-starts-and-a-pause-ends` (room noise starts nothing; speech
 does; a pause ends it), break switch `sfxr_voice_any_sound_starts`. The ring menus' tests
-are `tests/toolbox/orders.sfxt`.
+and the pop-up's tests are `tests/toolbox/orders.sfxt`.
 
 ### Why it's built this way
 
@@ -240,11 +241,13 @@ Also watch which source is the default. On a machine without a microphone, the d
   later, how muffled.
 - **Voice commands station:** the four bindings above, three little bugs and a cardboard
   Daddy. Pointing plus voice is the Bugmaster's controls in the planned Revenge of the
-  Bugmaster, in miniature. The panel's buttons give the same orders without a recognizer.
+  Bugmaster, in miniature. Without a recognizer, the ring (1) and the pop-up menu (2) still
+  give the orders.
 - **Daddy Bug Smasher:**
   - smashes, hits and bites come from where they happen
   - the Bugmaster shouts from the top of his tower
-  - hold the bumper and say **hammer** (it comes back to your belt) or **restart**
+  - hold the bumper on your less-used hand and say **hammer** (it comes back to your belt) or
+    **restart** (the main hand's bumper is the hand menu's ring)
   - the original game's recordings: the bugs' death splats, scurrying, dings, and the
     Bugmaster's voice (`resources/garden/sfx/` and `voice/`, converted to mono so they can be
     positioned). The subtitles over his tower are what Whisper heard in his lines.

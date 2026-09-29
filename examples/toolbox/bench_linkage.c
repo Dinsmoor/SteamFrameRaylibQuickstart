@@ -47,7 +47,7 @@ static void draw_bench(void)
         vrui_box(on_link((i & 1) ? LINK_W * 0.46f : -LINK_W * 0.46f, -TABLE_Y * 0.5f, (i & 2) ? LINK_D * 0.4f : -LINK_D * 0.4f),
                  (Vector3){ 0.05f, TABLE_Y - 0.05f, 0.05f }, (Color){ 90, 68, 52, 255 });
     vrui_box(on_link(0, 0.27f, -LINK_D * 0.5f + 0.02f), (Vector3){ LINK_W, 0.52f, 0.03f }, (Color){ 58, 60, 68, 255 });
-    station_sign(5.2f, "Linkage bench", "controls wired to gauges,\nrolling counters and lamps");
+    station_sign(5.2f, "Linkage bench", "controls wired to gauges, rolling counters and lamps");
 }
 
 void bench_linkage(void)
@@ -120,5 +120,5 @@ void bench_linkage(void)
     float a = fmodf(-PI / 2 + sm.position + 20.0f * PI, 2.0f * PI);   // the pointer's angle on the wheel
     int wedge = (int)(a / (2.0f * PI / 12.0f)) % 12;
     vrui_text3d(sfxr_pose_apply(origin(), (Vector3){ 0.78f, 0.3f, BOARD_Z + 0.05f }),
-                TextFormat("WHEEL: %s", WEDGE_NAMES[wedge % 6]), 0.025f, RAYWHITE);
+                TextFormat("WHEEL: %s", WEDGE_NAMES[wedge % 6]), 0.035f, RAYWHITE);
 }

@@ -98,7 +98,7 @@ static void instruction_panel(const char *title, const char *text, const char *h
 {
     SfxrPose p = on_tray(0, 0.28f, -0.16f);
     vrui_panel_capture(VRUI_CAPTURE_POINT);
-    if (!vrui_panel_begin(ID(1), &p, 0.5f, 0.2f, title)) return;
+    if (!vrui_panel_begin(ID(1), &p, 0.65f, 0.26f, title)) return;
     vrui_layout_begin(vrui_panel_content(), 4);
     vrui_label(vrui_row(28), text);
     if (hint && task_time() > HINT_AFTER) vrui_label(vrui_row(24), TextFormat("Tip: %s", hint));
@@ -219,7 +219,7 @@ static bool task_summary(void)
 {
     Prefs *p = &OB.prefs;
     SfxrPose pp = on_tray(0, 0.3f, -0.16f);
-    if (!vrui_panel_begin(ID(2), &pp, 0.5f, 0.42f, "Setup: what I noticed")) return false;
+    if (!vrui_panel_begin(ID(2), &pp, 0.65f, 0.546f, "Setup: what I noticed")) return false;
     vrui_layout_begin(vrui_panel_content(), 5);
     Rectangle cols[2];
     // the choices shown are read from (and written back to) the preferences
@@ -289,10 +289,9 @@ void onboarding_init(const char *prefs_path)
 // The station: what the setup is for, the current preferences, Start / Stop.
 void onboarding_panel(SfxrPose *pose)
 {
-    if (!vrui_panel_begin(ID(3), pose, 0.44f, 0.36f, "Hands-on setup")) return;
+    if (!vrui_panel_begin(ID(3), pose, 0.572f, 0.468f, "Hands-on setup")) return;
     vrui_layout_begin(vrui_panel_content(), 4);
-    vrui_label(vrui_row(22), "Watches how you grab, turn, press and point,");
-    vrui_label(vrui_row(22), "then fits the controls to you. (docs/ONBOARDING.md)");
+    vrui_paragraph("Watches how you grab, turn, press and point, then fits the controls to you (docs/ONBOARDING.md).");
     const Prefs *p = &OB.prefs;
     if (p->valid) {
         vrui_label(vrui_row(22), TextFormat("Now: %s hand, grab with %s, %s pull",
@@ -310,7 +309,7 @@ void onboarding_panel(SfxrPose *pose)
             vrui_style()->grab = OB.saved_style.grab;
             vrui_style()->pull = OB.saved_style.pull;
         }
-    } else if (vrui_button(1, vrui_row(34), "Start (the tasks appear in front of you)")) {
+    } else if (vrui_button(1, vrui_row(34), "Start: the tasks appear in front of you")) {
         onboarding_start();
     }
     vrui_panel_end();

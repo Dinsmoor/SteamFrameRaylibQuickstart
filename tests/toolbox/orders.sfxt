@@ -2,17 +2,17 @@
 app   toolbox
 rate  72
 
-case a-on-a-bug-opens-its-orders
+case bumper-on-a-bug-opens-its-orders
   expect  app bug2 == 2                         # stopped, to start
   stand   at voice.bug_2 back 0.7
   look    at voice.bug_2 over 0.3s
   hand    R point at voice.bug_2 over 0.3s
   wait    3f
-  button  R a down                              # A, pointing at bug 2: the orders ring
+  button  R bumper down                         # the bumper, pointing at bug 2: the orders ring
   wait    3f
   stick   R 0,0.9                               # up: the first order, attack
   wait    3f
-  button  R a up
+  button  R bumper up
   wait    3f
   stick   R 0,0
   wait    3f
@@ -20,18 +20,32 @@ case a-on-a-bug-opens-its-orders
   expect  app bug1 == 2                         # the others didn't hear it
   expect  app grid == 1                         # and the toolbox's ring didn't open too
 
-case a-elsewhere-opens-the-toolbox-ring
+case bumper-elsewhere-opens-the-toolbox-ring
   fails-if toolbox_voice_ring_everywhere
   stand   at voice.bug_2 back 0.7
   hand    R point at table.sky over 0.3s        # far off, pointing at no bug
   wait    3f
-  button  R a down
+  button  R bumper down
   wait    3f
   stick   R 0,0.9                               # up: the toolbox ring's first item, Grid
   wait    3f
-  button  R a up
+  button  R bumper up
   wait    3f
   stick   R 0,0
   wait    3f
   expect  app grid == 0
   expect  app bug2 == 2
+
+case trigger-on-a-bug-pops-up-its-orders
+  stand   at voice.bug_3 back 0.7
+  look    at voice.bug_3 over 0.3s
+  hand    R point at voice.bug_3 over 0.3s
+  trigger R 1 over 0.1s                         # the trigger on bug 3: its menu pops up
+  trigger R 0 over 0.1s
+  wait    5f
+  hand    R point at orders.attack over 0.4s     # click "attack" in it (it closes on a choice)
+  trigger R 1 over 0.1s
+  trigger R 0 over 0.1s
+  wait    3f
+  expect  app bug3 == 0
+  expect  app bug1 == 2

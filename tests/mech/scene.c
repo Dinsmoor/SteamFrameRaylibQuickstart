@@ -5,8 +5,7 @@
 VruiMechSpec knob_s, selector_s, crank_s, lever_s, slider_s, plunger_s, stick_s, sprung_s;
 float sprung = 0.5f, set_point = 0.5f;   // the sprung lever returns to set_point
 VruiMech sprung_m;
-VruiPressSpec button_s, pointbtn_s;
-int point_presses;
+VruiPressSpec button_s;
 VruiRockerSpec switch_s;
 float knob = 0.5f, selector = 2.0f, crank = 0.0f, lever = 0.5f, slider = 0.5f, plunger = 0.0f;
 Vector2 stick;
@@ -40,8 +39,6 @@ void scene(void)
         stick_s = vrui_joystick_spec();
         button_s = vrui_press_spec();
         switch_s = vrui_rocker_spec();
-        pointbtn_s = vrui_press_spec();
-        pointbtn_s.require_point = true;
         sprung_s = vrui_lever_spec();
         sprung_s.spring = true;
         door_s = vrui_hinge_spec(DOOR_W);
@@ -66,7 +63,6 @@ void scene(void)
     if (button_p.released) button_releases++;
     switch_p = vrui_rocker(ID_SWITCH, SWITCH_AT, &switch_s, &sw);
     if (switch_p.changed) switch_flips++;
-    if (vrui_press(ID_POINTBTN, POINTBTN_AT, &pointbtn_s, NULL).pressed) point_presses++;
     sprung_s.rest = set_point;   // read one value, feed it into another control's spec
     sprung_m = vrui_pivot(ID_SPRUNG, SPRUNG_AT, &sprung_s, &sprung);
     door_m = vrui_hinge(ID_DOOR, DOOR_HINGE, &door_s, &door);

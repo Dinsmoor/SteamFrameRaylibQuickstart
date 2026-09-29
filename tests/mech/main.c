@@ -45,7 +45,6 @@ static const SfxtCase CASES[] = {
     { "mech/button-press-from-above",        button_press_from_above,        NULL },
     { "mech/button-side-brush-does-nothing", button_side_brush_does_nothing, "vrui_button_side_entry" },
     { "mech/button-press-then-slide",        button_press_then_slide,        "vrui_button_no_slide" },
-    { "mech/button-point-to-press",         button_point_to_press,          "vrui_button_ignores_shape" },
     { "mech/grab-by-closing-hand",           grab_by_closing_hand,           "vrui_grab_style_ignored" },
     { "mech/switch-poke-flips-once",         switch_poke_flips_once,         "vrui_switch_no_exit_margin" },
     { "mech/valve-two-hands-turn-it",        valve_two_hands_turn_it,        "vrui_valve_sum_not_average" },

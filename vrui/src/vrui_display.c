@@ -52,7 +52,8 @@ void vrui_gauge(VruiId id, SfxrPose pose, float value, float min, float max, con
     Vector3 tail = sfxr_pose_apply(pose, (Vector3){ -cosf(a) * R * 0.15f, -sinf(a) * R * 0.15f, 0.006f });
     vrui__cylinder(tail, tip, 0.0018f, (Color){ 200, 40, 30, 255 });
     vrui__sphere(sfxr_pose_apply(pose, (Vector3){ 0, 0, 0.006f }), 0.005f, (Color){ 30, 30, 34, 255 });
-    if (label) vrui_text3d(sfxr_pose_apply(pose, (Vector3){ 0, -R * 1.35f, 0 }), label, 0.018f, C.style.text);
+    // labels are printed on the instrument's plane (a facing label would poke through a tilted panel)
+    if (label) vrui_text_at(sfxr_pose_mul(pose, (SfxrPose){ { 0, -R * 1.4f, 0.003f }, QuaternionIdentity() }), label, 0.0252f, C.style.text);
 }
 
 void vrui_odometer(VruiId id, SfxrPose pose, float value, int digits, const char *label)
@@ -79,7 +80,7 @@ void vrui_odometer(VruiId id, SfxrPose pose, float value, int digits, const char
         float roll = i == 0 ? v - floorf(v) : fmaxf(0.0f, below - (place - 1.0f));   // carry in the last unit
         float pos = fmodf(drum, 10.0f) + roll;                // 0..10, fractional while rolling
         int x = w_px - (i + 1) * cw;
-        BeginScissorMode(x + 2, 2, cw - 4, h_px - 4);
+        vrui__panel_scissor(x + 2, 2, cw - 4, h_px - 4);
         DrawRectangle(x + 2, 0, cw - 4, h_px, (Color){ 235, 232, 222, 255 });
         for (int k = -1; k <= 1; k++) {
             int d = ((int)floorf(pos) + k + 10) % 10;
@@ -96,7 +97,7 @@ void vrui_odometer(VruiId id, SfxrPose pose, float value, int digits, const char
     vrui_panel_end();
     SfxrPose bezel = { sfxr_pose_apply(pose, (Vector3){ 0, 0, -0.008f }), pose.orientation };
     vrui_box(bezel, (Vector3){ cell_w * (float)digits + 0.012f, cell_h + 0.012f, 0.014f }, (Color){ 40, 42, 48, 255 });
-    if (label) vrui_text3d(sfxr_pose_apply(pose, (Vector3){ 0, -cell_h, 0 }), label, 0.018f, C.style.text);
+    if (label) vrui_text_at(sfxr_pose_mul(pose, (SfxrPose){ { 0, -cell_h, 0.003f }, QuaternionIdentity() }), label, 0.0252f, C.style.text);
 }
 
 void vrui_lamp(SfxrPose pose, bool on, Color color, const char *label)
@@ -109,5 +110,5 @@ void vrui_lamp(SfxrPose pose, bool on, Color color, const char *label)
     } else {
         vrui__sphere(c, 0.016f, ColorBrightness(color, -0.7f));
     }
-    if (label) vrui_text3d(sfxr_pose_apply(pose, (Vector3){ 0, 0.05f, 0 }), label, 0.015f, C.style.text);
+    if (label) vrui_text3d(sfxr_pose_apply(pose, (Vector3){ 0, 0.05f, 0 }), label, 0.021f, C.style.text);
 }

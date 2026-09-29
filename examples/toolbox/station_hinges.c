@@ -116,7 +116,7 @@ void station_hinges(void)
     // the frequency is printed on the radio's face (vrui_text_at: fixed to a
     // pose, readable from the front only), not floating toward you
     vrui_text_at(local(1.78f, 0.97f, 0.012f, I), TextFormat("FM %.1f", 88.0f + H.dial * 0.2f),
-                 0.022f, (Color){ 255, 200, 120, 255 });
+                 0.0308f, (Color){ 255, 200, 120, 255 });
 
     // --- a valve on a pipe: the wheel faces you (base +Y toward you), and a
     // gauge further up the pipe shows the pressure it lets through
@@ -152,5 +152,5 @@ void station_hinges(void)
     if (H.ignition == 0) H.running = false;
     vrui_lamp(local(3.2f, 1.26f, -0.08f, I), H.running, (Color){ 90, 230, 120, 255 }, H.running ? "running" : "engine");
 
-    station_sign(13.9f + 3.3f, "Hinges & cords", "a door, a chest lid, a bell cord, a radio dial,\na two-handed valve, a key switch");
+    station_sign(13.9f + 3.3f, "Hinges & cords", "a door, a chest lid, a bell cord, a radio dial, a two-handed valve, a key switch");
 }

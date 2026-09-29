@@ -14,13 +14,14 @@ supports all of them, and the toolbox demonstrates each.
 | **Laser** | points and pulls the trigger | aim pose + trigger at a pull level | 2D panels; any 3D control from afar |
 | **Grab** | reaches and takes hold | grip within reach: the grip button, or **closing the hand** (`VRUI_GRAB_CLOSE`), or either button | blocks, knobs, levers, joystick |
 | **Poke** | touches with a fingertip | the poke pose (controller tip, or index fingertip with bare hands) pushing in | push buttons, switches |
-| **Hand shape** | an open palm, a point, a fist... | the Frame's touch sensors, or hand joints | an open hand shoves blocks, a fast fist knocks them, "point to press" buttons |
+| **Hand shape** | an open palm, a point, a fist... | the Frame's touch sensors, or hand joints | an open hand shoves blocks, a fast fist knocks them |
 
 ### Buttons that don't arrive
 Check the recordings before trusting a button. Every headset session so far recorded
 touches on the right controller's **B** (over 300 frames across sessions) but **not one
 click**, while A, X, Y, the bumpers and the D-pad clicks all came through. So the toolbox's
-radial menu, first bound to B, never opened on the Frame; it's on **A** now. To check a
+radial menu, first bound to B, never opened on the Frame. (Its next button, A, worked, but
+it's under the same thumb as the stick you choose with; it's on the **bumper** now.) To check a
 button yourself, watch it on the *Controllers panel*, or count it in a recording:
 `sfxrec_dump session.sfxrec --summary` lists clicked/touched frames per control.
 
@@ -48,12 +49,12 @@ controllers, SteamVR also reports joints (a skeleton inferred from the same sens
 The touch sensors decide while you hold controllers. A shape must hold for 3 frames before
 it changes, so it doesn't flicker.
 
-**Pointing, in practice.** To press a "point to press" button holding a controller: keep
-your middle, ring and little fingers on the grip, lift your index finger off the trigger,
-and push the controller's **tip** into the button. It isn't hand tracking: the controller
-can't see your finger, only that it's off the trigger. vrui draws a green fingertip at the
-tip while your hand reads as pointing, and a point-to-press button you bring your hand near
-says how, and what your hand reads as now ("now: open").
+**Don't gate controls on a shape the Frame guesses.** An earlier toolbox had a button that
+only a pointing finger could press. On the headset it wasn't dependable: the index sensor
+reads "off the trigger" late or not at all, so a deliberate point often didn't count. Shapes
+are good for things that tolerate a miss (an open hand shoving, a fist knocking). Buttons,
+menus and anything the player must be able to do on the first try belong on the tip and the
+buttons. With bare hands the shape comes from the joints, and is steadier.
 
 **Where a poke lands.** Holding a controller, the poke point is the controller's tip (where
 the laser starts). SteamVR's own poke pose for the Frame controllers is 12.5 cm *below* the
@@ -68,25 +69,30 @@ float index_bend = h->curl[SFXR_FINGER_INDEX];
 ```
 
 Use shapes to make physical interaction **conditional**:
-- a button that only a pointing finger presses (`VruiPressSpec.require_point`), so a
-  fist or palm bumping past does nothing
 - pushing with an open hand
 - grabbing by closing the hand
 
-**Tests:** `input/shapes-from-touch-sensors`, `mech/button-point-to-press`,
+**Tests:** `input/shapes-from-touch-sensors`,
 `mech/grab-by-closing-hand`; as SteamVR reports the Frame (`SFXT_FRAME_SKELETON`):
 `input/frame-point-from-touch` (break switch `sfxr_shapes_from_controller_skeleton`) and
 `input/frame-poke-at-the-tip` (`sfxr_poke_from_runtime`).
 
 
-**SteamVR's thumb is mirrored.** Holding the Frame controllers, SteamVR also reports a full
-hand skeleton built from the touch sensors (the joints' data source is "controller"). Its
-thumb is reflected across the controller: lift your thumb and the bones swing about 3 cm to
-the *far* side of the controller, away from the palm, where a real thumb lifts up and out on
-the palm side. Every recorded session shows it, on both hands. sfxr reflects the thumb back,
-about its own base, before you see the joints (`sfxr__unmirror_thumb` in `sfxr_input.c`);
-the palm and fingers are left as reported. Recordings keep what the runtime said, so replays
-get the same fix. Test: `hands/frame-thumb-on-the-right-side` (break switch
+**SteamVR's thumb is on the wrong control.** Holding the Frame controllers, SteamVR also
+reports a full hand skeleton built from the touch sensors (the joints' data source is
+"controller"). Its thumb lands on the wrong spot. Touch the stick and the tip is on the A
+button; touch A and it's on the stick; lift it and it hangs over the far side of the
+controller. Every recorded session shows it, on both hands. It was measured against the
+controller's own render model, from SteamVR's driver (`frame_controller_right.json`).
+sfxr poses the thumb itself, from the same touch sensors, before you see the joints
+(`sfxr__thumb_spot` and `sfxr__thumb_reach` in `sfxr_input.c`):
+- Touching a control, the tip is on that control. On the stick, it follows the stick as it
+  tilts.
+- Touching nothing, it hovers over the face.
+- The bones arc from the reported base to the tip, nail side up, and glide there.
+
+The palm and fingers are left as reported. Recordings keep what the runtime said, so replays
+get the same fix. Test: `hands/frame-thumb-on-what-it-touches` (break switch
 `sfxr_thumb_as_reported`); `sfxt_hand_kind(h, SFXT_FRAME_SKELETON)` imitates SteamVR's
 skeleton in tests.
 

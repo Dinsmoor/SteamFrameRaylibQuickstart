@@ -83,7 +83,7 @@ void toolbox_setup(void)
     // names for the widget registry: "table.sky", "mech.knob"... (tests find widgets by these)
     static const struct { unsigned g; const char *name; } GROUPS[] = {
         { G_TABLE, "table" }, { G_BLOCKS, "blocks" }, { G_BENCH, "mech" }, { G_LINK, "link" }, { G_YARD, "yard" },
-        { G_HINGE, "hinges" }, { G_VOICE, "voice" }, { G_SOUND, "sound" }, { G_WIELD, "rack" }, { G_WEIGHTS, "weights" }, { G_ATTACH, "attach" }, { G_MENUS, "menus" }, { G_SMOOTH, "smooth" }, { G_GARDEN, "garden" },
+        { G_HINGE, "hinges" }, { G_VOICE, "voice" }, { G_SOUND, "sound" }, { G_WIELD, "rack" }, { G_WEIGHTS, "weights" }, { G_GUNS, "guns" }, { G_ATTACH, "attach" }, { G_MENUS, "menus" }, { G_SMOOTH, "smooth" }, { G_GARDEN, "garden" },
     };
     for (size_t i = 0; i < sizeof GROUPS / sizeof GROUPS[0]; i++) vrui_group_name(GROUPS[i].g, GROUPS[i].name);
 
@@ -97,9 +97,10 @@ void toolbox_logic(void)
 {
     // What the hand menus offer here (every menu shows the same list; the
     // palm shows the first three).
-    static const char *const MENU[] = { "Grid", "Day / dusk", "Go home", "Reset blocks", "HUD style", "Hints", "Bug Smasher" };
+    static const char *const MENU[] = { "Grid", "Day / dusk", "Go home", "Reset blocks", "HUD style", "Hints", "Bug Smasher", "Screenshot" };
     const int NMENU = (int)(sizeof MENU / sizeof MENU[0]);
 
+    screenshot_update();
     if (garden_active()) {
         garden_update(&loco);   // part three: the garden replaces the stations while you're in it
         return;
@@ -118,11 +119,12 @@ void toolbox_logic(void)
     case 4: menus_set_hud_style((HudStyle)((menus_hud_style() + 1) % HUD_COUNT)); break;
     case 5: vrui_style()->show_hints = !vrui_style()->show_hints; break;
     case 6: garden_enter(); break;
+    case 7: screenshot_start("toolbox"); break;
     default: break;
     }
     onboarding_update();
     onboarding_panel(&setup_pose);
-    station_sign(-6.4f, "Hands-on setup", "learns how you like to\ngrab, point and press");
+    station_sign(-6.4f, "Hands-on setup", "learns how you like to grab, point and press");
     world_workbench();
     bench_mechanisms();
     bench_linkage();
@@ -135,7 +137,7 @@ void toolbox_logic(void)
     yard_update();
     vrui_locomotion(&loco);   // after the handholds (yard_update)
     toolbox_hud();
-    vrui_text3d((Vector3){ 0, 3.0f, -1.8f }, "sfxr + vrui toolbox", 0.14f, RAYWHITE);
+    vrui_text3d((Vector3){ 0, 3.0f, -1.8f }, "sfxr + vrui toolbox", 0.196f, RAYWHITE);
     world_step(sfxr_dt());
 
     // what tests check ("expect app sky >= 0.9"): the app's own state
