@@ -276,12 +276,14 @@ sfxr/include/sfxr.h  public XR API. sfxr/src/:
                        sfxr_xr.c (OpenXR instance/session/frames)  sfxr_xr_input.c (bindings, sampling, haptics)
                        sfxr_xr_signals.c (presence, refresh, joints, battery, counters, models)  sfxr_xr_internal.h
                        sfxr_xr_gl.c / sfxr_xr_vk.c (swapchains)  sfxr_sim.c  sfxr_replay.c + sfxr_rec.h  sfxr_script.c (tests)
+                       sfxr_audio.c  sfxr_voice.c  sfxr_steam.c  sfxr_store.c (saving)
 vrui/include/vrui.h  interaction toolkit (starts with a table of contents). vrui/src/:
                        vrui.c (context, arbitration, claims, draw)  vrui_panel.c  vrui_grab.c (grab machinery, grabbables)
                        vrui_mech.c (rotary/pivot/linear/tilt)  vrui_press.c (press/rocker)  vrui_display.c
                        vrui_haptics.c (mixer)  vrui_loco.c  vrui_label.c (world text)  vrui_attach.c (body,
                        follow, edge arrows)  vrui_menu.c (radial)  vrui_smooth.c (damping, springs, easing,
-                       pose smoother)  vrui_wheel.c (two-handed valve)  vrui_key.c (key switch). Per-widget state: typed structs in VruiItem.state
+                       pose smoother)  vrui_wheel.c (two-handed valve)  vrui_key.c (key switch)  vrui_wield.c
+                       (held by the handle)  vrui_collide.c (ray / sphere cast / ground). Per-widget state: typed structs in VruiItem.state
                        (VRUI_STATE / VRUI_STATE_FITS in vrui_internal.h), never generic slots.
 examples/<name>/     each dir with main.c -> bin/<name>   (hello, toolbox: one file per station in a row, see toolbox.h)
 apps/<name>/         your projects; same rule (make new-app NAME=foo)
@@ -297,7 +299,9 @@ docs/ATTACHING.md    attaching things to things, world labels, HUDs, hand menus
 docs/AUDIO.md        positional sound, sounds made in code, the mic, push-to-talk voice commands (Whisper)
 docs/SMOOTHING.md    how held things follow (snap/lag/spring/heavy/steady), springs, easing
 docs/DADDY_BUG_SMASHER.md       the toolbox's part three: a small game (examples/toolbox/garden*.c, tests/garden)
-tests/mech, tests/input  C test suites (make test); tests/regress/ golden replays (make regress)
+docs/WIELDING.md, STEAM.md, PERFORMANCE.md   held things with weight; Steamworks; frame rate and foveation
+tests/<suite>/       C suites: mech input move hands attach voice wield steam collide garden; tests/toolbox/*.sfxt
+                     scenarios against the real toolbox (make test); tests/regress/ golden replays (make regress)
 scripts/             frame.sh (headset remote control), shot-sim.sh, test-xr.sh, frame-build.sh, package.sh, new-app.sh
 tools/devkit-utils/  Valve's device-side devkit helper scripts (MIT, pinned copy; see VERSION)
 docker/              monado.Dockerfile (OpenXR test runtime), fake-frame.* (rehearsal "headset")
@@ -604,341 +608,129 @@ The quickstart's toolbox is the reference implementation of it.
   `frame.sh shot <app> <frame> KEY=VAL`.
 - **ESC does not quit** (`SetExitKey(KEY_NULL)`), because VR users can't see the keyboard.
   Close the window or let the runtime end the session.
+- **raylib shapes that send no normals:** `DrawCylinderEx`, `DrawCylinder`,
+  `DrawTriangle3D`, `DrawCubeV` (only `DrawCube`, `DrawSphereEx`, `DrawPlane` do). Under a
+  lighting shader they take whatever normal was set last. vrui draws its own cylinders
+  and sets triangle normals; set `rlNormal3f` before the others.
+- **A shader must read `vertexTexCoord`:** sampling `texture0` at a fixed point turned every
+  textured quad (the Bugmaster) invisible.
+- **Batched shapes arrive pre-transformed:** rlgl transforms DrawCube's corners on the CPU,
+  so the world shader takes `vertexPosition` as world space; models need `matModel`
+  (hence two programs, `useModelMatrix`). Flush the batch (`rlDrawRenderBatchActive`)
+  before changing a uniform, or the half-full batch draws with the new value.
+- **raylib's image noise doesn't tile** (`GenImagePerlinNoise`, `GenImageCellular`): seams
+  at every repeat; `graphics.c` has a tiling value noise. **raylib seeds its random numbers
+  from the clock:** anything a replay or golden image sees (textures, particles) uses a
+  fixed seed or its own generator.
+- **The scripted test backend renders nothing:** sfxt draws every frame into a tiny
+  target itself, so draw-time work (batch builds, culling) runs in tests.
+- **`scripts/regress.sh` runs `build/host-debug/bin/toolbox` as it is:** `make` first, or
+  it tests a stale binary (it once passed goldens on a build from before the change).
 
-### Current state and next steps (handoff, updated 2026-09-28, fifth session)
+### Current state and next steps (handoff, updated 2026-09-28, end of the sixth session)
 
-**The goal (from the user):** this quickstart is specifically for the Steam Frame. Every
-bit of the hardware should be exposed in the toolbox with sane defaults, and the toolbox
-is also the reference and testing baseline. Someone should be able to take "a good
-toggle switch" (or knob, or lever), change its graphics and collision, and keep a
-documented, tested behavior. Hands never move along a perfect axis, so off-axis force
-must never prevent use.
+**The goal (from the user):** a quickstart for the Steam Frame, **not a game engine**.
+Every bit of the hardware exposed with sane defaults; reference patterns a game would use
+anyway (take "a good toggle switch", reskin it, keep its documented, tested behavior);
+the toolbox is the reference and testing baseline. Hands never move along a perfect
+axis, so off-axis force must never prevent use. Add a primitive when the hardware makes
+it intrinsic (attention, pause) or nearly every game needs it; otherwise let a real game
+pull it in. **Next: a real but small game on the quickstart** (probably Revenge of the
+Bugmaster: pointing plus voice orders; see "Next" below).
 
-**Done and verified**
-- **On the real Frame:**
-  - pairing and deploy
-  - `hello` at 72 fps via GL
-  - toolbox interactive
-  - auto-recorded sessions
-  - replay on the headset's GPU
-  - blank panels fixed (the raylib patch)
-  - **the input path probe:** the runtime's real input list, now bound in full. It
-    accepted 54 Frame bindings and 14 bare-hand bindings, and only Frame profiles are
-    offered.
-  - **every headset signal extension present and initialized without errors:**
-    presence, hand joints, battery, performance counters, controller models, alpha
-    blend. Presence verified live: "headset taken off" on the desk. SteamVR offered
-    only 72 Hz while unworn.
-- **On the build machine:**
-  - simulator, Monado GL/VK, Frame builds
-  - record/replay: format v2, with v1 upgrade
-  - `make regress` (2 golden tests)
-  - **`make test`: 59 C cases (mech, input, move, hands, steam), all passing, every
-    break switch proven, audit clean** (5 cases are unproven: no switch fits them)
-- **In the toolbox:**
-  - workbench: app-wired controls
-  - Toolbox panel, with the "Pull to use" selector
-  - wrist panel, with a live trigger readout
-  - **Mechanisms bench** (right): one of each reference mechanism
-  - **Controllers panel** (left): every Frame control's touch and press, trigger and
-    grip bars with the pull marks, stick plot, input source, eye gaze, haptics tester
-  - **Headset panel** (further left, behind): worn state and take-off count, refresh
-    rate switch, passthrough (alpha blend), batteries, hand-joint status, toggles for
-    joints and real controller models, performance counters
-  - vrui draws bare hands as joint skeletons, and controllers with the runtime's own
-    models when available
-- **Docs:** README, this file, `docs/TESTING.md`, `docs/MECHANISMS.md`,
-  `patches/README.md`.
+**Working on it**
+- The repo is public (`github.com/Dinsmoor/SteamFrameRaylibQuickstart`, MIT). Claude
+  commits and pushes (spark's git identity, the attribution lines, the message written to
+  a file and `git commit -F`: an apostrophe inside `ssh '...'` once truncated one). Never
+  force-push.
+- **Build everything first (`make`, `make CONFIG=test test-bins`, `make frame`), then run
+  tests, and only on spark**, never on the local machine (the user asked).
+- Visual checks without a headset: a throwaway `tests/toolbox/zz_look.sfxt` whose cases
+  end in a failing `expect`; `SFXT_SNAPSHOT_SIZE=1920x1080` gives headset-like sharpness;
+  `fail.png` lands in `build/host-test/test-artifacts/<file>/<case>/` (test.sh wipes them
+  each run). README pictures: the same with the HUD default set to `HUD_OFF` temporarily.
+- The user's taste: plain, readable, "nicer to be in"; not straight-up Minecraft. The
+  visual ceiling now is the artwork, not the rendering.
 
-**The second headset session (2026-09-28, pulled into `local-data/session2/`)**
-- The player used nearly every control; every Frame control's click and touch registered.
-- The runtime's controller models loaded, and presence worked. SteamVR offered **only
-  72 Hz, even worn**.
-- One launch failed on the GL path (`xrCreateReferenceSpace` gave
-  `XR_ERROR_HANDLE_INVALID`) and fell back to Vulkan, so the Vulkan path is now verified
-  on hardware. The cause is not investigated.
-- **Feedback, all addressed since:**
-  - recording should start when worn
-  - the stick on the controller panel teleported them → input ownership, LOOK capture
-  - a list that only scrolled by stick → drag scrolling
-  - 2D vs 3D should be clearly separate → laser colours, claims
-  - springy things should hum with displacement → tension haptics
-  - a set-point control → PIN + sprung lever
-  - the laser could spin the valve absurdly fast → resistance
-  - benches showing value flow and mechanical displays → linkage bench
-  - controller-only input methods: laser, grab by closing the hand, conditional
-    physical interaction → hand shapes, grab styles, palm push and punch
-  - onboarding that learns the player's control habits → setup template
-  - make haptics carry the resistance → mixer and vocabulary
+**What exists (details in the docs and the headers)**
+- **sfxr:** OpenXR GL (verified on the Frame at 72 Hz, 1728² per eye) and VK paths, the
+  simulator, record/replay (every headset launch records; replays run on the headset's GPU
+  too), scripted backend for tests. Every Frame control's click and touch, pull levels,
+  hand shapes from the touch sensors, the thumb posed from them, bare-hand gestures,
+  presence, focus and **attention** (`sfxr_attention`: headset off / dashboard; recorded),
+  refresh rate, batteries, performance counters, controller models, passthrough, depth
+  submission, floor guard, screenshots, the event log, `sfxr_report`, **`sfxr_store`**
+  (saving), `sfxr_in_view` (culling), positional audio mixed by sfxr (ears: level, time,
+  tone), emitters, `sfxr_audio_pause`, the mic, push-to-talk and hands-free Whisper,
+  optional Steamworks.
+- **vrui:** panels (Atkinson Hyperlegible, wrapping), the reference mechanisms, grab and
+  wield (Blade & Sorcery-style), locomotion (teleport, pads, surfaces, climbing), world
+  labels and callouts, hand menus and HUDs, smoothing, haptics mixer, the widget registry,
+  a lighting-shader hook and culling for its shapes, **collision queries**
+  (`vrui_collide.c`: ray, sphere cast, ground).
+- **The toolbox** (README "What's in the toolbox" lists every station): the workbench with
+  the look switches (LIGHT SHINE FOG TEXTURES SHADOWS CULL BATCH) and a cost plaque, the
+  controls diagram, the stations in a row from Particles (x -23) to Hinges & cords, the
+  Movement yard, and **Daddy Bug Smasher** (pauses when you leave, best time saved).
+  `graphics.c` (one commented world shader in `resources/shaders/`, textures, static
+  batching, blob shadows), `particles.c`, `impacts.c`.
+- **Tests:** 136 cases (28 unproven: no break switch fits them), audit clean, two golden
+  replays. `make test`, `scripts/test.sh [file]`, `scripts/regress.sh [--bless]`.
 
-**Maintenance pass (2026-09-28, before the next headset session)**
-- **Names:** one scheme. Full forms are named after the motion (`vrui_rotary/pivot/
-  linear/tilt/press/rocker`), short forms after the thing.
-- **Typed per-widget state** (`VRUI_STATE`), and break-switch probes kept out of the
-  drive math.
-- **Splits:** sfxr into pose / input / signals and OpenXR core / input / signals; vrui
-  props into grab / press; the toolbox into one file per station; `tests/mech` into one
-  file per family around `scene.h`.
-- **`vrui.h`** regrouped with a table of contents, and the README rewritten with a tour
-  of the files.
-- **Bugs found on the way:**
-  - the Controllers panel had never actually been set to LOOK capture
-  - `ar` kept deleted objects in the libraries
-  - the joystick's break-switch probe (caught by its red leg)
+**What the Frame taught us (keep: each cost a session to find)**
+- **B's click never reaches the app** (touch yes, click 0 in every recording). Nothing
+  essential on B. `docs/INPUT.md` "Buttons that don't arrive".
+- **SteamVR's poke pose is 12.5 cm below the grip**, and its controller skeleton **never
+  straightens the index** (curl 0.97): poke from the tip, shapes from the touch sensors.
+  The index sensor isn't dependable enough to gate a control on (point-to-press removed).
+- **SteamVR's thumb is placed on the wrong control** (on A for the stick, on the stick for
+  A, the far side when lifted): sfxr poses it from the touch sensors, spots measured from
+  the driver's render model (`/opt/steamvr/drivers/frame_controller/resources/rendermodels/`,
+  grip = its `openxr_grip` component).
+- **A controller's palm pose (`palm_ext`) has the grip's axes** (palm along ∓X, -Y down
+  the handle; the Frame's is the grip tipped 42° about X): sfxr turns it to the joint
+  convention.
+- **Only 72 Hz offered**, even worn and with `preferMinRefreshRate: 90`.
+- **One launch failed on GL** (`xrCreateReferenceSpace` gave `HANDLE_INVALID`) and fell
+  back to Vulkan (so VK works on hardware). Cause unknown; watch the logs.
+- **SteamVR's floor settles** (LOCAL_FLOOR 0.64 m off STAGE for ~12 s once): the floor
+  guard corrects it (`SFXR_FLOOR=local` turns it off).
+- **Zink reorders buffer uploads** (blank panels): the raylib patch; see Gotchas.
+- Foveation: no GL route; Valve's `fdm_injection` layer is loaded into our process and
+  might foveate Zink's passes. Unmeasured (`docs/PERFORMANCE.md`, `scripts/frame-perf.sh`).
+- The radial menu lives on the **main hand's bumper** (A and the stick share a thumb).
 
-**Not yet tried by hand in the headset** (from the second session's round)
-- the setup station, hand shapes from the real touch sensors, resistance feel, the
-  linkage bench, drag scrolling
-- the Headset panel while worn: passthrough, batteries, counters, model alignment,
-  camera-tracked joints
+**Next headset session: check these (the newest first)**
+1. Daddy Bug Smasher: take the headset off mid-round, then open the dashboard: paused,
+   silent, a menu in front of you on return, 3-2-1 on Resume? The garden lit, the
+   Bugmaster on his tower.
+2. Blob shadows under your hands; throw blocks at other tables and posts; strike a table
+   with the sword (knock, dust, buzz).
+3. The Particles bench and the stream: read well in stereo? The plaques' costs.
+4. The workbench switches with the Performance overlay on: what does each cost on the
+   Frame (CPU ms on the plaque)? Fog and light at day and dusk (SKY lever).
+5. The palm buttons at a normal distance; the controls diagram's real models and callouts.
+6. Thumbs with "Joints while holding" on (Headset panel).
+7. Still open from earlier sessions: left/right sound at the Sound station; B on the
+   Controllers panel; bare hands (put the controllers down; `SFXR_HANDS=joints`); the
+   Movement yard; `scripts/frame-perf.sh toolbox` while worn; the mic's name
+   (`frame.sh exec 'pactl list sources'`) and Whisper's time on the headset.
+8. `scripts/frame.sh pull toolbox` afterwards: recordings, `.events`, `shots/`.
 
-**Third headset session (2026-09-28, `local-data/session3/` on spark) and the work since**
+**Next (for the small game; build a primitive when the game needs it)**
+- Enemy movement: steering, separation, following the terrain, waves.
+- Animated characters (glTF animation; the world shader needs a skinning path).
+- A comfort vignette, if the game uses smooth movement.
+- Instancing, once there are hundreds of copies of something.
+- The garden's terrain isn't a collider yet (shadows and impacts skip the garden).
 
-The repo is public (`github.com/Dinsmoor/SteamFrameRaylibQuickstart`, MIT). Claude makes the
-commits (spark's git identity; the attribution lines in each message; write the message to
-a file and `git commit -F`, because an apostrophe inside `ssh '...'` truncated one once).
-Never force-push.
-
-Feedback from the session, and what was done about it:
-
-| Feedback | Done |
-|---|---|
-| camera too low at spawn, fixed itself later | **floor guard**: if LOCAL_FLOOR and the room-setup (STAGE) floor disagree by over 10 cm, every tracked height is corrected (`SFXR_FLOOR=local` turns it off). The cause looks like SteamVR's floor estimate settling (0.64 m off for about 12 s in the recording). **Check the log line in the next session** |
-| a panel took the controls when looked at from behind | LOOK capture only from the front |
-| springy things buzzed near full strength at 10% | the tension hum is quadratic in displacement from rest; test `mech/plunger-tension-gentle-near-rest` |
-| which controls take poke, grip or laser? | **usage hints** above whatever a hand or laser is on ("poke it \| or laser + trigger", "grab it (grip)...", pull level) |
-| workbenches too close to walk around | stations on a ring (`station_pose` in `toolbox.h`), 1 m or more apart |
-| teleport only "anywhere" | **teleport pads** (snap to center and facing, `pads_only`), plus `valid_target` zones |
-| no platformer-style movement examples | **surfaces** (`ground_height`: arc lands on platforms, stairs up, tables no, falls) and **climbing** (`vrui_handhold`: walls, ladders, monkey bars, mantling). Movement yard ahead. `docs/MOVEMENT.md`, `tests/move` |
-| thumbs mirrored on the controller skeleton | **solved in the fifth session** (see below). Was: **not solved.** The recorded joints move with the stick correctly (thumb tip vs stick x correlate positively for both hands), so the drawing or SteamVR's resting-thumb estimate is suspect. Next session: compare with the real controller models off and on, and read the Controllers panel |
-| bare hands wanted | **gestures** from the joints (`sfxr_hand_gestures`: pinch with hysteresis, middle pinch, grasp, palm up / to face, steady ray); joint-only hands work; simulator **H**; `tests/hands` |
-| Steam API | `sfxr_steam.h` (dlopen, flat API, fake-library tests; `docs/STEAM.md`) |
-| foveated rendering | researched again: no GL route. Valve's `fdm_injection` is loaded into our process (Vulkan and OpenXR layer) and may already foveate Zink's passes. Unmeasured. **Depth submission** added (GL path). `docs/PERFORMANCE.md`, `scripts/frame-perf.sh` |
-| testing to-dos | **event log** (`SFXR_EVENTS`, every headset session and failing test keeps one) |
-
-**Next headset session: what to check, in order**
-1. `scripts/frame-perf.sh toolbox` while wearing it. Read the table and `layers.txt`
-   (what fdm_injection is, and its off switch).
-2. Spawn height: the log should say "floor guard: ...", or nothing if the floors agree.
-3. The thumb mirroring, with models off and on.
-4. Bare hands: put the controllers down.
-   - Does the runtime's hand profile activate, and is its pinch sane? (the Controllers panel's gesture line)
-   - Then `SFXR_HANDS=joints` to compare.
-5. The Movement yard: pads, the climbing wall, monkey bars, the stairs, the LIFT as an elevator.
-6. The hints, the gentler spring hum, front-only LOOK capture.
-7. Only 72 Hz offered: check `vrpreferences.json` was loaded (the vrserver log) and the
-   refresh switch.
-8. With a Steamworks SDK: `STEAMWORKS_SDK=... make package`, then the Headset panel's test
-   achievement.
-9. `frame.sh pull toolbox` afterwards: the `.events` file next to each recording says what
-   was touched when.
-
-**Fourth session (2026-09-28, no headset): the user's list, and what was done**
-
-| Asked for | Done |
-|---|---|
-| a row of workbenches | the stations stand in one row facing the aisle, a sign over each (`toolbox.h` has the table); the yard and the LIFT moved behind the spawn point |
-| world labels with documented primitives; attaching shown | `vrui_text_at`, `vrui_tag`, `vrui_callout`, `vrui_sign` (vrui.h section 9); `sfxr_pose_relative` and the attaching rule in `sfxr.h`; the **Attach & label** bench (turntable, a lever mounted on it, a flag on the lever, blocks that go on the table / in your hand / on your belt / drop); `docs/ATTACHING.md` |
-| menus attached to the hands | watch (turn the wrist), palm buttons, a tablet held in the hand, `vrui_radial_menu`; the **Menus & HUD** station switches them |
-| visor HUD examples | head-locked, lazy follow (`vrui_follow`), on the belt (`vrui_body`); `vrui_offscreen_arrow`, `vrui_tint`, `vrui_on_top_begin/end`, `vrui_panel_passive` |
-| port the 3D world and engine of the earlier raylib game as part three | **the garden** (`garden*.c`, `docs/DADDY_BUG_SMASHER.md`): terrain, props, a sun shader, a box rigid body, you are Daddy: pick your hammer up off its stump, smash 8 bugs. Gate at the right end of the row |
-| weapon control modes and interpolation tools, shown with the weapons | `vrui_smooth.c`: damping, springs, speed limits, easing, and `vrui_smooth_pose` (Snap / Lag / Spring / Heavy / Steady); the **Smoothing** station (a sword and five ghosts, the settings, easing rails); Daddy Bug Smasher's hammer follows through the chosen mode (board or hand menu); `docs/SMOOTHING.md` |
-| the remaining CLAUDE.md items | two-handed valve (`vrui_valve`) and key switch (`vrui_key_switch`) on Hinges & cords; the head-in-wall fade (`solid_depth`); the widget registry, `.sfxt` scenario files (`tests/toolbox`), failure `fail.png` + `run.sfxrec`, `scripts/clips.sh` |
-
-`make test`: 92 cases, every break switch proven except 12 listed unproven cases, audit
-clean, goldens pass, Frame build and package clean (the package carries
-`resources/garden/`).
-
-**Next headset session, in addition to the checklist above**
-1. **Daddy Bug Smasher**, the biggest untested thing:
-   - does the lighting shader render in stereo under Zink?
-   - is 72 fps held?
-   - does the hammer feel right in each smoothing mode? Hits come from the smoothed pose, so Heavy should need a real swing.
-   - the belt slot
-   - bug arrows and the red flash (gentle enough?)
-2. **Hand menus with real hands:**
-   - the watch and palm cues (false opens while grabbing? the palm cue on controllers)
-   - the tablet on View/Menu
-   - the radial menu on B, and that its stick never teleports you
-3. **HUD styles worn:**
-   - is the follow HUD's 20 degree glide comfortable?
-   - is the belt HUD readable?
-4. **The Smoothing station:** wave the sword and compare the ghosts. The Steady mode's tremble filtering is best judged on the device.
-5. **Walls:** walk into the climbing wall; is the fade right?
-6. **Pull a session** (`frame.sh pull toolbox`), then `scripts/clips.sh` it and keep a clip or two as regression tests.
-
-**Later the same day: sound, voice, and Daddy Bug Smasher's real names**
-- The garden is **Daddy Bug Smasher** (the user's family game, real names allowed; `docs/DADDY_BUG_SMASHER.md`).
-  The Bugmaster stands on his tower and shouts; Revenge of the Bugmaster (his side,
-  pointing plus voice commands) is the user's planned game on this quickstart.
-- The valve shows it needs two hands (grip pads, BOTH HANDS).
-- Sound and voice (`docs/AUDIO.md`): positional sounds, the toolbox's sounds made in code,
-  vrui's sound hook, the microphone, push-to-talk Whisper (`scripts/get-speech.sh` builds it for
-  host and Frame), the **Sound & voice** station (a speaker to carry, a TALK button with a
-  transcript board, point-and-speak bugs), sounds and "hammer"/"restart" in the game.
-  `tests/voice` (3 cases). Build machine: 115–135 ms per command.
-
-**Headset checks for sound and voice**
-1. Is there sound at all (the log's "audio: on"), and does it come from the right side? Carry
-   the speaker round your head.
-2. `scripts/frame.sh exec 'pactl list sources'`: the mic's name and channel count, and any
-   echo-cancel source; the log's "microphone: on (...)" should name the headset's mic, not a monitor.
-3. `scripts/get-speech.sh frame`, `make package`, then the TALK button: accuracy and time
-   (the panel shows ms); try `SFQ_SPEECH_THREADS=2/4/6`.
-4. Daddy Bug Smasher's own sounds are in (the user approved the bug sounds and the
-   Bugmaster's voice; the music stays out, one track was a commercial song added by
-   accident): do the Bugmaster's lines come from his tower, and do the subtitles match?
-
-**Fifth session (2026-09-28): the headset feedback on sound, voice and Daddy Bug Smasher**
-
-The session data is `local-data/toolbox-20260928-143908/` on spark. What the recordings
-showed, and what was done:
-
-| Feedback / finding | Done |
-|---|---|
-| the chime is annoying | a switch per sound at the new **Sound** station, all off to start |
-| left/right barely audible | raylib only pans. sfxr now **mixes sounds itself** (a raylib mixed-audio processor), with each ear's level (far ear -12 dB), time (up to 0.66 ms, Woodworth) and tone (far ear muffled above 1.8 kHz); duller behind and far. Runs **offline** without a device, so tests render it (`voice/click-reaches-the-near-ear-first`) |
-| emitter types | `SfxrEmitter`: point, cone, line, box, ambient; `sfxr_sound_emit` / `sfxr_playing_move/stop`; `sfxr_audio_ears` |
-| voice via world button + pointing was awkward; show each binding type | the **Voice commands** station (x -12.2): point + bumper (context), point + A (an orders ring, context), TALK intercom, hands-free with the wake word "bugs" (`sfxr_voice_hands_free`: a speech detector) |
-| the radial menu never worked | **B's click never reaches the app on the Frame** (touch yes, click 0 in every recording). The radial is on **A** now; `docs/INPUT.md` "Buttons that don't arrive". Ask the user to press B on the Controllers panel to confirm |
-| finger poke never worked | **SteamVR's poke pose for the Frame controllers is 12.5 cm below the grip**, and **its controller skeleton never straightens the index** (curl 0.97 off the trigger). With controllers, sfxr pokes from the tip and reads shapes from the touch sensors; a green fingertip shows a point; point-to-press buttons coach a nearby hand |
-| thumb bones on the wrong side | first fixed by reflecting the thumb; that was wrong (sixth session: see there) |
-| checkerboard tag on the board | above it, on a stand |
-| smoothing ghosts moved on teleport | `with_player` only while the sword is held |
-| chest and doors too stiff; lid should fall | hinge weight 0.08 s, 220 deg/s; the lid has gravity and friction (stays open past ~70%) |
-| knobs too small | 5.5 cm (dials 6.5) |
-| Whisper loops | repeats collapse to one |
-| the Bugmaster looked crazy | his own two-frame drawing, an upright billboard |
-| weapons held at the grab angle; hammer too short; wanted Blade & Sorcery | **`vrui_wield`** (vrui.h section 14, `docs/WIELDING.md`): handles that settle into the fist, two hands, sticky grips that slide when loosened, weight springs, lift_hands, laser pull, loose physics. **Wielding** station (x -15.4, a rack and a sandbag). Daddy's hammer is wielded and 0.95 m |
-| a weight and physics-feel area | **Weights** station (x -18.8): `vrui_wield_spec` presets feather .. anvil, a throw lane |
-
-`make test`: 117 cases (19 unproven), audit clean, goldens re-blessed once (bigger knob,
-the green fingertip).
-
-**Sixth session (2026-09-28): the fifth session's build in the headset**
-
-Session data: `local-data/toolbox-20260928-162841/` on spark. The user: weapons much
-better; didn't know the radial's button, and holding A while steering with the stick takes
-two thumbs; the index finger isn't reliable enough as an interface control; the thumbs
-"inverted sort of correct but broken"; fonts too small in the headset; wanted README
-screenshots, a way to take screenshots in the headset, a Garry's Mod physgun and a
-Half-Life 2 gravity gun at the throwing table, and a consistency pass over the 2D UI.
-
-| Feedback / finding | Done |
-|---|---|
-| radial on A needs two thumbs | the hand menus' radial is on the **main hand's bumper**; Daddy Bug Smasher's push-to-talk moved to the less-used hand's bumper. The Voice station's context binding is point + bumper: a ring AND listening (tilt = ring, centered = voice); binding 2 is now point + trigger, a pop-up menu clicked by laser (`Orders` panel) |
-| index finger unreliable | `VruiPressSpec.require_point`, its coaching tag, break switch and test, and the green fingertip are **gone**; `docs/INPUT.md` says why |
-| thumbs still wrong | measured against the controller's render model from SteamVR's driver (`/opt/steamvr/drivers/frame_controller/resources/rendermodels/`, grip = its `openxr_grip` component): SteamVR puts the thumb tip **on A when the stick is touched and on the stick when A is**, and over the far side when lifted. The reflection fixed neither. sfxr now **poses the thumb itself** from the touch sensors: tip on the touched control (right-controller spots in grip space in `sfxr_input.c`, left mirrored; the stick's tilt followed), hovering 2.8 cm when none, bones arced from the reported base, gliding. `sfxr__thumb_spot`, `sfxr__thumb_reach`; test `hands/frame-thumb-on-what-it-touches` |
-| fonts too small | vrui's font is **Atkinson Hyperlegible** (embedded, `vrui/fonts/`, OFL), panels 770 px/m at 24 px text drawn at 2× density, rows at least a line tall, `vrui_paragraph` wraps, signs wrap, world text 1.4× (aim 1.4 degrees), callouts 1.5 degrees; every toolbox panel 1.3× bigger in meters (same pixel layouts). `vrui_font()` for custom panel drawing (the Controllers panel used raylib's font) |
-| screenshots in the headset | `sfxr_screenshot(path)`; hand menu **Screenshot** (2 s countdown, then shots/ next to the app); `frame.sh pull` brings shots back |
-| README screenshots | `docs/images/` from `SFXT_SNAPSHOT_SIZE=1600x900` snapshots (HUD off while taking them) |
-| physgun and gravity gun | `station_guns.c` beside Weights (x -20.1); `vrui_wield_set_motion`; `tests/toolbox/guns.sfxt` (3 cases, 2 break switches) |
-| consistency pass | follow HUD rides 28 degrees below the gaze (it sat on every bench); home/yard edge arrows off by default, fanned apart when two point the same way; gauge and counter labels printed on their plane (they poked through tilted boards); a **Controls** sign at the start; Voice placards on a strip under the table edge; wrapped/shortened overflowing lines; `vrui_box_wires`, `vrui_sphere`, `vrui_cylinder` public |
-
-`make test`: 120 cases (21 unproven), audit clean, goldens re-blessed (font and sizes).
-
-Then (same day): the palm buttons only opened with the wrist next to the head. A
-controller's palm pose (`palm_ext`, or the grip) has the grip's axes: palm along -X
-(right) / +X (left), -Y down the handle; recorded on the Frame, `palm_ext` is the grip
-tipped 42 degrees about X. `hand->palm` is now turned to the joint convention (-Y out of
-the palm) for controllers too (`sfxr_input.c`; test
-`hands/controller-palm-faces-out-of-the-palm`, switch
-`sfxr_controller_palm_as_reported`; `SFXT_FRAME_SKELETON` gives the Frame's palm pose).
-The Controls sign became a **controls diagram** (`controls_diagram.c`): both controllers
-3.5x life size on a board behind the workbench, callouts on every control, labels
-following the main hand. Headset: the runtime's own models (placed from their offset to
-the grip while in hand); elsewhere a stand-in at the measured spots.
-
-Then: **graphics** (`examples/toolbox/graphics.c`). The user wanted the world nicer to be in
-without costing frame rate, "not straight-up Minecraft"; the shader documented heavily IN
-its source (they are new to shaders), not in the docs. One shader for everything solid
-(`resources/shaders/world.vs/.fs`): sun + sky/ground hemisphere light, a small shine, fog
-into the sky color, a gentle tiling texture laid on by world position (static things
-only: `MAT_NONE` for movers), lighting done in linear light. vrui gained
-`vrui_solid_shader` (its boxes/spheres/cylinders/triangles lit; cylinders and triangles
-now carry normals: raylib's DrawCylinderEx/DrawTriangle3D/DrawCubeV send none),
-`vrui_culling` + `vrui_draw_counts`; sfxr gained `sfxr_in_view` (both eyes' real frusta)
-and `sfxr_frame_cpu_ms`. Static batching: `scenery_box/cylinder/sphere` declared every
-frame, merged once into 6 m chunk x material meshes (raylib GenMesh* shapes, UploadMesh),
-rebuilt only when the call count changes; tables, posts, frames, yard, trees moved to it.
-Six switches on the workbench (LIGHT SHINE FOG TEXTURES CULL BATCH) and a cost plaque.
-The harness now draws every frame (app + vrui) into a tiny target so draw-time work runs
-in tests; its eyes match the snapshot camera (75 degrees, 16:9); `sfxt_set_sky`. Tests
-`tests/toolbox/graphics.sfxt`, `attach/in-view-counts-the-edge`. Textures use our own
-tiling value noise: raylib's Perlin/cellular images don't wrap (seams every repeat).
-Pixel-art NEAREST filtering was tried and dropped (too Minecraft; anisotropic filtering
-blurs it on some GPUs anyway).
-
-Then (headset: "performed well"): the Bugmaster had vanished and the garden wasn't lit.
-The shader sampled texture0 at (0,0), ignoring texture coordinates: fixed. world.vs now
-has a model-matrix path; graphics.c loads the program twice (`useModelMatrix` 0 for
-pre-transformed shapes and batched scenery, 1 for models: `gfx_model_shader()`), and
-the garden's own little shader is gone: its models use the model version, with
-materials (terrain grass, rocks and tower stone, table wood; loose props none).
-Water: `MAT_WATER` in world.fs (four sine waves' slopes bend the normal, Schlick
-Fresnel sky reflection, a sharp sun glint), the Sound station's stream rebuilt with it,
-river stones and drifting foam. Particles: `particles.c` (the system) and
-`station_particles.c` at x -23 (campfire with embers and smoke, chimney, steam pipe,
-spark grinder that bounces on the table top; FIRE/SMOKE/STEAM switches, SPARKS button,
-WIND slider); own seeded RNG (replays), culled per emitter, drawn after the world
-without depth writes. Tests `tests/toolbox/particles.sfxt`.
-
-Then (the user: "not a game engine, a quickstart; the VR game flow is intrinsic to the
-hardware"): **attention** -- `sfxr_attention()` (headset off / dashboard open; focus now
-sampled into the recorded signals, `SfxrSignals.unfocused`), `sfxr_audio_pause`, the
-event log, sim F2/F3, scenario `headset off` / `dashboard open`; the toolbox freezes and
-hushes while away and saves; Daddy Bug Smasher pauses mid-round, saves, shows a Paused
-menu in front of you on return, Resume counts 3-2-1 (`garden/pauses-when-...`).
-`sfxr_store` (save/<name>.cfg, atomic rename, memory-only in replays/tests): the look
-switches and the garden's best time. **Collision** `vrui_collide.c`: colliders declared
-every frame (scenery registers itself, tagged with its material), queries see last
-frame's set; ray, sphere cast (tunneling), `vrui_ground`; wield's default ground uses
-it; blocks sweep a ball (land on any table, bounce off posts); weights land anywhere.
-**Blob shadows** (`gfx_shadow`, SHADOWS switch): hands, blocks, weights, weapons.
-**Impacts** (`impacts.c`): sound by surface (new KNOCK/CLACK/CLANK), dust or sparks,
-the hand's buzz; blocks, weights landing, weapons striking scenery. Tests
-`tests/collide`, graphics.sfxt's block and shadow cases.
-
-**Next headset session: check these first**
-0. Take the headset off mid-round in Daddy Bug Smasher, and open the dashboard: paused,
-   silent, a menu on return? Blob shadows under your hands; throw blocks at other tables
-   and posts; strike a table with the sword (knock, dust, buzz).
-   The Particles bench (far left, past the guns): do the fire, smoke, steam and sparks
-   read well in the headset, and what does the plaque say it costs? The stream at the
-   Sound station. The garden lit, the Bugmaster back on his tower.
-   Graphics: flip each workbench switch and watch the cost plaque (CPU ms) and the
-   Performance overlay; is the fog/lighting pleasant at day and dusk (SKY lever)?
-   Palm buttons: turn the less-used palm to your face at a normal distance. The controls
-   diagram behind the workbench: real models, callouts on the right spots?
-1. Thumbs, with "Joints while holding" on (Headset panel): tip on the stick, on A/B/X/Y,
-   hovering when lifted; left hand on the D-pad.
-2. Text: readable at arm's length on the panels, the signs, the labels? Anything still too
-   small or overflowing?
-3. Radial on the bumper (main hand); the Voice station's point + bumper (ring and voice)
-   and point + trigger (pop-up).
-4. Physgun and gravity gun: the feel of holding, reeling, freezing, punting; does the gun
-   point where the laser did?
-5. Screenshot from the hand menu, then `scripts/frame.sh pull toolbox`: is the image the
-   eyes' view?
-6. Still open from the fifth session: left/right sound at the Sound station; B on the
-   Controllers panel; Weights and Wielding feel.
-
-**Still to build**
-- Animate the controller models' buttons (`xrGetRenderModelStateEXT` node poses; needs
-  the device to verify).
-- Scenario commands still planned: `snapshot`, `play`, gaze / session / controller dropout.
-- The garden: more bug kinds, a second level.
-- Why one launch failed on the GL path (`xrCreateReferenceSpace` gave `HANDLE_INVALID`) and
-  fell back to Vulkan. Watch for it in logs.
-
-**Later**
-- The `vk` backend and 90/120 Hz on hardware; the Performance Assessment overlay; eye
-  gaze on the device.
+**Still to build / later**
+- Animate the controller models' buttons (`xrGetRenderModelStateEXT`).
+- Scenario commands still planned: `snapshot`, `play`, gaze, controller dropout.
+- The `vk` backend and 90/120 Hz on hardware; eye gaze on the device; depth for the VK
+  path; motion vectors (`XR_EXT_frame_synthesis`).
 - Steamworks on the Frame (devkit launches + app 480); depots.
-- Depth for the VK path; motion vectors (`XR_EXT_frame_synthesis`).
 - A virtual keyboard widget and a `vrui_scroll_panel`.
 - An Android APK target (raylib's Android backend + `XR_KHR_opengl_es_enable`) as a
-  fallback path.
-- A native Vulkan renderer, if foveation can't reach GL (`docs/PERFORMANCE.md`).
-- raylib stays on the 6.0 release (the newest); the development branch was 438 commits
-  ahead on 2026-09-27. Pin a commit only if a feature needs it.
+  fallback; a native Vulkan renderer if foveation can't reach GL.
+- raylib stays on the 6.0 release; pin a development commit only if a feature needs it.
