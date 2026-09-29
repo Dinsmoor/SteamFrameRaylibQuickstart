@@ -100,19 +100,44 @@ static void step_block(Block *b, float dt)
 {
     if (b->held || !b->alive) return;
     if (world.gravity) b->vel.y -= 9.8f * dt;
-    b->pose.position = Vector3Add(b->pose.position, Vector3Scale(b->vel, dt));
+
+    // Move by sweeping a ball the block's size along this frame's travel
+    // (vrui_spherecast): it stops at the first solid thing -- any station's
+    // table, a post, the ground -- however fast it was thrown.
+    Vector3 from = b->pose.position, to = Vector3Add(from, Vector3Scale(b->vel, dt));
+    bool blind = SFXR_BREAK(toolbox_blocks_ignore_scenery);   // (the old way: only the floor)
+    VruiHit h = blind ? (VruiHit){ 0 } : vrui_spherecast(from, to, b->half.x);
+    bool struck = false;
+    if (h.hit) {
+        b->pose.position = Vector3Add(h.center, Vector3Scale(h.normal, 0.001f));
+        float into = -Vector3DotProduct(b->vel, h.normal);   // speed toward the surface
+        if (into > 0) {
+            impact(h.point, h.normal, into, h.tag, -1);
+            struck = into >= 0.6f;
+            // bounce back a quarter of it; rub off some of the sliding
+            Vector3 slide = Vector3Add(b->vel, Vector3Scale(h.normal, into));
+            b->vel = Vector3Add(Vector3Scale(slide, 0.85f), Vector3Scale(h.normal, into * 0.25f));
+            b->angvel = Vector3Scale(b->angvel, 0.85f);
+        }
+    } else {
+        b->pose.position = to;
+    }
     Quaternion w = { b->angvel.x, b->angvel.y, b->angvel.z, 0 };
     Quaternion dq = QuaternionScale(QuaternionMultiply(w, b->pose.orientation), 0.5f * dt);
     b->pose.orientation = QuaternionNormalize(QuaternionAdd(b->pose.orientation, dq));
 
-    // resting surfaces: the table top (inside its footprint) or the floor
-    Vector3 p = b->pose.position;
-    bool over_table = fabsf(p.x) < TABLE_W * 0.5f && fabsf(p.z - TABLE_Z) < TABLE_D * 0.5f && p.y > TABLE_Y - 0.05f;
-    float ground = over_table ? TABLE_Y : 0.0f;
+    // resting: a ball is a rough fit for a tumbling box, so its lowest corner
+    // is also kept on whatever is below
+    int tag;
+    float ground = blind ? 0 : vrui_ground(b->pose.position, &tag);
+    if (blind) tag = MAT_GRASS;
     float low = lowest_corner_y(b);
     if (low < ground) {
         b->pose.position.y += ground - low;
-        if (b->vel.y < 0) b->vel.y = -b->vel.y * 0.25f;
+        if (b->vel.y < 0) {
+            if (!struck) impact((Vector3){ b->pose.position.x, ground, b->pose.position.z }, (Vector3){ 0, 1, 0 }, -b->vel.y, tag, -1);
+            b->vel.y = -b->vel.y * 0.25f;
+        }
         b->vel.x *= 0.85f;
         b->vel.z *= 0.85f;
         b->angvel = Vector3Scale(b->angvel, 0.85f);
@@ -185,9 +210,10 @@ void world_workbench(void)
 
     // The look of the world (graphics.c), a switch each along the front edge,
     // and what each costs on a plaque at the back.
-    static const char *const LOOK[6] = { "LIGHT", "SHINE", "FOG", "TEXTURES", "CULL", "BATCH" };
-    bool *look[6] = { &gfx.lighting, &gfx.shine, &gfx.fog, &gfx.textures, &gfx.culling, &gfx.batching };
-    for (int i = 0; i < 6; i++) vrui_switch(VRUI_ID2(G_TABLE, 10 + i), on_table(-0.55f + 0.2f * (float)i, 0.3f), look[i], LOOK[i]);
+    static const char *const LOOK[7] = { "LIGHT", "SHINE", "FOG", "TEXTURES", "SHADOWS", "CULL", "BATCH" };
+    bool *look[7] = { &gfx.lighting, &gfx.shine, &gfx.fog, &gfx.textures, &gfx.shadows, &gfx.culling, &gfx.batching };
+    for (int i = 0; i < 7; i++)
+        if (vrui_switch(VRUI_ID2(G_TABLE, 10 + i), on_table(-0.57f + 0.19f * (float)i, 0.3f), look[i], LOOK[i])) gfx_save();
     int drawn, culled;
     vrui_draw_counts(&drawn, &culled);
     const GfxStats *st = gfx_stats();
@@ -198,6 +224,10 @@ void world_workbench(void)
                                                  : TextFormat("%d draws", st->scenery_drawn)),
                  0.03f, RAYWHITE);
     sfxr_report("lighting", gfx.lighting);
+    sfxr_report("shadows", (float)st->shadows);
+    sfxr_report("impacts", (float)impacts_total());
+    for (int i = MAX_BLOCKS - 1; i >= 0; i--)   // the newest block's height
+        if (blocks[i].alive) { sfxr_report("last_block_y", blocks[i].pose.position.y); break; }
     sfxr_report("culled", (float)(culled + st->scenery_culled));
     sfxr_report("scenery_chunks", (float)st->chunks);
     sfxr_report("scenery_builds", (float)st->builds);
@@ -206,6 +236,7 @@ void world_workbench(void)
         Block *b = &blocks[i];
         if (!b->alive) continue;
         VruiGrab g = vrui_grabbable(VRUI_ID2(G_BLOCKS, i), &b->pose, b->half, b->color);
+        gfx_shadow(b->pose.position, b->half.x * 1.4f);
         b->held = g.held;
         if (g.grabbed) { b->vel = (Vector3){0}; b->angvel = (Vector3){0}; }
         if (g.released) {
@@ -232,6 +263,7 @@ Color world_sky(void)
 // the far landmarks. Called with the stations, every frame.
 static void world_scenery(void)
 {
+    vrui_collider_ground(0, MAT_GRASS);   // the ground is solid everywhere
     Color wood = { 140, 100, 70, 255 }, legs = { 100, 72, 50, 255 };
     scenery_box((SfxrPose){ { 0, TABLE_Y - 0.025f, TABLE_Z }, QuaternionIdentity() }, (Vector3){ TABLE_W, 0.05f, TABLE_D }, wood, MAT_WOOD);
     for (int i = 0; i < 4; i++) {

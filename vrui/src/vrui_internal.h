@@ -228,6 +228,9 @@ void  vrui__label(SfxrPose base, Vector3 local, const char *text);
 // on the plane through `origin` with `normal` (ray mode).
 bool  vrui__drag_point(int hand, int mode, Vector3 origin, Vector3 normal, Vector3 *out);
 
+// collision (vrui_collide.c)
+void vrui__collide_frame(void);
+
 // draw queue (vrui.c)
 VruiCmd *vrui__cmd(VruiCmdKind kind, Color color);
 void vrui__sphere(Vector3 c, float r, Color color);

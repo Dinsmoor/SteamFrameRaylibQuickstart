@@ -46,3 +46,4 @@ BREAK(vrui_wield_keeps_grab_angle, "a wielded thing stays at whatever angle it w
 BREAK(vrui_wield_second_hand_ignored, "a second hand on a wielded thing's handle doesn't steer it")
 BREAK(vrui_wield_weightless, "wielded things all follow the hand exactly, whatever they weigh")
 BREAK(vrui_wield_not_sticky, "a sticky grip drops the thing as soon as the grip loosens")
+BREAK(vrui_spherecast_endpoint_only, "a sphere cast only checks where the ball ends up: a fast thing passes clean through a thin one")

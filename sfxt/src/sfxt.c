@@ -418,6 +418,8 @@ int sfxt_events(const char *kind, const char *label, int hand, uint64_t since_fr
 }
 
 void sfxt_set_draw(void (*draw)(void)) { T.draw = draw; }
+void sfxt_headset_worn(bool worn) { S.sig.presence_known = 1; S.sig.present = worn; }
+void sfxt_dashboard(bool open)    { S.sig.unfocused = open; }
 static Color (*snap_sky)(void);   // sfxt_set_sky (outside T: set once, before the cases start)
 void sfxt_set_sky(Color (*sky)(void)) { snap_sky = sky; }
 

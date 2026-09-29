@@ -126,6 +126,11 @@ static struct {
     bool head_prev_ok;
     Vector3 head_vel;      // its velocity this frame (world, m/s)
     bool test_mode;        // tests place their own bugs: no timed waves, and bugs stay put (they still bite)
+    bool paused;           // the player left mid-round (headset off, dashboard): everything holds
+    float resume_in;       // after Resume: 3, 2, 1, go
+    SfxrPose pause_board;  // the Paused menu, in front of you when you come back
+    SfxrAttention away_was;
+    float best;            // fastest win, seconds (saved; 0: none yet)
     Model hammer_model;
     Texture2D bugmaster[2];   // his drawing from the flat game, two frames
     bool models_ok;
@@ -285,6 +290,7 @@ static void round_reset(void)
 {
     memset(GD.bugs, 0, sizeof GD.bugs);
     GD.round = WAITING;
+    GD.paused = false;
     GD.t = GD.drip = GD.hurt = 0;
     GD.score = 0;
     GD.hp = MAX_HP;
@@ -381,6 +387,11 @@ static void play(float dt)
     if (GD.t > 6.0f && (GD.drip += dt) > 3.5f) { GD.drip = 0; spawn_bug(-1); }
     if (GD.score >= SCORE_TO_WIN) {
         GD.round = WON;
+        if (GD.best <= 0 || GD.t < GD.best) {   // a new best: saved at once
+            GD.best = GD.t;
+            sfxr_store_set_float("garden.best_seconds", GD.best);
+            sfxr_store_save();
+        }
         sfxr_event("round", "won in %.0f s with %d/%d left", GD.t, GD.hp, MAX_HP);
         music("win", false);
         bugmaster_says("No, my precious bugs! My precious bugs! You may have defeated my bugs this time...", GD.bm_win);
@@ -498,6 +509,7 @@ void garden_gate(void)
 void garden_enter(void)
 {
     if (GD.active) return;
+    GD.best = sfxr_store_float("garden.best_seconds", 0);
     if (!gw_load()) {
         vrui_tag((Vector3){ GATE_X + 0.5f, 1.6f, GATE_Z }, "the garden's models are missing\n(examples/toolbox/resources/garden)",
                  0.042f, RAYWHITE, (Color){ 120, 30, 30, 220 });
@@ -572,6 +584,46 @@ void garden_update(const VruiLocoConfig *toolbox_loco)
     if (GD.talking) vrui_tag(Vector3Add(rh->grip.position, (Vector3){ 0, 0.12f, 0 }), "listening: hammer / restart", 0.028f, RAYWHITE,
                              (Color){ 150, 30, 30, 220 });
 
+    // --- the player left: pause ------------------------------------------------------------
+    // Taking the headset off or opening the SteamVR dashboard mid-round
+    // freezes the round (no bites while you can't see them) and saves. Coming
+    // back, you get a Paused menu in front of you, not the fight you left; on
+    // Resume a 3-2-1 lets you get your bearings first.
+    SfxrAttention att = sfxr_attention();
+    if (att != SFXR_HERE && GD.round == PLAYING && !GD.paused && !SFXR_BREAK(garden_ignores_attention)) {
+        GD.paused = true;
+        GD.resume_in = 0;
+        sfxr_event("game", "paused: %s", sfxr_attention_name(att));
+        sfxr_store_save();
+    }
+    if (GD.paused && att == SFXR_HERE && GD.away_was != SFXR_HERE) {   // just back: the menu comes to you
+        SfxrPose head = sfxr_head();
+        Vector3 f = sfxr_pose_forward(head);
+        f.y = 0;
+        f = Vector3Length(f) > 1e-3f ? Vector3Normalize(f) : (Vector3){ 0, 0, -1 };
+        GD.pause_board = vrui_facing(Vector3Add(head.position, Vector3Add(Vector3Scale(f, 0.75f), (Vector3){ 0, -0.15f, 0 })), head.position);
+    }
+    GD.away_was = att;
+    if (GD.paused) {
+        if (GD.resume_in > 0) {
+            GD.resume_in -= dt;
+            vrui_text3d(Vector3Add(GD.pause_board.position, (Vector3){ 0, 0.05f, 0 }), TextFormat("%d", (int)ceilf(GD.resume_in)), 0.25f,
+                        (Color){ 255, 220, 120, 255 });
+            if (GD.resume_in <= 0) { GD.paused = false; sfxr_event("game", "resumed"); }
+        } else if (att == SFXR_HERE && vrui_panel_begin(ID(5), &GD.pause_board, 0.5f, 0.36f, "Paused")) {
+            vrui_layout_begin(vrui_panel_content(), 6);
+            vrui_label(vrui_row(24), TextFormat("health %d/%d   smashed %d/%d", GD.hp, MAX_HP, GD.score, SCORE_TO_WIN));
+            if (vrui_button(1, vrui_row(40), "Resume")) GD.resume_in = 3.0f;
+            Rectangle cols[2];
+            vrui_row_cols(36, 2, cols);
+            if (vrui_button(2, cols[0], "Restart")) { GD.paused = false; round_reset(); }
+            if (vrui_button(3, cols[1], "Back to the toolbox")) { GD.paused = false; vrui_panel_end(); garden_leave(); return; }
+            vrui_panel_end();
+        }
+        hammer();   // it stays in your hand; nothing else moves
+        return;
+    }
+
     // the board by the spawn point: what's going on, and the two buttons
     if (vrui_panel_begin(ID(2), &GD.board, 0.72f, 0.52f, "Daddy Bug Smasher")) {
         vrui_layout_begin(vrui_panel_content(), 4);
@@ -579,7 +631,8 @@ void garden_update(const VruiLocoConfig *toolbox_loco)
                                            "The garden is clear! Well smashed.", "The bugs got you. Try again?" };
         vrui_label(vrui_row(24), SAY[GD.round]);
         vrui_label(vrui_row(24), TextFormat("health %d/%d   smashed %d/%d", GD.hp, MAX_HP, GD.score, SCORE_TO_WIN));
-        vrui_label(vrui_row(24), TextFormat("hammer: %s", HAMMER_WORDS[GD.hammer_at]));
+        vrui_label(vrui_row(24), GD.best > 0 ? TextFormat("hammer: %s   best: %.0f s", HAMMER_WORDS[GD.hammer_at], GD.best)
+                                             : TextFormat("hammer: %s", HAMMER_WORDS[GD.hammer_at]));
         static const char *FEEL[VRUI_SMOOTH_COUNT + 1];
         for (int m = 0; m < VRUI_SMOOTH_COUNT; m++) FEEL[m] = vrui_smooth_name((VruiSmoothMode)m);
         FEEL[FEEL_WEIGHT] = "Weight";
@@ -676,7 +729,7 @@ void garden_update(const VruiLocoConfig *toolbox_loco)
 
 GardenState garden_state(void)
 {
-    GardenState s = { (int)GD.round, GD.score, GD.hp, (int)GD.hammer_at, GD.hammer, hammer_head(), belt(), 0, { 0 } };
+    GardenState s = { (int)GD.round, GD.score, GD.hp, (int)GD.hammer_at, GD.hammer, hammer_head(), belt(), 0, { 0 }, GD.paused };
     for (int i = 0; i < MAX_BUGS; i++)
         if (GD.bugs[i].alive && GD.bugs[i].squash == 0) {
             if (s.bugs == 0) s.first_bug = Vector3Add(GD.bugs[i].pos, (Vector3){ 0, BUG_R * 0.9f, 0 });

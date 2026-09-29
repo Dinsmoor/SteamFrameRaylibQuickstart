@@ -785,7 +785,7 @@ typedef struct {
     float   drag;        // air drag, 1/s (a feather: 4)
     float   bounce;      // 0..1
     float   max_throw;   // m/s: the fastest it can leave your hand
-    float (*ground)(Vector3 at);   // the surface height under a point (NULL: the floor, y = 0)
+    float (*ground)(Vector3 at);   // the surface height under a point (NULL: vrui_ground, whatever is solid below)
     bool    own_physics; // held by nobody, it's yours to move (a belt slot, your own physics): vrui leaves *pose alone
 } VruiWieldSpec;
 
@@ -815,6 +815,43 @@ void      vrui_wield_drop(VruiId id);   // let go with every hand (it falls)
 // (the VruiWield's velocity is the one it had). Frozen in mid-air is
 // loose = false and then leaving it alone.
 void      vrui_wield_set_motion(VruiId id, bool loose, Vector3 velocity, Vector3 spin);
+
+// ===========================================================================
+// 15. Collision queries: what's solid, and what a ray or a moving ball hits
+//     (vrui_collide.c)
+// ===========================================================================
+//
+// Things that don't move say they're solid every frame, like any other vrui
+// call; they're solid to queries from the next frame on (queries see the last
+// complete frame's set). A `tag` is yours: a surface kind, an id.
+//
+//   vrui_collider_box(table_pose, table_size, SURFACE_WOOD);   // every frame
+//   VruiHit h = vrui_raycast(eye, forward, 10);                // aiming, line of sight
+//   VruiHit h = vrui_spherecast(tip_before, tip_now, 0.02f);   // a swung blade, a thrown rock
+//   float y = vrui_ground((Vector3){ x, 2, z }, &tag);          // what's under a point
+//
+// A SPHERE CAST moves a ball from one point to another and reports the first
+// thing it touches. It's how fast things don't pass through thin ones: a
+// sword tip moves 10 cm in one frame, far more than a 2 cm board is thick;
+// checking only where it ends up misses the board completely ("tunneling").
+// Casts ignore anything they start inside. Boxes are fattened by the radius
+// with square corners: a hair generous at the corners, never too thin.
+typedef struct {
+    bool    hit;
+    float   distance;   // along the ray / sweep (m)
+    Vector3 point;      // the contact point on the surface
+    Vector3 center;     // for a sphere cast: where the ball's center is at contact
+    Vector3 normal;     // the surface's facing there (unit)
+    int     tag;
+} VruiHit;
+void    vrui_collider_box(SfxrPose pose, Vector3 size, int tag);
+void    vrui_collider_sphere(Vector3 center, float radius, int tag);
+void    vrui_collider_capsule(Vector3 a, Vector3 b, float radius, int tag);   // a cylinder, rounded ends
+void    vrui_collider_ground(float y, int tag);                                // the level floor, everywhere
+VruiHit vrui_raycast(Vector3 from, Vector3 dir, float max_distance);
+VruiHit vrui_spherecast(Vector3 from, Vector3 to, float radius);
+float   vrui_ground(Vector3 above, int *tag);   // height of the first thing below (0 if nothing); tag -1 then
+int     vrui_collider_count(void);              // solid things queries see (last frame's)
 
 #ifdef __cplusplus
 }

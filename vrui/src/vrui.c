@@ -311,6 +311,7 @@ static const char *hint_for(VruiId id)
 void vrui_begin(void)
 {
     C.frame++;
+    vrui__collide_frame();   // last frame's solid things become what queries see
     C.nhints = 0;
     C.narrows = 0;
     for (int h = 0; h < 2; h++) {

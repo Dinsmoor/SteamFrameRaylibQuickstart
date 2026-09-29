@@ -38,6 +38,8 @@ static struct {
     // the sandbag: a pendulum (angles about X and Z, and their speeds)
     Vector2 bag, bag_v;
     float hit_cool[W_COUNT];
+    Vector3 tip_was[W_COUNT];     // each weapon's tip last frame (strikes on the scenery)
+    float strike_cool[W_COUNT];
     int hits;
 } WD;
 
@@ -112,11 +114,7 @@ static void init(void)
 }
 
 // What's under a dropped weapon: the dagger's shelf, or the floor.
-static float ground(Vector3 at)
-{
-    bool shelf = fabsf(at.x - (X0 + 0.55f)) < 0.25f && fabsf(at.z - (ROW_Z + 0.05f)) < 0.2f && at.y > TABLE_Y - 0.05f;
-    return shelf ? TABLE_Y : 0.0f;
-}
+static float ground(Vector3 at) { return vrui_ground(at, NULL); }   // whatever is solid below (vrui_collide)
 
 // --- drawing each weapon in its own frame ---------------------------------------------
 
@@ -212,6 +210,30 @@ static void sandbag(void)
     vrui_text3d(Vector3Add(c, (Vector3){ 0, 0.35f, 0 }), TextFormat("sandbag: %d hits", WD.hits), 0.0308f, RAYWHITE);
 }
 
+// A weapon striking the scenery: sweep a small ball along where its tip went
+// this frame (vrui_spherecast). A sword's tip can travel 15 cm in one frame,
+// far more than a table top is thick: checking only where it ends up would
+// miss it. A hit is an impact: the knock of wood, dust, the hand's buzz.
+static void strikes(void)
+{
+    for (int i = 0; i < W_COUNT; i++) {
+        Vector3 a, tip;
+        striking_part(i, &a, &tip);
+        WD.strike_cool[i] -= sfxr_dt();
+        if (WD.w[i].hands > 0 && WD.strike_cool[i] <= 0) {
+            VruiHit h = vrui_spherecast(WD.tip_was[i], tip, 0.02f);
+            float speed = sfxr_dt() > 0 ? Vector3Distance(WD.tip_was[i], tip) / sfxr_dt() : 0;
+            if (h.hit && speed > 1.5f) {
+                impact(h.point, h.normal, speed, h.tag, WD.w[i].hand);
+                WD.strike_cool[i] = 0.2f;
+                sfxr_event("hit", "%s struck the scenery at %.1f m/s", NAMES[i], speed);
+            }
+        }
+        WD.tip_was[i] = tip;
+        gfx_shadow(Vector3Lerp(a, tip, 0.5f), 0.07f);
+    }
+}
+
 static void panel(void)
 {
     if (!vrui_panel_begin(VRUI_ID2(G_WIELD, 0), &WD.panel, 0.546f, 0.47f, "Wielding")) return;
@@ -256,6 +278,7 @@ void station_wield(void)
         sfxr_report(TextFormat("%s_hands", NAMES[i]), (float)WD.w[i].hands);
     }
     sandbag();
+    strikes();
     sfxr_report("sandbag_hits", (float)WD.hits);
     panel();
 }

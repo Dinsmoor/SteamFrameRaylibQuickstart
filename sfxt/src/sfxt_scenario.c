@@ -292,6 +292,16 @@ static void run_line(const Line *l)
         sfxt_noise(pos, rot, analog);
         return;
     }
+    if (!strcmp(c, "headset")) {   // headset off | on: the player takes it off
+        if (n < 2) { fail("headset off|on"); return; }
+        sfxt_headset_worn(strcmp(tok[1], "off") != 0);
+        return;
+    }
+    if (!strcmp(c, "dashboard")) {   // dashboard open | closed: the SteamVR dashboard
+        if (n < 2) { fail("dashboard open|closed"); return; }
+        sfxt_dashboard(!strcmp(tok[1], "open"));
+        return;
+    }
     if (!strcmp(c, "wait")) {
         float t;
         if (n < 2 || !parse_time(tok[1], &t)) { fail("wait TIME"); return; }

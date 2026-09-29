@@ -21,3 +21,18 @@ case light-switch-turns-lighting-off
   hand    R poke table.light
   wait    5f
   expect  app lighting == 0
+
+case a-dropped-block-lands-on-the-table-with-an-impact
+  fails-if toolbox_blocks_ignore_scenery
+  hand    R point at table.spawn over 0.3s
+  trigger R 1 over 0.1s
+  wait    3f
+  trigger R 0
+  wait    1.5s
+  expect  app impacts >= 1
+  expect  app last_block_y > 0.85                # on the table, not through it
+
+case your-hands-cast-shadows
+  hand    R to table.grid offset 0,0.15,0 over 0.3s
+  wait    5f
+  expect  app shadows >= 1

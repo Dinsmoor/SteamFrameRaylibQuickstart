@@ -44,11 +44,11 @@ static struct {
 static WeightThing THING[K_COUNT];
 const WeightThing *weights_thing(int k) { return &THING[k]; }
 
-static float ground(Vector3 at)
-{
-    bool table = fabsf(at.x - X0) < 0.7f && fabsf(at.z - ROW_Z) < 0.3f && at.y > TABLE_H - 0.1f;
-    return table ? TABLE_H : 0.0f;
-}
+// What's under a thing: whatever is solid (this table, any other, the
+// ground) -- vrui_collide, fed by the scenery. Its surface kind comes too,
+// for the landing's sound.
+static int ground_tag[K_COUNT];
+static float ground(Vector3 at) { return vrui_ground(at, NULL); }
 
 static void put_back(void)
 {
@@ -134,9 +134,19 @@ void station_weights(void)
             WT.flying[k] = false;
             Vector3 d = Vector3Subtract(WT.pose[k].position, WT.thrown_from[k]);
             WT.distance[k] = sqrtf(d.x * d.x + d.z * d.z);
-            if (k >= K_BRICK) sound_play(SND_THUMP, WT.pose[k].position, Clamp(WT.spec[k].mass / 8.0f, 0.3f, 1.0f));
             sfxr_event("landed", "%s %.1f m", NAMES[k], WT.distance[k]);
         }
+        // a landing (falling, then not): an impact, as hard as it came down
+        static float prev_y[K_COUNT], prev_vy[K_COUNT];
+        float vy = sfxr_dt() > 0 ? (WT.pose[k].position.y - prev_y[k]) / sfxr_dt() : 0;
+        if (w->loose && prev_vy[k] < -0.6f && vy > prev_vy[k] * 0.5f) {
+            float floor_y = vrui_ground(WT.pose[k].position, &ground_tag[k]);
+            impact((Vector3){ WT.pose[k].position.x, floor_y, WT.pose[k].position.z }, (Vector3){ 0, 1, 0 },
+                   -prev_vy[k] * Clamp(WT.spec[k].mass / 2.0f, 0.5f, 1.5f), ground_tag[k], -1);
+        }
+        prev_y[k] = WT.pose[k].position.y;
+        prev_vy[k] = vy;
+        gfx_shadow(WT.pose[k].position, fmaxf(HALF[k].x, HALF[k].z) * 1.3f);
         vrui_box(WT.pose[k], Vector3Scale(HALF[k], 2), (w->hovered || w->hands > 0) ? ColorBrightness(COLOR[k], 0.3f) : COLOR[k]);
         if (w->hands == 0 && !w->loose && !w->pulling)
             // (every other one higher: they're wider than the gap between the things)

@@ -405,10 +405,23 @@ bool sfxr_frame_begin(void)
 
     heartbeat(now);
     if (!S.vt->frame_begin()) return false;
+    // Attention, sampled into the frame's signals before they're recorded (so
+    // a replay pauses where the session did). The simulator fakes both: F2
+    // takes the headset off, F3 opens the dashboard.
+    if (S.backend == SFXR_BACKEND_XR_GL || S.backend == SFXR_BACKEND_XR_VK) S.sig.unfocused = !sfxr_xr_focused();
+    if (S.backend == SFXR_BACKEND_SIM) {
+        if (IsKeyPressed(KEY_F2)) S.sig.present = !S.sig.present;
+        if (IsKeyPressed(KEY_F3)) S.sig.unfocused = !S.sig.unfocused;
+    }
     S.frame++;
     S.time += S.dt;
     sfxr_record_frame();
     sfxr__derive_input();
+    static SfxrAttention was = SFXR_HERE;
+    if (sfxr_attention() != was) {
+        was = sfxr_attention();
+        sfxr_event("attention", "%s", sfxr_attention_name(was));
+    }
     sfxr_steam_update();
     sfxr_audio_update();
     sfxr_voice_update();

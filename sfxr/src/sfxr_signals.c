@@ -24,7 +24,19 @@ const SfxrHandJoints *sfxr_hand_joints(SfxrHandId hand) { return &S.joints_world
 
 bool  sfxr_user_presence_known(void) { return S.sig.presence_known != 0; }
 bool  sfxr_user_present(void) { return !S.sig.presence_known || S.sig.present; }
-bool  sfxr_focused(void) { return (S.backend != SFXR_BACKEND_XR_GL && S.backend != SFXR_BACKEND_XR_VK) || sfxr_xr_focused(); }
+bool  sfxr_focused(void) { return !S.sig.unfocused; }   // (sampled each frame, so replays and tests have it too)
+
+SfxrAttention sfxr_attention(void)
+{
+    if (!sfxr_user_present()) return SFXR_AWAY_HEADSET_OFF;
+    if (!sfxr_focused()) return SFXR_AWAY_DASHBOARD;
+    return SFXR_HERE;
+}
+
+const char *sfxr_attention_name(SfxrAttention a)
+{
+    return a == SFXR_AWAY_HEADSET_OFF ? "headset off" : a == SFXR_AWAY_DASHBOARD ? "dashboard open" : "here";
+}
 float sfxr_refresh_rate(void) { return S.sig.refresh_hz; }
 int   sfxr_refresh_rates(float *out, int max) { return is_xr() ? sfxr_xr_refresh_rates(out, max) : 0; }
 bool  sfxr_set_refresh_rate(float hz) { return is_xr() && sfxr_xr_set_refresh_rate(hz); }

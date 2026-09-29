@@ -84,6 +84,7 @@ typedef struct {
     SfxrPose belt;          // the belt slot on your right hip
     int bugs;               // bugs alive (not being squashed)
     Vector3 first_bug;      // the first one's body center
+    bool paused;            // the player left mid-round (sfxr_attention), not yet resumed
 } GardenState;
 GardenState garden_state(void);
 void garden_test_bug(int type, float x, float z);   // type: 0 red, 1 blue, 2 green (3 hits)

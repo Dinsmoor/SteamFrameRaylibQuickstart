@@ -30,6 +30,7 @@
 // Runs in the headset, under Monado, or in the desktop simulator (F1 = keys).
 
 #include "toolbox.h"
+#include "sfxr_audio.h"
 #include "garden.h"
 #include "onboarding.h"
 #include "sfxr_steam.h"
@@ -88,7 +89,9 @@ void toolbox_setup(void)
     for (size_t i = 0; i < sizeof GROUPS / sizeof GROUPS[0]; i++) vrui_group_name(GROUPS[i].g, GROUPS[i].name);
 
     world_init();
+    sfxr_store_open("toolbox");   // save/toolbox.cfg: the look switches, the garden's best time
     gfx_init();          // the lighting shader and textures (graphics.c)
+    gfx_load();
     particles_init();    // fire, smoke, steam, sparks (particles.c)
     loco = vrui_loco_default();
     yard_setup(&loco);   // surfaces, walls, teleport pads, "only pads inside the yard"
@@ -102,7 +105,19 @@ void toolbox_logic(void)
     static const char *const MENU[] = { "Grid", "Day / dusk", "Go home", "Reset blocks", "HUD style", "Hints", "Bug Smasher", "Screenshot" };
     const int NMENU = (int)(sizeof MENU / sizeof MENU[0]);
 
+    // The player left (headset off, dashboard open): hush everything, hold the
+    // world still, and save -- the system may close the app while they're
+    // away. (The garden's round pauses itself: garden.c.)
+    bool away = sfxr_attention() != SFXR_HERE;
+    static bool was_away;
+    sfxr_audio_pause(away);
+    if (away && !was_away) sfxr_store_save();
+    was_away = away;
+    float dt = away ? 0 : sfxr_dt();
+
     gfx_frame(garden_active() ? 0.0f : world.sky, toolbox_sky());
+    for (int h = 0; h < 2; h++)   // your hands' shadows, so you can see how high they are
+        if (sfxr_hand((SfxrHandId)h)->active) gfx_shadow(sfxr_hand((SfxrHandId)h)->grip.position, 0.06f);
     screenshot_update();
     if (garden_active()) {
         garden_update(&loco);   // part three: the garden replaces the stations while you're in it
@@ -143,8 +158,8 @@ void toolbox_logic(void)
     vrui_locomotion(&loco);   // after the handholds (yard_update)
     toolbox_hud();
     vrui_text3d((Vector3){ 0, 3.0f, -1.8f }, "sfxr + vrui toolbox", 0.196f, RAYWHITE);
-    world_step(sfxr_dt());
-    particles_update(sfxr_dt());
+    world_step(dt);
+    particles_update(dt);
 
     // what tests check ("expect app sky >= 0.9"): the app's own state
     sfxr_report("sky", world.sky);
@@ -165,6 +180,7 @@ void toolbox_draw(void)
         yard_draw();
     }
     gfx_draw_end();
+    if (!garden_active()) gfx_shadows_draw();
     // see-through things last, over the finished world: particles (their own
     // blending; smoke dims at dusk, fire doesn't)
     if (!garden_active()) particles_draw(1.0f - 0.6f * world.sky);

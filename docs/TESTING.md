@@ -243,6 +243,7 @@ then expect the flip" works even though the flip happened during the poke.
 | `hand H poke TARGET` | the fingertip down onto it from above, 1.5 cm in, and back out |
 | `trigger H V [over T]`, `grip H V`, `stick H x,y`, `button H a|b|x|y|menu|view|stick|bumper|dpad_* down|up|press` | controls |
 | `wait T` | let time pass |
+| `headset off` / `headset on`, `dashboard open` / `dashboard closed` | the player leaves: `sfxr_attention()` says so (a game should pause) |
 | `expect EVENT TARGET [by H] within T` / `expect no EVENT TARGET for T` | event assertions: grab, release, press, click, toggle, flip, value, fire, insert, turn... |
 | `expect value TARGET op V` / `expect app KEY op V` | state: a widget's value, or what the app reported with `sfxr_report()` (`op`: `>= <= > < == ~=`) |
 | `expect haptic H count|max op V` | haptics sent to that hand |

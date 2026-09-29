@@ -123,11 +123,42 @@ static void hammer_rides_the_belt(void)
     CHECK(fabsf(g.hammer.position.x - before.x - 2.0f) < 0.1f, "moved 2 m with you (moved %.2f m)", g.hammer.position.x - before.x);
 }
 
+// Taking the headset off mid-round pauses it: the bug beside you doesn't bite
+// while you're gone, and coming back you're still paused (a menu waits).
+static void pauses_when_the_headset_comes_off(void)
+{
+    setup();
+    garden_test_start();
+    Vector3 feet = sfxr_head_floor_point();
+    garden_test_bug(1, feet.x + 0.5f, feet.z);
+    sfxt_headset_worn(false);
+    sfxt_frames(2);
+    CHECK(garden_state().paused, "paused when the headset came off");
+    sfxt_wait(2.0f);
+    CHECK(garden_state().hp == 10, "no bites while you were away (health %d of 10)", garden_state().hp);
+    sfxt_headset_worn(true);
+    sfxt_wait(0.5f);
+    CHECK(garden_state().paused, "still paused when you're back: the menu is waiting");
+    CHECK(garden_state().hp == 10, "and still no bites");
+}
+
+// The SteamVR dashboard pauses it the same way.
+static void pauses_when_the_dashboard_opens(void)
+{
+    setup();
+    garden_test_start();
+    sfxt_dashboard(true);
+    sfxt_frames(2);
+    CHECK(garden_state().paused, "paused while the dashboard is open");
+}
+
 static const SfxtCase CASES[] = {
     { "garden/swing-smashes-with-the-head",  swing_smashes_with_the_head,  "garden_hit_at_hand" },
     { "garden/resting-on-a-bug-does-nothing", resting_on_a_bug_does_nothing, "garden_hit_any_speed" },
     { "garden/bug-bites-once-a-second",      bug_bites_once_a_second,      "garden_bite_every_frame" },
     { "garden/hammer-rides-the-belt",        hammer_rides_the_belt,        "garden_belt_world_space" },
+    { "garden/pauses-when-the-headset-comes-off", pauses_when_the_headset_comes_off, "garden_ignores_attention" },
+    { "garden/pauses-when-the-dashboard-opens",   pauses_when_the_dashboard_opens,   NULL },
 };
 
 int main(int argc, char **argv) { return sfxt_main(argc, argv, CASES, SFXT_COUNT(CASES), scene); }

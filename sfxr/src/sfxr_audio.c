@@ -82,6 +82,7 @@ typedef struct {
 
 static struct {
     bool on, device;
+    bool paused;         // sfxr_audio_pause
     int rate;            // output frames per second
     float master;
     unsigned long starts;
@@ -98,6 +99,14 @@ bool sfxr_audio_on(void) { return A.on; }
 bool sfxr_audio_device(void) { return A.device; }
 int sfxr_audio_rate(void) { return A.rate; }
 void sfxr_audio_volume(float master) { A.master = Clamp(master, 0, 1); }
+
+void sfxr_audio_pause(bool paused)
+{
+    if (paused == A.paused) return;
+    A.paused = paused;
+    if (A.music_on) { if (paused) PauseMusicStream(A.music); else ResumeMusicStream(A.music); }
+}
+bool sfxr_audio_paused(void) { return A.paused; }
 
 static void mixed(void *buffer, unsigned int frames) { sfxr_audio_mix((float *)buffer, (int)frames); }
 
@@ -424,7 +433,7 @@ static inline float sample(const Snd *s, double pos, bool loop)
 
 void sfxr_audio_mix(float *out, int frames)
 {
-    if (!A.on || frames <= 0) return;
+    if (!A.on || frames <= 0 || A.paused) return;   // paused: silence, and nothing moves on
     pthread_mutex_lock(&A.lock);
     float inv = 1.0f / (float)frames;
     for (int i = 0; i < MAX_PLAYS; i++) {

@@ -53,7 +53,9 @@ typedef struct {
 // frame (sfxr_rec.h) so replays see the same presence, refresh rate,
 // batteries and hand joints. Joints are in tracking (stage) space here.
 typedef struct {
-    uint8_t        presence_known, present, pad[2];
+    uint8_t        presence_known, present;
+    uint8_t        unfocused;     // the SteamVR dashboard (or another overlay) has the player's attention
+    uint8_t        pad;
     float          refresh_hz;
     SfxrBattery    battery[2];
     SfxrHandJoints joints[2];

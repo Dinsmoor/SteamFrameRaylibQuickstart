@@ -101,7 +101,7 @@ visor HUD, which names the station you're at, go with you everywhere.
 | SPAWN button | drops a new block (a full pull by laser, or poke it) |
 | GRID switch, SKY lever, SIZE knob, LIFT slider | wired to the world: a floor grid, day to dusk, the next block's size, a lift platform behind you |
 | the blocks | pick them up, throw them, knock them with your hands |
-| LIGHT, SHINE, FOG, TEXTURES, CULL, BATCH | the world's look and the tricks that keep it fast, one switch each; a plaque says what each costs (frame rate, CPU time, what was drawn and skipped) |
+| LIGHT, SHINE, FOG, TEXTURES, SHADOWS, CULL, BATCH | the world's look and the tricks that keep it fast, one switch each; a plaque says what each costs (frame rate, CPU time, what was drawn and skipped) |
 
 **Along the row, left to right**
 
@@ -172,6 +172,7 @@ CLAUDE.md        full technical notes: platform research, design guidance, archi
 | `sfxr_xr_gl.c` / `sfxr_xr_vk.c` | getting raylib's OpenGL frames to the headset (directly, or through Vulkan) |
 | `sfxr_audio.c`, `include/sfxr_audio.h` | positional sound, sounds made in code, the microphone |
 | `sfxr_voice.c`, `include/sfxr_voice.h` | push-to-talk voice commands (Whisper through `tools/speech/`, loaded if built by `scripts/get-speech.sh`) |
+| `sfxr_store.c` | saving: a small file of named values next to the app, swapped in whole so a crash never leaves half a save |
 | `sfxr_steam.c`, `include/sfxr_steam.h` | optional Steamworks: loads `libsteam_api.so` if it's next to the app; otherwise every call is a harmless "no" |
 | `sfxr_sim.c` | the desktop simulator (mouse and keyboard play the controllers) |
 | `sfxr_replay.c`, `sfxr_rec.h` | recording every frame's input, and replaying it exactly |
@@ -198,6 +199,7 @@ with a table of contents.
 | `vrui_attach.c` | things that go with the player: the body estimate, lazy-follow HUDs, arrows to things out of view |
 | `vrui_menu.c` | the radial (pie) menu |
 | `vrui_smooth.c` | smoothing: damping, springs, speed limits, easing, and a pose smoother with five modes |
+| `vrui_collide.c` | what's solid and what a ray or a moving ball hits (sphere casts: fast things don't pass through thin ones), the ground under a point |
 
 **`examples/toolbox/`: the testbed.** The stations stand in one row in front of you
 (the layout is at the top of `toolbox.h`). One file per station, so each can be read
@@ -209,6 +211,7 @@ on its own:
 | `world.c` | the ground, trees, sky, and the workbench with app-wired controls and throwable blocks |
 | `panels.c` | the Toolbox panel (settings) |
 | `graphics.c` | the world's look, switched on the workbench: a lighting shader (`resources/shaders/world.vs`, `world.fs`, commented line by line for anyone new to shaders), textures, culling, static batching |
+| `impacts.c` | one call when something hits something: the surface's sound, dust or sparks, the hand's buzz, all scaled by how hard |
 | `particles.c`, `station_particles.c` | a particle system (sprites that face you, colour and size over life, buoyancy, wind, sorted smoke, additive fire) and the Particles bench: a campfire, a chimney, a steam pipe, a spark grinder |
 | `controls_diagram.c` | the controls, where you start: both controllers (the headset's own models) with a callout on every control |
 | `station_menus.c` | hand menus (watch, palm buttons, a tablet in your hand, a radial menu) and the Menus & HUD station |

@@ -94,11 +94,12 @@ enum { G_TABLE = 1, G_PANEL, G_WRIST, G_BLOCKS, G_BENCH, G_CTRL, G_HEADSET, G_LI
 
 // graphics.c: the world's look (the switches on the workbench) ------------------
 typedef enum { MAT_NONE, MAT_PAINT, MAT_WOOD, MAT_GRASS, MAT_STONE, MAT_WATER, MAT_COUNT } GfxMaterial;
-typedef struct { bool lighting, shine, fog, textures, culling, batching; } GfxSettings;
+typedef struct { bool lighting, shine, fog, textures, culling, batching, shadows; } GfxSettings;
 typedef struct {
     int scenery_prims;                  // scenery calls this frame
     int scenery_drawn, scenery_culled;  // chunks (batched) or primitives (not)
     int chunks, builds;                 // batched meshes, and how many times they were built
+    int shadows;                        // blob shadows drawn
 } GfxStats;
 extern GfxSettings gfx;
 Color toolbox_sky(void);                           // main.c: the sky color now (the fog fades into it)
@@ -114,7 +115,16 @@ void scenery_box(SfxrPose pose, Vector3 size, Color color, GfxMaterial mat);
 void scenery_cylinder(Vector3 a, Vector3 b, float radius, Color color, GfxMaterial mat);
 void scenery_sphere(Vector3 center, float radius, Color color, GfxMaterial mat);
 void scenery_draw(void);                           // between gfx_draw_begin and _end
+// (scenery is solid, too: vrui_collider_*, tagged with its material)
+void gfx_shadow(Vector3 at, float radius);         // a blob shadow under this, this frame (logic)
+void gfx_shadows_draw(void);                       // after the world
+
+// impacts.c: something hit something (sound, dust or sparks, the hand's buzz)
+void impact(Vector3 at, Vector3 normal, float speed, int surface, int hand);   // surface: a GfxMaterial (a collider tag)
+int  impacts_total(void);
 const GfxStats *gfx_stats(void);
+void gfx_load(void);                               // the switches, from the save file (sfxr_store)
+void gfx_save(void);
 
 // particles.c: fire, smoke, steam, sparks (the pattern is explained there) ------
 typedef enum { PSPRITE_PUFF, PSPRITE_FLAME, PSPRITE_SPARK, PSPRITE_COUNT } ParticleSprite;
@@ -196,7 +206,7 @@ const VruiSmoothSpec *smoothing_spec(VruiSmoothMode mode);
 
 // sounds.c: the toolbox's sounds, made in code (docs/AUDIO.md)
 typedef enum { SND_CLICK, SND_TICK, SND_STOP, SND_BELL, SND_CHIME, SND_THUMP, SND_SQUISH, SND_CHOMP, SND_WHOOSH,
-               SND_TRILL, SND_BLIP, SND_COUNT } SoundId;
+               SND_TRILL, SND_BLIP, SND_KNOCK, SND_CLACK, SND_CLANK, SND_COUNT } SoundId;
 void sounds_init(void);
 void sound_play(SoundId id, Vector3 at, float volume);   // from a place in the world
 void sound_play_here(SoundId id, float volume);          // not positional

@@ -883,8 +883,27 @@ spark grinder that bounces on the table top; FIRE/SMOKE/STEAM switches, SPARKS b
 WIND slider); own seeded RNG (replays), culled per emitter, drawn after the world
 without depth writes. Tests `tests/toolbox/particles.sfxt`.
 
+Then (the user: "not a game engine, a quickstart; the VR game flow is intrinsic to the
+hardware"): **attention** -- `sfxr_attention()` (headset off / dashboard open; focus now
+sampled into the recorded signals, `SfxrSignals.unfocused`), `sfxr_audio_pause`, the
+event log, sim F2/F3, scenario `headset off` / `dashboard open`; the toolbox freezes and
+hushes while away and saves; Daddy Bug Smasher pauses mid-round, saves, shows a Paused
+menu in front of you on return, Resume counts 3-2-1 (`garden/pauses-when-...`).
+`sfxr_store` (save/<name>.cfg, atomic rename, memory-only in replays/tests): the look
+switches and the garden's best time. **Collision** `vrui_collide.c`: colliders declared
+every frame (scenery registers itself, tagged with its material), queries see last
+frame's set; ray, sphere cast (tunneling), `vrui_ground`; wield's default ground uses
+it; blocks sweep a ball (land on any table, bounce off posts); weights land anywhere.
+**Blob shadows** (`gfx_shadow`, SHADOWS switch): hands, blocks, weights, weapons.
+**Impacts** (`impacts.c`): sound by surface (new KNOCK/CLACK/CLANK), dust or sparks,
+the hand's buzz; blocks, weights landing, weapons striking scenery. Tests
+`tests/collide`, graphics.sfxt's block and shadow cases.
+
 **Next headset session: check these first**
-0. The Particles bench (far left, past the guns): do the fire, smoke, steam and sparks
+0. Take the headset off mid-round in Daddy Bug Smasher, and open the dashboard: paused,
+   silent, a menu on return? Blob shadows under your hands; throw blocks at other tables
+   and posts; strike a table with the sword (knock, dust, buzz).
+   The Particles bench (far left, past the guns): do the fire, smoke, steam and sparks
    read well in the headset, and what does the plaque say it costs? The stream at the
    Sound station. The garden lit, the Bugmaster back on his tower.
    Graphics: flip each workbench switch and watch the cost plaque (CPU ms) and the

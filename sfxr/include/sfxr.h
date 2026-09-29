@@ -428,6 +428,36 @@ bool  sfxr_user_present(void);
 // the simulator and replays.
 bool  sfxr_focused(void);
 
+// Is the player here? The two ways a VR player leaves without quitting:
+// taking the headset off, and opening the SteamVR dashboard. A game should
+// PAUSE (freeze the simulation, stop the clock, sfxr_audio_pause), SAVE
+// (sfxr_store_save: the system may close the app while they're away), and
+// on return show a pause menu rather than throw them back in mid-fight. The
+// event log notes every change ("attention"). The simulator fakes both: F2
+// and F3. docs/INPUT.md, "Attention".
+typedef enum { SFXR_HERE = 0, SFXR_AWAY_HEADSET_OFF, SFXR_AWAY_DASHBOARD } SfxrAttention;
+SfxrAttention sfxr_attention(void);
+const char   *sfxr_attention_name(SfxrAttention a);
+
+// Saving: a small file of named values (settings, progress, best scores),
+// next to the app (on the headset: in its folder, like shots/). Open it once
+// at start; read with a default for keys it doesn't have yet; set; save.
+// Saving writes a new file and then swaps it in, so a crash or a power-off
+// mid-save leaves the last good one. Replays and tests never touch the disk:
+// the store starts empty and saving does nothing.
+//
+//   sfxr_store_open("toolbox");                       // save/toolbox.cfg
+//   bool fog = sfxr_store_int("fog", 1);
+//   sfxr_store_set_int("fog", fog); sfxr_store_save();
+bool        sfxr_store_open(const char *name);        // false: no file yet (fine: defaults)
+int         sfxr_store_int(const char *key, int fallback);
+float       sfxr_store_float(const char *key, float fallback);
+const char *sfxr_store_str(const char *key, const char *fallback);
+void        sfxr_store_set_int(const char *key, int value);
+void        sfxr_store_set_float(const char *key, float value);
+void        sfxr_store_set_str(const char *key, const char *value);
+bool        sfxr_store_save(void);                    // false: couldn't write (or a replay/test)
+
 // Display refresh rate (XR_FB_display_refresh_rate). The Frame offers
 // 72/90/120/144 Hz. A request is applied by the runtime a few frames later;
 // sfxr_refresh_rate() reports what's actually running.

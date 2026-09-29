@@ -308,6 +308,7 @@ void sfxr_sim_draw_help(int x, int y)
         "Tab: switch hand   LMB: trigger   F/MMB: grip   G: grip latch",
         "1-5: A/B/menu/X/Y (left: D-pad dn/up/view/lt/rt)   6: bumper   Arrows: stick   Space: stick click",
         "H: bare hands (LMB pinch, F/MMB fist, P point)",
+        "F2: take the headset off / put it on   F3: open / close the dashboard",
     };
     int n = (int)(sizeof lines / sizeof lines[0]);
     DrawRectangle(x - 4, y - 4, 520, n * 16 + 26, (Color){ 0, 0, 0, 150 });

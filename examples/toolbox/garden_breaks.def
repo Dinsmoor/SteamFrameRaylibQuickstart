@@ -4,3 +4,4 @@ BREAK(garden_hit_at_hand,      "hammer hits are checked at your hand, not the ha
 BREAK(garden_hit_any_speed,    "resting the hammer on a bug smashes it: the swing's speed is ignored")
 BREAK(garden_bite_every_frame, "a bug touching you bites every frame instead of once a second")
 BREAK(garden_belt_world_space, "the hammer put on your belt stays where you put it instead of going with you")
+BREAK(garden_ignores_attention, "the round plays on while the headset is off or the dashboard is open: the bugs bite someone who isn't there")

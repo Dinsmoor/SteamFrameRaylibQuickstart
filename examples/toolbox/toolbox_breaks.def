@@ -13,3 +13,4 @@ BREAK(toolbox_culling_ignored, "the CULL switch does nothing: everything is draw
 BREAK(toolbox_scenery_rebuilds_every_frame, "static batching rebuilds the scenery meshes every frame instead of once")
 BREAK(toolbox_particles_ignore_wind, "particles don't feel the wind: smoke rises straight up in a gale")
 BREAK(toolbox_sparks_fall_through, "sparks don't bounce on the table: they fall through it")
+BREAK(toolbox_blocks_ignore_scenery, "blocks don't see the scenery: they fall through every table to the floor")

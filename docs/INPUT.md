@@ -229,6 +229,33 @@ means one thing:
 accessibility). The Controllers panel has a haptics tester for strength, length and
 frequency.
 
+## Attention: when the player leaves
+
+A VR player leaves without quitting in two ways: they **take the headset off**, or they
+**open the SteamVR dashboard** (the system button). The app keeps running either way,
+and nothing it shows is being watched. `sfxr_attention()` says which:
+
+| `sfxr_attention()` | Means | What a game does |
+|---|---|---|
+| `SFXR_HERE` | playing | carry on |
+| `SFXR_AWAY_HEADSET_OFF` | the headset is off (the presence sensor) | pause, hush, save |
+| `SFXR_AWAY_DASHBOARD` | the dashboard (or another overlay) has focus | the same |
+
+The pattern (the toolbox's `main.c` and Daddy Bug Smasher's `garden.c` both follow it):
+- **Freeze** the simulation: step it with `dt = 0`. Nothing should bite, fall or time
+  out while nobody is looking.
+- **Hush** it: `sfxr_audio_pause(true)` holds every sound and the music where it is.
+- **Save** at once (`sfxr_store_save`). The system may close an app whose player has
+  walked away, and the player expects their progress to still be there.
+- **Coming back, show a pause menu**, placed in front of wherever they now face, with
+  Resume, Restart and Quit. Don't drop them back into the fight they left. On Resume a
+  short 3-2-1 gives them time to find their footing and their weapon.
+
+Every change is in the event log ("attention"), recordings keep it (a replay pauses where
+the session did), tests drive it (`headset off` / `dashboard open` in a scenario,
+`sfxt_headset_worn` / `sfxt_dashboard` in C), and in the simulator F2 takes the headset
+off and F3 opens the dashboard.
+
 ## Fitting the player
 
 Players differ in which hand they lead with, whether they grab with the grip or the

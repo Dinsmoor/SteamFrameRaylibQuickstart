@@ -70,6 +70,8 @@ uint64_t sfxt_frame(void);
 void     sfxt_hand_active(SfxrHandId h, bool active);   // hands start active, resting low at the sides
 void     sfxt_hand_set(SfxrHandId h, SfxrPose grip);    // jump there now
 SfxrPose sfxt_hand(SfxrHandId h);                       // current scripted grip pose (before noise)
+void     sfxt_headset_worn(bool worn);                  // the player takes the headset off (false) / puts it on
+void     sfxt_dashboard(bool open);                     // the SteamVR dashboard opens / closes (sfxr_attention)
 // Move to a pose, easing in and out, over `seconds` (0: this frame).
 void     sfxt_hand_to(SfxrHandId h, SfxrPose grip, float seconds);
 // Put the poke point (tip) at `point`, pointing along `dir` (e.g. straight down).

@@ -210,7 +210,7 @@ static void spring_rates(const VruiWieldSpec *sp, float lever, int hands, float 
     *f_rot = Clamp(3.0f / sqrtf(inertia), 1.5f, 25.0f) * (hands >= 2 ? 2.5f : 1.0f);
 }
 
-static float ground_at(const VruiWieldSpec *sp, Vector3 p) { return sp->ground ? sp->ground(p) : 0.0f; }
+static float ground_at(const VruiWieldSpec *sp, Vector3 p) { return sp->ground ? sp->ground(p) : vrui_ground(p, NULL); }
 
 // Loose: gravity, drag, spin; on the ground it bounces, rubs to a stop, and
 // settles onto its flattest side.

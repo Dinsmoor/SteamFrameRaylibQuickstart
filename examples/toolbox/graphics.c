@@ -44,7 +44,7 @@
 #define MAX_PRIMS   1024
 #define MAX_CHUNKS  128
 
-GfxSettings gfx = { .lighting = true, .shine = true, .fog = true, .textures = true, .culling = true, .batching = true };
+GfxSettings gfx = { .lighting = true, .shine = true, .fog = true, .textures = true, .culling = true, .batching = true, .shadows = true };
 
 typedef enum { PRIM_BOX, PRIM_CYLINDER, PRIM_SPHERE } PrimKind;
 typedef struct {
@@ -89,6 +89,10 @@ static struct {
     bool built;
 
     GfxStats stats;
+
+    Texture2D blob;                    // a soft round shadow
+    struct { Vector3 at; float radius; } shadow[128];
+    int nshadows;
 } G;
 
 // ---------------------------------------------------------------------------
@@ -281,6 +285,11 @@ void gfx_init(void)
     G.unit[PRIM_BOX] = GenMeshCube(1, 1, 1);
     G.unit[PRIM_CYLINDER] = GenMeshCylinder(1, 1, 12);   // radius 1, from y 0 to y 1
     G.unit[PRIM_SPHERE] = GenMeshSphere(1, 8, 12);
+    Image blob = GenImageGradientRadial(64, 64, 0.0f, BLACK, BLANK);   // dark middle, clear edge
+    G.blob = LoadTextureFromImage(blob);
+    UnloadImage(blob);
+    GenTextureMipmaps(&G.blob);
+    SetTextureFilter(G.blob, TEXTURE_FILTER_TRILINEAR);
 
     const char *vs = resource("shaders/world.vs");
     char vs_path[PATH_MAX + 64] = "";
@@ -339,7 +348,8 @@ void gfx_frame(float dusk, Color sky)
     set_vec3(U_FLOW, (Vector3){ 0, 0, 1 });
     gfx_material(MAT_NONE);
 
-    // a new frame of scenery calls
+    // a new frame of scenery calls, and of shadows
+    G.nshadows = 0;
     G.calls = 0;
     G.recording = !gfx.batching || !G.built;
     if (G.recording) G.nprims = 0;
@@ -378,6 +388,14 @@ bool gfx_visible(Vector3 center, float radius)
 static void add(Prim p)
 {
     G.calls++;
+    // scenery is solid: tables catch what's thrown on them, rays stop at walls
+    // (vrui_collide; tagged with its material, so an impact knows what it hit)
+    switch (p.kind) {
+    case PRIM_BOX:      vrui_collider_box((SfxrPose){ p.pos, p.rot }, p.scale, p.mat); break;
+    case PRIM_SPHERE:   vrui_collider_sphere(p.pos, p.scale.x, p.mat); break;
+    case PRIM_CYLINDER: vrui_collider_capsule(p.pos, Vector3Add(p.pos, Vector3RotateByQuaternion((Vector3){ 0, p.scale.y, 0 }, p.rot)),
+                                              p.scale.x, p.mat); break;
+    }
     if (!G.recording || G.nprims >= MAX_PRIMS) return;
     // bounding sphere: the unit shapes fit in a sphere of radius ~0.87 (the
     // box's corner), scaled by the biggest scale
@@ -531,3 +549,78 @@ void scenery_draw(void)
 }
 
 const GfxStats *gfx_stats(void) { return &G.stats; }
+
+// The switches are remembered (sfxr_store: the toolbox's save file).
+static const struct { const char *key; bool *flag; } SAVED[] = {
+    { "look.lighting", &gfx.lighting }, { "look.shine", &gfx.shine }, { "look.fog", &gfx.fog }, { "look.textures", &gfx.textures },
+    { "look.shadows", &gfx.shadows }, { "look.culling", &gfx.culling }, { "look.batching", &gfx.batching },
+};
+void gfx_load(void)
+{
+    for (size_t i = 0; i < sizeof SAVED / sizeof SAVED[0]; i++) *SAVED[i].flag = sfxr_store_int(SAVED[i].key, *SAVED[i].flag) != 0;
+}
+void gfx_save(void)
+{
+    for (size_t i = 0; i < sizeof SAVED / sizeof SAVED[0]; i++) sfxr_store_set_int(SAVED[i].key, *SAVED[i].flag);
+    sfxr_store_save();
+}
+
+// ---------------------------------------------------------------------------
+// Blob shadows
+// ---------------------------------------------------------------------------
+//
+// Not real shadows (those need the scene drawn a second time, from the sun):
+// a soft dark disc on whatever is under a thing, found with a ray straight
+// down (vrui_raycast: only what's solid). It fades and spreads as the thing
+// rises. In VR it's the cue that tells you how high your hand is over the
+// table and where a thrown thing will land; games have used it since the 90s
+// for exactly that.
+
+void gfx_shadow(Vector3 at, float radius)
+{
+    if (!gfx.shadows || G.nshadows >= (int)(sizeof G.shadow / sizeof G.shadow[0])) return;
+    G.shadow[G.nshadows].at = at;
+    G.shadow[G.nshadows].radius = radius;
+    G.nshadows++;
+}
+
+void gfx_shadows_draw(void)
+{
+    G.stats.shadows = 0;
+    if (!gfx.shadows || !G.blob.id) return;
+    rlDrawRenderBatchActive();
+    rlDisableDepthMask();   // on the surface, see-through: hide nothing
+    BeginBlendMode(BLEND_ALPHA);
+    rlSetTexture(G.blob.id);
+    rlBegin(RL_QUADS);
+    for (int i = 0; i < G.nshadows; i++) {
+        Vector3 at = G.shadow[i].at;
+        VruiHit h = vrui_raycast(at, (Vector3){ 0, -1, 0 }, 3.0f);
+        if (!h.hit || h.normal.y < 0.5f) continue;   // nothing below, or a steep side
+        float height = at.y - h.point.y;
+        float fade = Clamp(1 - height / 2.5f, 0, 1);
+        float r = G.shadow[i].radius * (1 + height * 0.5f);
+        if (fade <= 0 || !gfx_visible(h.point, r)) continue;
+        // a square lying on the surface, lifted 3 mm so it doesn't flicker
+        // into it ("z-fighting")
+        Vector3 n = h.normal, c = Vector3Add(h.point, Vector3Scale(n, 0.003f));
+        Vector3 u = Vector3Normalize(Vector3CrossProduct(n, fabsf(n.z) < 0.9f ? (Vector3){ 0, 0, 1 } : (Vector3){ 1, 0, 0 }));
+        Vector3 v = Vector3CrossProduct(u, n);
+        u = Vector3Scale(u, r);
+        v = Vector3Scale(v, r);
+        rlCheckRenderBatchLimit(4);
+        rlColor4ub(255, 255, 255, (unsigned char)(fade * fade * 190));
+        Vector3 q[4] = { Vector3Subtract(Vector3Subtract(c, u), v), Vector3Subtract(Vector3Add(c, u), v),
+                         Vector3Add(Vector3Add(c, u), v), Vector3Add(Vector3Subtract(c, u), v) };
+        rlTexCoord2f(0, 0); rlVertex3f(q[0].x, q[0].y, q[0].z);
+        rlTexCoord2f(0, 1); rlVertex3f(q[3].x, q[3].y, q[3].z);
+        rlTexCoord2f(1, 1); rlVertex3f(q[2].x, q[2].y, q[2].z);
+        rlTexCoord2f(1, 0); rlVertex3f(q[1].x, q[1].y, q[1].z);
+        G.stats.shadows++;
+    }
+    rlEnd();
+    rlSetTexture(0);
+    EndBlendMode();
+    rlDrawRenderBatchActive();
+    rlEnableDepthMask();
+}

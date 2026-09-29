@@ -36,6 +36,8 @@ their callouts say how many are left.
 | a thump per hit, stronger the harder you swung | haptics | [INPUT.md](INPUT.md) |
 | the Bugmaster himself: the kids' drawing of him from the flat game, a cut-out on his tower that always turns to face you | an upright billboard: a textured quad turned about the vertical only (`draw_bugmaster`, a dozen lines of rlgl) | `garden.c` |
 | the chair you can knock over (walk into it, or hit it) | a box rigid body | `garden_rigidbody.c` |
+| take the headset off or open the dashboard mid-round and it pauses (and saves); back, a Paused menu waits in front of you, and Resume counts down 3-2-1 | `sfxr_attention`, `sfxr_audio_pause`, `sfxr_store` | [INPUT.md](INPUT.md), "Attention" |
+| your best winning time, remembered | `sfxr_store` | `garden.c` |
 | winning unlocks an achievement when Steam is there | `sfxr_steam_unlock` | [STEAM.md](STEAM.md) |
 | every pick-up, hit, bite and drop is in the event log | `sfxr_event` | [TESTING.md](TESTING.md) |
 

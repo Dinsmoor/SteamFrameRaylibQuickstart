@@ -40,6 +40,8 @@ bool sfxr_audio_init(void);          // opens the speakers (or runs offline with
 void sfxr_audio_shutdown(void);      // sfxr_shutdown() calls this too
 bool sfxr_audio_on(void);
 void sfxr_audio_volume(float master);// 0..1 (default 1)
+void sfxr_audio_pause(bool paused);  // everything (sounds and music) holds where it is, silent; e.g. while the player is away
+bool sfxr_audio_paused(void);
 
 typedef int SfxrSound;               // 0 = none (a missing file, no audio)
 

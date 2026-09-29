@@ -23,6 +23,10 @@ void sounds_init(void)
     S[SND_WHOOSH] = sfxr_sound_synth(&(SfxrSynth){ 300,  1400, 0.3f,  0.06f,  0.12f,  0.8f, 0,    0.4f  }, 2);
     S[SND_TRILL]  = sfxr_sound_synth(&(SfxrSynth){ 240,  520,  0.9f,  0.02f,  0.5f,   0.1f, 0.6f, 0.8f  }, 2);
     S[SND_BLIP]   = sfxr_sound_synth(&(SfxrSynth){ 1200, 1600, 0.08f, 0.002f, 0.03f,  0,    0,    0.4f  }, 2);
+    // impacts (impacts.c): wood, stone, metal
+    S[SND_KNOCK]  = sfxr_sound_synth(&(SfxrSynth){ 380,  250,  0.14f, 0.001f, 0.035f, 0.35f, 0.3f, 0.85f }, 6);
+    S[SND_CLACK]  = sfxr_sound_synth(&(SfxrSynth){ 1500, 900,  0.08f, 0.0005f,0.014f, 0.6f, 0.2f, 0.7f  }, 6);
+    S[SND_CLANK]  = sfxr_sound_synth(&(SfxrSynth){ 540,  530,  0.9f,  0.001f, 0.2f,   0.12f, 0.7f, 0.55f }, 4);
     vrui_style()->sound = sounds_vrui;
 }
 
