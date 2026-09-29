@@ -40,6 +40,7 @@ static struct {
     SfxrPose speaker, radio, panel;
     float chime_t;
 } SN;
+static int foam = -1;   // the stream's foam (a particle emitter)
 
 // --- loops made in code ------------------------------------------------------------
 
@@ -196,13 +197,36 @@ static void switched(int e)
 static void draw_scenery(void)
 {
     float t = (float)sfxr_time();
-    // the stream, flat on the floor, with ripples running down it
-    vrui_box((SfxrPose){ { STREAM_X, 0.005f, (STREAM_Z0 + STREAM_Z1) * 0.5f }, QuaternionIdentity() },
-             (Vector3){ 0.35f, 0.01f, STREAM_Z1 - STREAM_Z0 }, (Color){ 50, 110, 190, 255 });
-    for (int i = 0; i < 12; i++) {
-        float z = STREAM_Z0 + fmodf((float)i * 0.4f + t * 0.5f, STREAM_Z1 - STREAM_Z0);
-        vrui_line((Vector3){ STREAM_X - 0.12f, 0.012f, z }, (Vector3){ STREAM_X + 0.12f, 0.012f, z + 0.05f },
-                  (Color){ 170, 210, 255, 255 });
+    // The stream: a water surface (graphics.c's MAT_WATER: the shader makes
+    // the ripples, the sky's reflection and the sun's glints, world.fs), with
+    // pebbles along both banks, and flecks of foam drifting down it.
+    float len = STREAM_Z1 - STREAM_Z0;
+    scenery_box((SfxrPose){ { STREAM_X, 0.01f, (STREAM_Z0 + STREAM_Z1) * 0.5f }, QuaternionIdentity() },
+                (Vector3){ 0.5f, 0.02f, len }, (Color){ 28, 66, 78, 255 }, MAT_WATER);
+    // river stones: half-buried balls of mixed sizes and grays, set a
+    // little in and out along each bank (the same every frame: a fixed seed)
+    unsigned pebble = 7;
+    for (int side = -1; side <= 1; side += 2)
+        for (float z = STREAM_Z0; z < STREAM_Z1; ) {
+            pebble = pebble * 1664525u + 1013904223u;
+            float r = (float)(pebble >> 8) / 16777216.0f;
+            pebble = pebble * 1664525u + 1013904223u;
+            float r2 = (float)(pebble >> 8) / 16777216.0f;
+            float size = 0.035f + 0.05f * r * r;
+            unsigned char g = (unsigned char)(78 + 60 * r2);
+            scenery_sphere((Vector3){ STREAM_X + side * (0.26f + (r2 - 0.5f) * 0.06f), -size * 0.35f, z + size },
+                           size, (Color){ g, (unsigned char)(g - 4), (unsigned char)(g - 10), 255 }, MAT_STONE);
+            z += size * (1.2f + r2);
+        }
+    if (foam < 0) {
+        static const ParticleSpec FOAM = {
+            .sprite = PSPRITE_PUFF, .blend = PBLEND_ALPHA, .rate = 8, .life_min = 8, .life_max = 9.5f,
+            .velocity = { 0, 0, 0.55f }, .speed_jitter = 0.2f, .spawn_radius = 0.18f,
+            .size_start = 0.08f, .size_end = 0.12f,
+            .color_start = { 235, 245, 250, 0 }, .color_mid = { 235, 245, 250, 190 }, .color_end = { 235, 245, 250, 0 },
+            .drag = 0, .spin = 0.3f,
+        };
+        foam = particles_emitter(&FOAM, (SfxrPose){ { STREAM_X, 0.03f, STREAM_Z0 + 0.1f }, QuaternionIdentity() });
     }
     vrui_text_at((SfxrPose){ { STREAM_X, 0.02f, STREAM_Z1 + 0.1f }, QuaternionFromAxisAngle((Vector3){ 1, 0, 0 }, -PI / 2) },
                  "STREAM: a line emitter", 0.042f, RAYWHITE);

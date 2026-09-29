@@ -869,8 +869,25 @@ tiling value noise: raylib's Perlin/cellular images don't wrap (seams every repe
 Pixel-art NEAREST filtering was tried and dropped (too Minecraft; anisotropic filtering
 blurs it on some GPUs anyway).
 
+Then (headset: "performed well"): the Bugmaster had vanished and the garden wasn't lit.
+The shader sampled texture0 at (0,0), ignoring texture coordinates: fixed. world.vs now
+has a model-matrix path; graphics.c loads the program twice (`useModelMatrix` 0 for
+pre-transformed shapes and batched scenery, 1 for models: `gfx_model_shader()`), and
+the garden's own little shader is gone: its models use the model version, with
+materials (terrain grass, rocks and tower stone, table wood; loose props none).
+Water: `MAT_WATER` in world.fs (four sine waves' slopes bend the normal, Schlick
+Fresnel sky reflection, a sharp sun glint), the Sound station's stream rebuilt with it,
+river stones and drifting foam. Particles: `particles.c` (the system) and
+`station_particles.c` at x -23 (campfire with embers and smoke, chimney, steam pipe,
+spark grinder that bounces on the table top; FIRE/SMOKE/STEAM switches, SPARKS button,
+WIND slider); own seeded RNG (replays), culled per emitter, drawn after the world
+without depth writes. Tests `tests/toolbox/particles.sfxt`.
+
 **Next headset session: check these first**
-0. Graphics: flip each workbench switch and watch the cost plaque (CPU ms) and the
+0. The Particles bench (far left, past the guns): do the fire, smoke, steam and sparks
+   read well in the headset, and what does the plaque say it costs? The stream at the
+   Sound station. The garden lit, the Bugmaster back on his tower.
+   Graphics: flip each workbench switch and watch the cost plaque (CPU ms) and the
    Performance overlay; is the fog/lighting pleasant at day and dusk (SKY lever)?
    Palm buttons: turn the less-used palm to your face at a normal distance. The controls
    diagram behind the workbench: real models, callouts on the right spots?

@@ -11,6 +11,9 @@
 //   3. SHINE    a highlight where the sun reflects toward your eye
 //   4. FOG      far things fade into the sky color
 //
+// and one special surface, WATER (isWater), which replaces 1-3 with its own
+// light: moving ripples, the sky reflected, and the sun glinting.
+//
 // Every "if" below turns into a switch the whole draw call takes the same way
 // (uniforms don't change inside a draw), which costs next to nothing on a GPU.
 // All of it is a few multiplies per pixel: cheap enough for two eyes at 72 Hz
@@ -23,9 +26,10 @@
 in vec3 fragWorldPos;
 in vec3 fragNormal;
 in vec4 fragColor;
+in vec2 fragTexCoord;
 
 // --- set by raylib
-uniform sampler2D texture0;   // the texture raylib draws with; plain white for shapes
+uniform sampler2D texture0;   // the texture raylib draws with: a picture, a model's skin; plain white for shapes
 uniform vec4 colDiffuse;      // an extra tint raylib can apply; white for us
 
 // --- set by graphics.c (each is explained where it's used)
@@ -42,6 +46,9 @@ uniform float fogDensity;     // how quickly: bigger is thicker fog
 uniform sampler2D detailTex;  // the pixel-art pattern for this material (graphics.c)
 uniform float detailScale;    // how many times the pattern repeats per meter
 uniform float detailStrength; // 0 = no pattern, 1 = full strength
+uniform bool  isWater;        // this surface is water (graphics.c: MAT_WATER)
+uniform float time;           // seconds, for things that move by themselves (the water's ripples)
+uniform vec3  flowDir;        // the way the water runs (flat, 1 long)
 
 out vec4 finalColor;          // the answer: this pixel's color (red, green, blue, alpha)
 
@@ -55,10 +62,62 @@ out vec4 finalColor;          // the answer: this pixel's color (red, green, blu
 vec3 toLinear(vec3 c) { return pow(c, vec3(2.2)); }
 vec3 toSRGB(vec3 c)   { return pow(c, vec3(1.0 / 2.2)); }
 
+// ------------------------------------------------------------------ WATER
+// Water is flat: it looks like water because of how light bounces off it.
+// Three tricks, all per pixel, no extra geometry:
+//
+// RIPPLES. We pretend the surface has small waves by bending its normal (the
+// "which way it faces" arrow) a little, differently at every point. The
+// height of the pretend waves is a sum of a few sine waves running in
+// different directions, sliding along with time; the tilt of the surface is
+// how fast that height changes as you move across it (the slope, i.e. the
+// derivative of the sum). A tilted normal catches the light differently, so
+// the flat surface shimmers as if rippled. This is "normal perturbation": the
+// same idea as the normal maps in every modern game, computed instead of read
+// from a texture.
+vec3 water(vec3 body)
+{
+    vec2 p = fragWorldPos.xz;
+    vec2 f = flowDir.xz;
+    vec2 across = vec2(-f.y, f.x);
+    // each wave: its direction, how tightly packed (freq), how fast, how tall.
+    // d(sin(k*x))/dx = k*cos(k*x): the slope of each, added up.
+    vec2 slope = vec2(0.0);
+    vec2 dirs[4] = vec2[4](f, normalize(f + across * 0.6), normalize(f - across * 0.7), normalize(across + f * 0.3));
+    float freq[4] = float[4](9.0, 17.0, 23.0, 31.0);
+    float speed[4] = float[4](3.0, 4.5, 5.0, 2.0);
+    float amp[4] = float[4](0.012, 0.007, 0.005, 0.003);
+    for (int i = 0; i < 4; i++)
+        slope += dirs[i] * freq[i] * amp[i] * cos(dot(p, dirs[i]) * freq[i] - time * speed[i]);
+    vec3 n = normalize(vec3(-slope.x, 1.0, -slope.y));
+
+    // REFLECTION (the "Fresnel" effect). Look straight down into water and
+    // you see into it; look across it at a low angle and it's a mirror of the
+    // sky. How much it reflects rises steeply as the view gets flatter; the
+    // power of 5 is Schlick's well-known approximation of the real physics.
+    vec3 toEye = normalize(eyePos - fragWorldPos);
+    float facing = max(dot(n, toEye), 0.0);
+    float fresnel = 0.02 + 0.98 * pow(1.0 - facing, 5.0);
+    vec3 sky = toLinear(fogColor);
+
+    // What you see INTO the water: its own color, lit a little by the sky
+    // (water under an open sky is never black).
+    vec3 below = body * (skyLight + sunColor * 0.4);
+
+    // THE SUN'S GLINT: the same highlight as SHINE, but water is so smooth
+    // the spot is tiny (power 200) and bright -- and because the normals
+    // ripple, it breaks into sparkles.
+    vec3 halfway = normalize(-sunDir + toEye);
+    vec3 glint = sunColor * pow(max(dot(n, halfway), 0.0), 200.0) * 3.0;
+
+    return mix(below, sky, fresnel) + glint;
+}
+
 void main()
 {
-    // The object's own color: what DrawCube / vrui_box was given.
-    vec4 base = texture(texture0, vec2(0.0)) * colDiffuse * fragColor;
+    // The object's own color: its texture at this point (white for plain
+    // shapes), times the color it was drawn with.
+    vec4 base = texture(texture0, fragTexCoord) * colDiffuse * fragColor;
     vec3 n = normalize(fragNormal);   // blending across the triangle shortens it: re-lengthen
 
     // ------------------------------------------------------------------ 1. TEXTURE
@@ -83,8 +142,10 @@ void main()
 
     vec3 color = toLinear(base.rgb);
 
+    if (isWater) {
+        color = water(color);
+    } else if (useLight) {
     // ------------------------------------------------------------------ 2. LIGHT
-    if (useLight) {
         // THE SUN ("diffuse" or "Lambert" lighting). A surface facing the sun
         // straight on gets all of its light; one tilted away gets less, in
         // proportion to the cosine of the angle -- which is exactly what the

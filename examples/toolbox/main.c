@@ -42,7 +42,7 @@
 static void toolbox_hud(void)
 {
     static const struct { float x; const char *name; } ROW[] = {
-        { -18.8f, "Weights" }, { -15.4f, "Wielding" }, { -12.2f, "Voice commands" }, { -9.8f, "Sound" }, { -8.0f, "Menus & HUD" }, { -6.4f, "Hands-on setup" }, { -4.8f, "Headset" }, { -3.2f, "Controllers" },
+        { -23.0f, "Particles" }, { -20.1f, "Physics guns" }, { -18.8f, "Weights" }, { -15.4f, "Wielding" }, { -12.2f, "Voice commands" }, { -9.8f, "Sound" }, { -8.0f, "Menus & HUD" }, { -6.4f, "Hands-on setup" }, { -4.8f, "Headset" }, { -3.2f, "Controllers" },
         { -1.6f, "Toolbox" }, { 0, "Workbench" }, { 2.5f, "Mechanisms" }, { 5.2f, "Linkage bench" },
         { 7.9f, "Attach & label" }, { 10.9f, "Smoothing" }, { 15.3f, "Hinges & cords" }, { 19.5f, "Daddy Bug Smasher" },
     };
@@ -83,12 +83,13 @@ void toolbox_setup(void)
     // names for the widget registry: "table.sky", "mech.knob"... (tests find widgets by these)
     static const struct { unsigned g; const char *name; } GROUPS[] = {
         { G_TABLE, "table" }, { G_BLOCKS, "blocks" }, { G_BENCH, "mech" }, { G_LINK, "link" }, { G_YARD, "yard" },
-        { G_HINGE, "hinges" }, { G_VOICE, "voice" }, { G_SOUND, "sound" }, { G_WIELD, "rack" }, { G_WEIGHTS, "weights" }, { G_GUNS, "guns" }, { G_ATTACH, "attach" }, { G_MENUS, "menus" }, { G_SMOOTH, "smooth" }, { G_GARDEN, "garden" },
+        { G_HINGE, "hinges" }, { G_VOICE, "voice" }, { G_SOUND, "sound" }, { G_WIELD, "rack" }, { G_WEIGHTS, "weights" }, { G_GUNS, "guns" }, { G_PARTICLES, "particles" }, { G_ATTACH, "attach" }, { G_MENUS, "menus" }, { G_SMOOTH, "smooth" }, { G_GARDEN, "garden" },
     };
     for (size_t i = 0; i < sizeof GROUPS / sizeof GROUPS[0]; i++) vrui_group_name(GROUPS[i].g, GROUPS[i].name);
 
     world_init();
     gfx_init();          // the lighting shader and textures (graphics.c)
+    particles_init();    // fire, smoke, steam, sparks (particles.c)
     loco = vrui_loco_default();
     yard_setup(&loco);   // surfaces, walls, teleport pads, "only pads inside the yard"
     setup_pose = row_pose(-6.4f, 1.35f);
@@ -108,6 +109,7 @@ void toolbox_logic(void)
         return;
     }
     panels_toolbox(&loco);
+    station_particles();
     station_weights();
     station_wield();
     station_sound();
@@ -142,6 +144,7 @@ void toolbox_logic(void)
     toolbox_hud();
     vrui_text3d((Vector3){ 0, 3.0f, -1.8f }, "sfxr + vrui toolbox", 0.196f, RAYWHITE);
     world_step(sfxr_dt());
+    particles_update(sfxr_dt());
 
     // what tests check ("expect app sky >= 0.9"): the app's own state
     sfxr_report("sky", world.sky);
@@ -162,6 +165,9 @@ void toolbox_draw(void)
         yard_draw();
     }
     gfx_draw_end();
+    // see-through things last, over the finished world: particles (their own
+    // blending; smoke dims at dusk, fire doesn't)
+    if (!garden_active()) particles_draw(1.0f - 0.6f * world.sky);
 }
 
 Color toolbox_sky(void) { return garden_active() ? garden_sky() : world_sky(); }

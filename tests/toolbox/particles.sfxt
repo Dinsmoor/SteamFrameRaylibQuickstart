@@ -1,0 +1,25 @@
+# tests/toolbox/particles.sfxt - the Particles bench (station_particles.c):
+# the fire burns and goes out, the wind leans the smoke, sparks bounce on the
+# table.
+app   toolbox
+rate  72
+
+case fire-burns-and-goes-out
+  stand   at particles.fire back 0.6
+  wait    1s
+  expect  app fire_particles > 15
+  hand    R poke particles.fire
+  wait    1.5s
+  expect  app fire_particles == 0
+
+case wind-leans-the-chimney-smoke
+  fails-if toolbox_particles_ignore_wind
+  wait    6s
+  expect  app smoke_drift > 0.4
+
+case sparks-bounce-on-the-table
+  fails-if toolbox_sparks_fall_through
+  stand   at particles.sparks back 0.6
+  hand    R poke particles.sparks
+  wait    0.8s
+  expect  app spark_bounces > 5

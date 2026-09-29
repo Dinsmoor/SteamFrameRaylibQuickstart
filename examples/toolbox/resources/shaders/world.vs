@@ -36,38 +36,62 @@
 #version 330
 
 // --- per-vertex input from raylib
-in vec3 vertexPosition;   // where this corner is. Already in WORLD space (see below)
+in vec3 vertexPosition;   // where this corner is (see useModelMatrix below)
 in vec3 vertexNormal;     // which way the surface faces at this corner (an arrow 1 long)
 in vec4 vertexColor;      // the color the C code drew it with (DrawCube(..., color))
-in vec2 vertexTexCoord;   // texture position; raylib's shapes send (0,0), we don't use it
+in vec2 vertexTexCoord;   // where on a texture this corner is: (0,0) one corner of the
+                          // image, (1,1) the opposite one. Shapes have no texture and
+                          // don't care; a picture (the Bugmaster) or a model does.
 
 // --- set by raylib for every draw
-// "Model-view-projection": one matrix that takes a world position all the way
-// to a position on the screen of the eye being drawn (raylib sets it once per
-// eye, so the same vertices land in the left and then the right view).
+// "Model-view-projection": one matrix that takes a position all the way to a
+// position on the screen of the eye being drawn (raylib sets it once per eye,
+// so the same vertices land in the left and then the right view).
 uniform mat4 mvp;
+// For a model (DrawModel): where the model is in the world. Its vertices are
+// in the model's own coordinates ("model space": the hammer's handle end at
+// 0,0,0), and this matrix moves, turns and scales them into the world.
+uniform mat4 matModel;
+// ...and the matrix that turns its normals the same way. (Not simply
+// matModel: a model squashed flat would tilt its normals wrongly. This one,
+// the "inverse transpose", keeps them square to the surface.)
+uniform mat4 matNormal;
+
+// --- set by graphics.c
+// There are TWO copies of this shader program, differing only in this. The
+// shapes raylib draws itself (DrawCube, vrui's boxes...) arrive with their
+// corners already worked out in world space on the CPU ("pre-transformed"),
+// and so does graphics.c's batched scenery: for those it's false. Models
+// arrive in their own space: for those it's true, and matModel is applied.
+uniform bool useModelMatrix;
 
 // --- handed on to world.fs (blended across each triangle)
 out vec3 fragWorldPos;    // where this point is in the world (for fog, shine, textures)
 out vec3 fragNormal;      // which way the surface faces
 out vec4 fragColor;       // its color
+out vec2 fragTexCoord;    // where on the texture
 
 void main()
 {
-    // Why the position is already in world space: raylib draws shapes like
-    // DrawCube by working out every corner's world position on the CPU (it
-    // "pre-transforms" them), and graphics.c builds its batched scenery the
-    // same way. So there is no per-object matrix to apply here.
-    fragWorldPos = vertexPosition;
+    vec4 world = vec4(vertexPosition, 1.0);
+    vec3 normal = vertexNormal;
+    if (useModelMatrix) {
+        world = matModel * world;
+        normal = (matNormal * vec4(vertexNormal, 0.0)).xyz;   // 0.0: a direction, not a place
+    }
+    fragWorldPos = world.xyz;
 
     // A normal should be exactly 1 long for the lighting math in world.fs.
     // Scaled shapes can hand us longer or shorter ones, so make sure.
-    fragNormal = normalize(vertexNormal);
+    fragNormal = normalize(normal);
 
     fragColor = vertexColor;
+    fragTexCoord = vertexTexCoord;
 
     // The one thing a vertex shader MUST do: write gl_Position, where on the
     // screen this corner goes. A vec4 because the 4th number (w) is what
     // makes far things smaller (perspective); the GPU divides by it later.
+    // (mvp already includes matModel for a model, so it takes the corner as
+    // raylib gave it.)
     gl_Position = mvp * vec4(vertexPosition, 1.0);
 }

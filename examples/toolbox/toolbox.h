@@ -13,6 +13,7 @@
 //   onboarding.c         the hands-on setup station (learns the player's habits)
 //   station_weights.c    Weights: feather, ball, brick, kettlebell, anvil, and a lane to throw them down
 //   station_guns.c       a physgun (Garry's Mod) and a gravity gun (Half-Life 2), beside the Weights table
+//   particles.c, station_particles.c  a particle system; the Particles bench: fire, smoke, steam, sparks
 //   station_wield.c      Wielding: sword, hammer, spear, dagger held by their handles; a sandbag to hit
 //   station_sound.c      Sound: point, cone, line, box and ambient emitters, and what your ears get
 //   station_voice.c      Voice commands: one command, bound every way (context button, radial, world button, hands-free)
@@ -41,6 +42,7 @@
 // sign above it (vrui_sign) saying what it is.
 //
 //      x   station                       file
+//  -23.0   Particles                     station_particles.c (fire, smoke, steam, sparks)
 //  -20.1   (a stand of physics guns)     station_guns.c (physgun and gravity gun, on the Weights things)
 //  -18.8   Weights                       station_weights.c (feather to anvil: how heavy should feel)
 //  -15.4   Wielding                      station_wield.c (weapons held by their handles, Blade & Sorcery style)
@@ -88,10 +90,10 @@ static inline void station_sign(float x, const char *title, const char *body)
 
 // Widget id groups: VRUI_ID2(group, index).
 enum { G_TABLE = 1, G_PANEL, G_WRIST, G_BLOCKS, G_BENCH, G_CTRL, G_HEADSET, G_LINK, G_YARD, G_HINGE,
-       G_ATTACH, G_MENUS, G_HUD, G_GARDEN, G_SMOOTH, G_VOICE, G_SOUND, G_WIELD, G_WEIGHTS, G_GUNS };
+       G_ATTACH, G_MENUS, G_HUD, G_GARDEN, G_SMOOTH, G_VOICE, G_SOUND, G_WIELD, G_WEIGHTS, G_GUNS, G_PARTICLES };
 
 // graphics.c: the world's look (the switches on the workbench) ------------------
-typedef enum { MAT_NONE, MAT_PAINT, MAT_WOOD, MAT_GRASS, MAT_STONE, MAT_COUNT } GfxMaterial;
+typedef enum { MAT_NONE, MAT_PAINT, MAT_WOOD, MAT_GRASS, MAT_STONE, MAT_WATER, MAT_COUNT } GfxMaterial;
 typedef struct { bool lighting, shine, fog, textures, culling, batching; } GfxSettings;
 typedef struct {
     int scenery_prims;                  // scenery calls this frame
@@ -106,12 +108,51 @@ void gfx_draw_begin(void);                         // around the world's drawing
 void gfx_draw_end(void);
 void gfx_material(GfxMaterial m);                  // for DrawCube etc. between begin and end
 bool gfx_visible(Vector3 center, float radius);    // culling (when the CULL switch is on)
+Shader gfx_model_shader(void);                     // for a model's materials (id 0 if the shader failed)
 // Scenery: things that never move, declared every frame (batched once).
 void scenery_box(SfxrPose pose, Vector3 size, Color color, GfxMaterial mat);
 void scenery_cylinder(Vector3 a, Vector3 b, float radius, Color color, GfxMaterial mat);
 void scenery_sphere(Vector3 center, float radius, Color color, GfxMaterial mat);
 void scenery_draw(void);                           // between gfx_draw_begin and _end
 const GfxStats *gfx_stats(void);
+
+// particles.c: fire, smoke, steam, sparks (the pattern is explained there) ------
+typedef enum { PSPRITE_PUFF, PSPRITE_FLAME, PSPRITE_SPARK, PSPRITE_COUNT } ParticleSprite;
+typedef enum { PBLEND_ALPHA, PBLEND_ADD } ParticleBlend;   // smoke and steam / fire and sparks
+typedef struct {
+    ParticleSprite sprite;
+    ParticleBlend blend;
+    float rate;                      // spawned per second while on (0: bursts only)
+    float life_min, life_max;        // seconds
+    Vector3 velocity;                // at birth, in the emitter's frame (m/s)
+    float spread_deg, speed_jitter;  // cone around it; +- fraction of its speed
+    float spawn_radius;              // born within this of the emitter (m, flat disc)
+    Vector3 spawn_line;              // ...and anywhere along this (emitter frame)
+    float size_start, size_end;      // meters across, over its life
+    Color color_start, color_mid, color_end;   // over its life (alpha too)
+    float gravity;                   // m/s^2 down; negative rises (hot smoke, steam)
+    float drag;                      // 1/s: how fast it loses speed
+    float wind;                      // 1/s: how fast the wind takes it over
+    float spin;                      // up to this many rad/s either way
+    bool  stretch;                   // drawn as a streak along its motion (sparks)
+    bool  bounce;                    // bounces: on floor_y over the floor rectangle, else on the ground
+    float floor_y;
+    Rectangle floor;                 // x, z (world), width along x, height along z
+} ParticleSpec;
+typedef struct { int alive, drawn, culled; } ParticleStats;
+void particles_init(void);
+int  particles_emitter(const ParticleSpec *spec, SfxrPose pose);   // a handle, or -1
+void particles_set_on(int e, bool on);
+void particles_move(int e, SfxrPose pose);
+void particles_burst(int e, int count);
+void particles_wind(Vector3 wind);   // m/s, for everything
+void particles_update(float dt);     // every frame, logic
+void particles_draw(float light);    // after the world (light 0..1: how lit smoke looks)
+int  particles_alive(int e);
+int  particles_bounces(int e);        // bounces so far
+Vector3 particles_bounds(int e, Vector3 *hi);   // a box round its live particles: the low corner (and the high)
+const ParticleStats *particles_stats(void);
+void station_particles(void);        // station_particles.c: the Particles bench
 
 // World settings, changed by the workbench controls and the Toolbox panel.
 typedef struct {

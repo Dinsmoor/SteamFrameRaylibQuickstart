@@ -64,13 +64,21 @@ typedef struct {
     float radius;
 } Chunk;
 
+// The shader's settings ("uniforms", world.fs lists them), looked up once.
+enum { U_LIGHT, U_SHINE, U_FOG, U_SUN_DIR, U_SUN_COLOR, U_SKY, U_GROUND, U_EYE, U_FOG_COLOR, U_FOG_DENSITY,
+       U_DETAIL, U_DETAIL_SCALE, U_DETAIL_STRENGTH, U_WATER, U_TIME, U_FLOW, U_MODEL_MATRIX, U_COUNT };
+static const char *const UNIFORM[U_COUNT] = { "useLight", "useShine", "useFog", "sunDir", "sunColor", "skyLight", "groundLight",
+    "eyePos", "fogColor", "fogDensity", "detailTex", "detailScale", "detailStrength", "isWater", "time", "flowDir", "useModelMatrix" };
+
 static struct {
     bool ok;                           // the shader loaded
-    Shader shader;
+    // Two programs from the same two files: [0] for shapes already in world
+    // space (raylib's own and the batched scenery), [1] for models, which
+    // bring a model matrix (world.vs, useModelMatrix). Every setting goes to both.
+    Shader shader[2];
+    int loc[2][U_COUNT];
     Material material;                 // for the batched meshes: our shader, raylib's defaults otherwise
     Texture2D detail[MAT_COUNT];
-    int loc_light, loc_shine, loc_fog, loc_sun_dir, loc_sun_color, loc_sky, loc_ground, loc_eye,
-        loc_fog_color, loc_fog_density, loc_detail, loc_detail_scale, loc_detail_strength;
     Mesh unit[3];                      // a unit box, cylinder, sphere (raylib's GenMesh*)
 
     Prim prims[MAX_PRIMS];             // this frame's scenery calls (while recording)
@@ -278,39 +286,35 @@ void gfx_init(void)
     char vs_path[PATH_MAX + 64] = "";
     if (vs) snprintf(vs_path, sizeof vs_path, "%s", vs);
     const char *fs = resource("shaders/world.fs");
-    if (vs && fs) G.shader = LoadShader(vs_path, fs);
-    G.ok = vs && fs && G.shader.id != 0 && G.shader.id != rlGetShaderIdDefault();
+    G.ok = vs && fs;
+    for (int k = 0; k < 2 && G.ok; k++) {
+        G.shader[k] = LoadShader(vs_path, fs);
+        G.ok = G.shader[k].id != 0 && G.shader[k].id != rlGetShaderIdDefault();
+        for (int u = 0; u < U_COUNT && G.ok; u++) G.loc[k][u] = GetShaderLocation(G.shader[k], UNIFORM[u]);
+    }
     if (!G.ok) { TraceLog(LOG_WARNING, "TOOLBOX: world shader not loaded: drawing flat"); return; }
-
-    Shader s = G.shader;
-    G.loc_light = GetShaderLocation(s, "useLight");
-    G.loc_shine = GetShaderLocation(s, "useShine");
-    G.loc_fog = GetShaderLocation(s, "useFog");
-    G.loc_sun_dir = GetShaderLocation(s, "sunDir");
-    G.loc_sun_color = GetShaderLocation(s, "sunColor");
-    G.loc_sky = GetShaderLocation(s, "skyLight");
-    G.loc_ground = GetShaderLocation(s, "groundLight");
-    G.loc_eye = GetShaderLocation(s, "eyePos");
-    G.loc_fog_color = GetShaderLocation(s, "fogColor");
-    G.loc_fog_density = GetShaderLocation(s, "fogDensity");
-    G.loc_detail = GetShaderLocation(s, "detailTex");
-    G.loc_detail_scale = GetShaderLocation(s, "detailScale");
-    G.loc_detail_strength = GetShaderLocation(s, "detailStrength");
-    int unit = DETAIL_UNIT;
-    SetShaderValue(s, G.loc_detail, &unit, SHADER_UNIFORM_INT);
+    for (int k = 0; k < 2; k++) {
+        int unit = DETAIL_UNIT, model = k;
+        SetShaderValue(G.shader[k], G.loc[k][U_DETAIL], &unit, SHADER_UNIFORM_INT);
+        SetShaderValue(G.shader[k], G.loc[k][U_MODEL_MATRIX], &model, SHADER_UNIFORM_INT);
+    }
+    Shader s = G.shader[0];
 
     // The same textures every run (raylib seeds its random numbers from the
     // clock; replays and the golden-image tests need them identical).
     SetRandomSeed(20260928);
-    for (int m = 1; m < MAT_COUNT; m++) G.detail[m] = make_texture((GfxMaterial)m);
+    for (int m = 1; m < MAT_WATER; m++) G.detail[m] = make_texture((GfxMaterial)m);
     SetRandomSeed((unsigned)time(NULL));
     G.material = LoadMaterialDefault();
     G.material.shader = s;
     vrui_solid_shader(s);   // vrui's boxes and spheres are lit the same way
 }
 
-static void set_int(int loc, bool v) { int i = v; SetShaderValue(G.shader, loc, &i, SHADER_UNIFORM_INT); }
-static void set_vec3(int loc, Vector3 v) { SetShaderValue(G.shader, loc, &v, SHADER_UNIFORM_VEC3); }
+static void set_int(int u, int v)       { for (int k = 0; k < 2; k++) SetShaderValue(G.shader[k], G.loc[k][u], &v, SHADER_UNIFORM_INT); }
+static void set_float(int u, float v)   { for (int k = 0; k < 2; k++) SetShaderValue(G.shader[k], G.loc[k][u], &v, SHADER_UNIFORM_FLOAT); }
+static void set_vec3(int u, Vector3 v)  { for (int k = 0; k < 2; k++) SetShaderValue(G.shader[k], G.loc[k][u], &v, SHADER_UNIFORM_VEC3); }
+
+Shader gfx_model_shader(void) { return G.ok ? G.shader[1] : (Shader){ 0 }; }
 
 // The light for this frame. `dusk` is the SKY lever (0 day .. 1 dusk): the
 // sun sinks, reddens and dims, and the sky light turns blue and dark. The
@@ -321,17 +325,18 @@ void gfx_frame(float dusk, Color sky)
     if (!G.ok) return;
     Vector3 sun_day = Vector3Normalize((Vector3){ -0.4f, -0.85f, -0.35f });
     Vector3 sun_dusk = Vector3Normalize((Vector3){ -0.8f, -0.25f, -0.55f });
-    set_int(G.loc_light, gfx.lighting);
-    set_int(G.loc_shine, gfx.shine);
-    set_int(G.loc_fog, gfx.fog);
-    set_vec3(G.loc_sun_dir, Vector3Normalize(Vector3Lerp(sun_day, sun_dusk, dusk)));
-    set_vec3(G.loc_sun_color, Vector3Lerp((Vector3){ 0.85f, 0.8f, 0.72f }, (Vector3){ 0.9f, 0.45f, 0.25f }, dusk));
-    set_vec3(G.loc_sky, Vector3Lerp((Vector3){ 0.32f, 0.38f, 0.48f }, (Vector3){ 0.10f, 0.11f, 0.20f }, dusk));
-    set_vec3(G.loc_ground, Vector3Lerp((Vector3){ 0.20f, 0.19f, 0.14f }, (Vector3){ 0.05f, 0.05f, 0.06f }, dusk));
-    set_vec3(G.loc_eye, sfxr_head().position);
-    set_vec3(G.loc_fog_color, (Vector3){ sky.r / 255.0f, sky.g / 255.0f, sky.b / 255.0f });
-    float density = 0.018f;
-    SetShaderValue(G.shader, G.loc_fog_density, &density, SHADER_UNIFORM_FLOAT);
+    set_int(U_LIGHT, gfx.lighting);
+    set_int(U_SHINE, gfx.shine);
+    set_int(U_FOG, gfx.fog);
+    set_vec3(U_SUN_DIR, Vector3Normalize(Vector3Lerp(sun_day, sun_dusk, dusk)));
+    set_vec3(U_SUN_COLOR, Vector3Lerp((Vector3){ 0.85f, 0.8f, 0.72f }, (Vector3){ 0.9f, 0.45f, 0.25f }, dusk));
+    set_vec3(U_SKY, Vector3Lerp((Vector3){ 0.32f, 0.38f, 0.48f }, (Vector3){ 0.10f, 0.11f, 0.20f }, dusk));
+    set_vec3(U_GROUND, Vector3Lerp((Vector3){ 0.20f, 0.19f, 0.14f }, (Vector3){ 0.05f, 0.05f, 0.06f }, dusk));
+    set_vec3(U_EYE, sfxr_head().position);
+    set_vec3(U_FOG_COLOR, (Vector3){ sky.r / 255.0f, sky.g / 255.0f, sky.b / 255.0f });
+    set_float(U_FOG_DENSITY, 0.018f);
+    set_float(U_TIME, (float)fmod(sfxr_time(), 1000.0));   // (kept small: floats lose precision as they grow)
+    set_vec3(U_FLOW, (Vector3){ 0, 0, 1 });
     gfx_material(MAT_NONE);
 
     // a new frame of scenery calls
@@ -349,17 +354,16 @@ void gfx_material(GfxMaterial m)
 {
     if (!G.ok) return;
     rlDrawRenderBatchActive();
-    static const float SCALE[MAT_COUNT] = { 1, 1.0f, 0.8f, 0.33f, 1.0f };   // pattern repeats per meter (grass: every 3 m)
-    float strength = gfx.textures && m != MAT_NONE ? 1.0f : 0.0f;
-    float scale = SCALE[m];
-    SetShaderValue(G.shader, G.loc_detail_strength, &strength, SHADER_UNIFORM_FLOAT);
-    SetShaderValue(G.shader, G.loc_detail_scale, &scale, SHADER_UNIFORM_FLOAT);
+    static const float SCALE[MAT_COUNT] = { 1, 1.0f, 0.8f, 0.33f, 1.0f, 1.0f };   // pattern repeats per meter (grass: every 3 m)
+    set_float(U_DETAIL_STRENGTH, gfx.textures && m != MAT_NONE && m != MAT_WATER ? 1.0f : 0.0f);
+    set_float(U_DETAIL_SCALE, SCALE[m]);
+    set_int(U_WATER, m == MAT_WATER);
     rlActiveTextureSlot(DETAIL_UNIT);
-    rlEnableTexture(G.detail[m == MAT_NONE ? MAT_PAINT : m].id);
+    rlEnableTexture(G.detail[m == MAT_NONE || m == MAT_WATER ? MAT_PAINT : m].id);
     rlActiveTextureSlot(0);
 }
 
-void gfx_draw_begin(void) { if (G.ok) { BeginShaderMode(G.shader); gfx_material(MAT_NONE); } }
+void gfx_draw_begin(void) { if (G.ok) { BeginShaderMode(G.shader[0]); gfx_material(MAT_NONE); } }
 void gfx_draw_end(void)   { if (G.ok) { gfx_material(MAT_NONE); EndShaderMode(); } }
 
 bool gfx_visible(Vector3 center, float radius)

@@ -66,8 +66,6 @@ static struct {
     int ncol;
     RigidBody body[NPROPS];     // the loose props
     float floor_y[NPROPS];
-    Shader lit;
-    bool lit_ok;
 } G;
 
 #define GRID 96
@@ -96,46 +94,16 @@ const char *gw_path(const char *file)
     return buf;
 }
 
-// --- lighting -------------------------------------------------------------------
+// --- lighting ------------------------------------------------------------------
 
-static const char *LIT_VS =
-    "#version 330\n"
-    "in vec3 vertexPosition; in vec2 vertexTexCoord; in vec3 vertexNormal; in vec4 vertexColor;\n"
-    "uniform mat4 mvp; uniform mat4 matNormal;\n"
-    "out vec2 fragTexCoord; out vec4 fragColor; out vec3 fragNormal;\n"
-    "void main() {\n"
-    "    fragTexCoord = vertexTexCoord; fragColor = vertexColor;\n"
-    "    fragNormal = normalize(vec3(matNormal * vec4(vertexNormal, 0.0)));\n"
-    "    gl_Position = mvp * vec4(vertexPosition, 1.0);\n"
-    "}\n";
-static const char *LIT_FS =
-    "#version 330\n"
-    "in vec2 fragTexCoord; in vec4 fragColor; in vec3 fragNormal;\n"
-    "uniform sampler2D texture0; uniform vec4 colDiffuse;\n"
-    "uniform vec3 sunDir; uniform vec3 sunColor; uniform vec3 ambient;\n"
-    "out vec4 finalColor;\n"
-    "void main() {\n"
-    "    vec4 base = texture(texture0, fragTexCoord) * colDiffuse * fragColor;\n"
-    "    float d = max(dot(normalize(fragNormal), -sunDir), 0.0);\n"
-    "    finalColor = vec4(base.rgb * (ambient + sunColor * d), base.a);\n"
-    "}\n";
-
+// The garden is lit like the rest of the toolbox: its models draw with the
+// world shader's model version (graphics.c, resources/shaders/world.vs/.fs),
+// so the sun, sky light, fog and the LIGHT/SHINE/FOG switches apply here too.
 void gw_light(Model *m)
 {
-    if (!G.lit_ok) return;
-    for (int i = 0; i < m->materialCount; i++) m->materials[i].shader = G.lit;
-}
-
-static void lighting_init(void)
-{
-    G.lit = LoadShaderFromMemory(LIT_VS, LIT_FS);
-    G.lit_ok = G.lit.id != 0 && G.lit.id != rlGetShaderIdDefault();
-    if (!G.lit_ok) { TraceLog(LOG_WARNING, "GARDEN: lighting shader failed: drawing unlit"); return; }
-    Vector3 sun = Vector3Normalize((Vector3){ -0.4f, -0.85f, -0.35f });   // down and to one side
-    Vector3 sun_col = { 0.75f, 0.72f, 0.65f }, sky = { 0.42f, 0.44f, 0.5f };
-    SetShaderValue(G.lit, GetShaderLocation(G.lit, "sunDir"), &sun, SHADER_UNIFORM_VEC3);
-    SetShaderValue(G.lit, GetShaderLocation(G.lit, "sunColor"), &sun_col, SHADER_UNIFORM_VEC3);
-    SetShaderValue(G.lit, GetShaderLocation(G.lit, "ambient"), &sky, SHADER_UNIFORM_VEC3);
+    Shader s = gfx_model_shader();
+    if (s.id == 0) return;   // no shader: raylib's flat default
+    for (int i = 0; i < m->materialCount; i++) m->materials[i].shader = s;
 }
 
 // --- terrain heights ------------------------------------------------------------
@@ -201,7 +169,6 @@ void gw_reset(void)
 bool gw_load(void)
 {
     if (G.loaded || G.failed) return G.loaded;
-    lighting_init();
     G.terrain = LoadModel(gw_path("terrain.glb"));
     if (G.terrain.meshCount == 0) {
         TraceLog(LOG_WARNING, "GARDEN: %s not found: the garden needs its models (examples/toolbox/resources/garden)", gw_path("terrain.glb"));
@@ -233,7 +200,6 @@ void gw_unload(void)
     if (!G.loaded) return;
     UnloadModel(G.terrain);
     for (int i = 0; i < NPROPS; i++) UnloadModel(G.models[i]);
-    if (G.lit_ok) UnloadShader(G.lit);
     memset(&G, 0, sizeof G);
 }
 
@@ -310,13 +276,27 @@ void gw_step(float dt)
 
 Color gw_sky(void) { return (Color){ 173, 216, 230, 255 }; }
 
+// Which of the toolbox's textures (graphics.c) each model wears. A pattern is
+// laid on by world position, so things that move (the loose chair) wear
+// none: it would slide across them.
+static GfxMaterial material_of(const PropDef *p)
+{
+    if (p->loose) return MAT_NONE;
+    if (strstr(p->model, "tree") || strstr(p->model, "bush")) return MAT_GRASS;
+    if (strstr(p->model, "rock") || strstr(p->model, "tower")) return MAT_STONE;
+    if (strstr(p->model, "table") || strstr(p->model, "chair")) return MAT_WOOD;
+    return MAT_PAINT;
+}
+
 void gw_draw(void)
 {
     if (!G.loaded) return;
+    gfx_material(MAT_GRASS);
     DrawModel(G.terrain, (Vector3){ 0 }, 1.0f, WHITE);   // its transform carries the scale
     for (int i = 0; i < NPROPS; i++) {
         const PropDef *p = &PROPS[i];
         float s = S * p->scale;
+        gfx_material(material_of(p));
         if (p->loose) {
             // the model's origin is at its base; the body spins about its middle
             const RigidBody *b = &G.body[i];
@@ -327,4 +307,5 @@ void gw_draw(void)
             DrawModelEx(G.models[i], (Vector3){ p->x * S, p->y * S, p->z * S }, (Vector3){ 0, 1, 0 }, p->yaw, (Vector3){ s, s, s }, WHITE);
         }
     }
+    gfx_material(MAT_NONE);
 }
