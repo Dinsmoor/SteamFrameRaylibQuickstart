@@ -16,15 +16,6 @@ supports all of them, and the toolbox demonstrates each.
 | **Poke** | touches with a fingertip | the poke pose (controller tip, or index fingertip with bare hands) pushing in | push buttons, switches |
 | **Hand shape** | an open palm, a point, a fist... | the Frame's touch sensors, or hand joints | an open hand shoves blocks, a fast fist knocks them |
 
-### Buttons that don't arrive
-Check the recordings before trusting a button. Every headset session so far recorded
-touches on the right controller's **B** (over 300 frames across sessions) but **not one
-click**, while A, X, Y, the bumpers and the D-pad clicks all came through. So the toolbox's
-radial menu, first bound to B, never opened on the Frame. (Its next button, A, worked, but
-it's under the same thumb as the stick you choose with; it's on the **bumper** now.) To check a
-button yourself, watch it on the *Controllers panel*, or count it in a recording:
-`sfxrec_dump session.sfxrec --summary` lists clicked/touched frames per control.
-
 ### Hand shapes from the touch sensors
 Every Frame control reports **touch** as well as press, so sfxr knows where each finger
 rests:
@@ -84,23 +75,21 @@ Use shapes to make physical interaction **conditional**:
 `input/frame-poke-at-the-tip` (`sfxr_poke_from_runtime`).
 
 
-**SteamVR's thumb is on the wrong control.** Holding the Frame controllers, SteamVR also
-reports a full hand skeleton built from the touch sensors (the joints' data source is
-"controller"). Its thumb lands on the wrong spot. Touch the stick and the tip is on the A
-button; touch A and it's on the stick; lift it and it hangs over the far side of the
-controller. Every recorded session shows it, on both hands. It was measured against the
-controller's own render model, from SteamVR's driver (`frame_controller_right.json`).
-sfxr poses the thumb itself, from the same touch sensors, before you see the joints
-(`sfxr__thumb_spot` and `sfxr__thumb_reach` in `sfxr_input.c`):
-- Touching a control, the tip is on that control. On the stick, it follows the stick as it
-  tilts.
-- Touching nothing, it hovers over the face.
-- The bones arc from the reported base to the tip, nail side up, and glide there.
+**The thumb on the controller skeleton isn't figured out yet.** Holding the Frame
+controllers, SteamVR also reports a full hand skeleton built from the touch sensors (the
+joints' data source is "controller"). Where its thumb should go is still an open question:
+- The first version drew the joints as reported, and the thumb sat exactly where you'd
+  expect, except that left looked like right and right like left.
+- A reflection meant to fix that didn't.
+- sfxr now poses the thumb itself from the touch sensors (`sfxr__thumb_spot`,
+  `sfxr__thumb_reach` in `sfxr_input.c`: the tip on the touched control, hovering over the
+  face otherwise). In the headset that doesn't look right either: it isn't even
+  transformed properly.
 
-The palm and fingers are left as reported. Recordings keep what the runtime said, so replays
-get the same fix. Test: `hands/frame-thumb-on-what-it-touches` (break switch
-`sfxr_thumb_as_reported`); `sfxt_hand_kind(h, SFXT_FRAME_SKELETON)` imitates SteamVR's
-skeleton in tests.
+The first version's result suggests the real problem is a left/right swap between the
+hands (or their frames), not SteamVR's thumb placement. That's the lead to follow. The
+palm and fingers are left as reported. The test `hands/frame-thumb-on-what-it-touches`
+(break switch `sfxr_thumb_as_reported`) checks the current posing, not that it's right.
 
 ## Bare hands
 

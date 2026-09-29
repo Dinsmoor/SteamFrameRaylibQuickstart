@@ -656,7 +656,7 @@ Bugmaster: pointing plus voice orders; see "Next" below).
 - **sfxr:** OpenXR GL (verified on the Frame at 72 Hz, 1728² per eye) and VK paths, the
   simulator, record/replay (every headset launch records; replays run on the headset's GPU
   too), scripted backend for tests. Every Frame control's click and touch, pull levels,
-  hand shapes from the touch sensors, the thumb posed from them, bare-hand gestures,
+  hand shapes from the touch sensors (the thumb: unresolved), bare-hand gestures,
   presence, focus and **attention** (`sfxr_attention`: headset off / dashboard; recorded),
   refresh rate, batteries, performance counters, controller models, passthrough, depth
   submission, floor guard, screenshots, the event log, `sfxr_report`, **`sfxr_store`**
@@ -678,15 +678,15 @@ Bugmaster: pointing plus voice orders; see "Next" below).
   replays. `make test`, `scripts/test.sh [file]`, `scripts/regress.sh [--bless]`.
 
 **What the Frame taught us (keep: each cost a session to find)**
-- **B's click never reaches the app** (touch yes, click 0 in every recording). Nothing
-  essential on B. `docs/INPUT.md` "Buttons that don't arrive".
 - **SteamVR's poke pose is 12.5 cm below the grip**, and its controller skeleton **never
   straightens the index** (curl 0.97): poke from the tip, shapes from the touch sensors.
   The index sensor isn't dependable enough to gate a control on (point-to-press removed).
-- **SteamVR's thumb is placed on the wrong control** (on A for the stick, on the stick for
-  A, the far side when lifted): sfxr poses it from the touch sensors, spots measured from
-  the driver's render model (`/opt/steamvr/drivers/frame_controller/resources/rendermodels/`,
-  grip = its `openxr_grip` component).
+- **The thumb on the controller skeleton isn't figured out yet.** The first version drew
+  SteamVR's joints as reported and the thumb sat in exactly the right place, but left
+  looked like right and right like left. A reflection didn't fix it, and the current
+  posing from the touch sensors (`sfxr__thumb_spot` / `sfxr__thumb_reach`) isn't even
+  transformed properly in the headset. The lead: a left/right swap between the hands (or
+  their frames), not SteamVR's thumb. `docs/INPUT.md` says the same.
 - **A controller's palm pose (`palm_ext`) has the grip's axes** (palm along ∓X, -Y down
   the handle; the Frame's is the grip tipped 42° about X): sfxr turns it to the joint
   convention.
@@ -710,9 +710,11 @@ Bugmaster: pointing plus voice orders; see "Next" below).
 4. The workbench switches with the Performance overlay on: what does each cost on the
    Frame (CPU ms on the plaque)? Fog and light at day and dusk (SKY lever).
 5. The palm buttons at a normal distance; the controls diagram's real models and callouts.
-6. Thumbs with "Joints while holding" on (Headset panel).
-7. Still open from earlier sessions: left/right sound at the Sound station; B on the
-   Controllers panel; bare hands (put the controllers down; `SFXR_HANDS=joints`); the
+6. Thumbs with "Joints while holding" on (Headset panel): not right yet. Compare with the
+   runtime's joints as reported (`SFXR_BREAK` isn't in release builds: add a Headset-panel
+   toggle for "thumb as reported" first), and check which hand's joints land on which
+   controller.
+7. Still open from earlier sessions: left/right sound at the Sound station; bare hands (put the controllers down; `SFXR_HANDS=joints`); the
    Movement yard; `scripts/frame-perf.sh toolbox` while worn; the mic's name
    (`frame.sh exec 'pactl list sources'`) and Whisper's time on the headset.
 8. `scripts/frame.sh pull toolbox` afterwards: recordings, `.events`, `shots/`.
