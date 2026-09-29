@@ -70,6 +70,28 @@ bool sfxr_voice_hands_free_heard(void);   // the current (or last) clip was star
 // to the speech detector).
 void sfxr_voice_feed(const float *pcm, int n);
 
+// --- Design notes: talk to your tools from inside the headset (docs/NOTES.md) ---
+//
+// Not a command: a note. Hold a button, say what you want changed ("make a
+// variant of this one that flies and spits arcs of slop while it hovers"),
+// let go. The clip is saved next to the app, in notes/ (SFXR_NOTES_DIR), as
+//   <id>.wav    16 kHz mono, with the 0.3 s from before the button
+//   <id>.json   when and where: time, frame, head and hands, gaze if the
+//               headset has it, and `context`: what the app says you meant
+//               (any JSON: the widget you point at, the enemy under your
+//               gaze, the level...), or null
+//   <id>.png    a screenshot of that frame (both eyes on the headset)
+// Nothing is recognized on the headset: the build machine pulls the notes
+// (scripts/frame.sh notes), transcribes them with a big model and hands them
+// to the coding agent with the context. Works without libsfq_speech.so; it
+// needs only the microphone.
+bool sfxr_note_begin(void);                    // false: no microphone
+bool sfxr_note_end(const char *context_json);  // false: nothing was recording; context_json may be NULL
+bool sfxr_note_recording(void);
+float sfxr_note_seconds(void);                 // how long the current (or last) note is
+const char *sfxr_note_last(void);              // the last saved note's id ("" if none)
+int  sfxr_note_count(void);                    // saved this run
+
 #ifdef __cplusplus
 }
 #endif

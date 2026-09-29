@@ -25,6 +25,7 @@
 #include <math.h>
 #include <pthread.h>
 #include <stdatomic.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -62,6 +63,17 @@ static struct {
     float block_sum;
     int block_n, loud_run, quiet_run;
 } V;
+
+// Design notes (the end of this file): a longer clip, saved rather than recognized.
+#define NOTE_MAX (RATE * 90)
+static struct {
+    float *pcm;
+    int n;
+    bool on;
+    int count;
+    char last[48];
+    char dir[512];
+} N;
 
 bool sfxr_voice_available(void) { return V.ctx != NULL; }
 const char *sfxr_voice_status(void) { return V.status[0] ? V.status : "voice: not started (sfxr_voice_init)"; }
@@ -188,6 +200,7 @@ static void take(const float *s, int n)
 {
     const int block = RATE / 50;
     for (int i = 0; i < n; i++) {
+        if (N.on && N.n < NOTE_MAX) N.pcm[N.n++] = s[i];
         if (V.listening) { if (V.nclip < MAX_CLIP) V.clip[V.nclip++] = s[i]; }
         else { V.pre[V.pre_w] = s[i]; V.pre_w = (V.pre_w + 1) % PREROLL; }
         if (!V.free_on) continue;
@@ -344,4 +357,118 @@ int sfxr_voice_match(const char *text, const char *const *commands, int count)
         }
     }
     return best;
+}
+
+// --- design notes (sfxr_voice.h, docs/NOTES.md) --------------------------------------
+// A clip of you describing what you want, saved with the moment it was said
+// in, for the tools on the build machine to transcribe and act on. The same
+// microphone ring as the commands; the note buffer is filled alongside the
+// clip, so a command and a note can overlap without stealing samples.
+
+static const char *note_dir(void)
+{
+    if (!N.dir[0]) {
+        const char *d = sfxr_env_str("SFXR_NOTES_DIR");
+        snprintf(N.dir, sizeof N.dir, "%s", d && *d ? d : "notes");
+    }
+    return N.dir;
+}
+
+bool sfxr_note_recording(void) { return N.on; }
+float sfxr_note_seconds(void) { return (float)N.n / RATE; }
+const char *sfxr_note_last(void) { return N.last; }
+int sfxr_note_count(void) { return N.count; }
+
+bool sfxr_note_begin(void)
+{
+    if (N.on) return true;
+    bool mic = sfxr_mic_on() || (sfxr_backend() == SFXR_BACKEND_SCRIPT && !sfxr_env_flag("SFXR_AUDIO", false)) || sfxr_mic_start();
+    if (!mic) { SFXR_WARN("note: no microphone"); return false; }
+    if (!N.pcm) N.pcm = malloc(sizeof(float) * NOTE_MAX);
+    if (!N.pcm) return false;
+    N.n = 0;
+    // people start talking as they press: the 0.3 s before the button
+    if (!SFXR_BREAK(sfxr_note_no_preroll))
+        for (int i = 0; i < PREROLL; i++) N.pcm[N.n++] = V.pre[(V.pre_w + i) % PREROLL];
+    N.on = true;
+    sfxr_event("note", "recording");
+    return true;
+}
+
+static bool write_wav(const char *path, const float *pcm, int n)
+{
+    FILE *f = fopen(path, "wb");
+    if (!f) return false;
+    uint32_t data = (uint32_t)n * 2, rate = RATE, byte_rate = RATE * 2, fmt_len = 16;
+    uint16_t pcm_fmt = 1, channels = 1, block = 2, bits = 16;
+    uint32_t riff = 36 + data;
+    fwrite("RIFF", 1, 4, f); fwrite(&riff, 4, 1, f); fwrite("WAVE", 1, 4, f);
+    fwrite("fmt ", 1, 4, f); fwrite(&fmt_len, 4, 1, f); fwrite(&pcm_fmt, 2, 1, f); fwrite(&channels, 2, 1, f);
+    fwrite(&rate, 4, 1, f); fwrite(&byte_rate, 4, 1, f); fwrite(&block, 2, 1, f); fwrite(&bits, 2, 1, f);
+    fwrite("data", 1, 4, f); fwrite(&data, 4, 1, f);
+    for (int i = 0; i < n; i++) {
+        float v = pcm[i] > 1 ? 1 : pcm[i] < -1 ? -1 : pcm[i];
+        int16_t s = (int16_t)(v * 32767.0f);
+        fwrite(&s, 2, 1, f);
+    }
+    return fclose(f) == 0;
+}
+
+static void jvec(FILE *f, Vector3 v) { fprintf(f, "[%.3f,%.3f,%.3f]", v.x, v.y, v.z); }
+static void jpose(FILE *f, const char *key, SfxrPose p)
+{
+    fprintf(f, "\"%s\":{\"pos\":", key); jvec(f, p.position);
+    fprintf(f, ",\"forward\":"); jvec(f, sfxr_pose_forward(p));
+    fprintf(f, "}");
+}
+
+bool sfxr_note_end(const char *context_json)
+{
+    if (!N.on) return false;
+    sfxr_voice_update();   // the last samples
+    N.on = false;
+    if (N.n < RATE / 4) { sfxr_event("note", "dropped: %.2f s", (float)N.n / RATE); return false; }
+
+    const char *dir = note_dir();
+    if (!DirectoryExists(dir)) MakeDirectory(dir);
+    time_t now = time(NULL);
+    struct tm tm;
+    localtime_r(&now, &tm);
+    static int last_sec = -1, same = 0;
+    same = (int)now == last_sec ? same + 1 : 0;
+    last_sec = (int)now;
+    char id[48];
+    snprintf(id, sizeof id, "note-%04d%02d%02d-%02d%02d%02d%s", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+             tm.tm_hour, tm.tm_min, tm.tm_sec, same ? TextFormat("-%d", same) : "");
+    char path[600];
+    snprintf(path, sizeof path, "%s/%s.wav", dir, id);
+    if (!write_wav(path, N.pcm, N.n)) { SFXR_WARN("note: can't write %s", path); return false; }
+
+    snprintf(path, sizeof path, "%s/%s.json", dir, id);
+    FILE *f = fopen(path, "w");
+    if (!f) { SFXR_WARN("note: can't write %s", path); return false; }
+    fprintf(f, "{\"id\":\"%s\",\"seconds\":%.2f,\"time\":%.3f,\"frame\":%llu,\"wav\":\"%s.wav\",\"screenshot\":\"%s.png\",",
+            id, (float)N.n / RATE, sfxr_time(), (unsigned long long)sfxr_frame_index(), id, id);
+    fprintf(f, "\"clock\":\"%04d-%02d-%02dT%02d:%02d:%02d\",", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+    jpose(f, "head", sfxr_head());
+    fprintf(f, ",\"hands\":{");
+    for (int h = 0; h < SFXR_HAND_COUNT; h++) {
+        const SfxrHand *hand = sfxr_hand((SfxrHandId)h);
+        fprintf(f, "%s\"%s\":", h ? "," : "", h == SFXR_LEFT ? "left" : "right");
+        if (!hand->active) { fprintf(f, "null"); continue; }
+        fprintf(f, "{"); jpose(f, "aim", hand->aim); fprintf(f, ","); jpose(f, "grip", hand->grip); fprintf(f, "}");
+    }
+    fprintf(f, "}");
+    SfxrPose gaze;
+    if (sfxr_gaze(&gaze)) { fprintf(f, ","); jpose(f, "gaze", gaze); }
+    fprintf(f, ",\"context\":%s}\n", context_json && *context_json ? context_json : "null");
+    fclose(f);
+
+    snprintf(path, sizeof path, "%s/%s.png", dir, id);
+    sfxr_screenshot(path);
+    snprintf(N.last, sizeof N.last, "%s", id);
+    N.count++;
+    sfxr_event("note", "%s saved: %.1f s", id, (float)N.n / RATE);
+    SFXR_LOG("note %s: %.1f s -> %s/", id, (float)N.n / RATE, dir);
+    return true;
 }

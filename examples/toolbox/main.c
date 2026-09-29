@@ -119,6 +119,7 @@ void toolbox_logic(void)
     for (int h = 0; h < 2; h++)   // your hands' shadows, so you can see how high they are
         if (sfxr_hand((SfxrHandId)h)->active) gfx_shadow(sfxr_hand((SfxrHandId)h)->grip.position, 0.06f);
     screenshot_update();
+    notes_update();   // hold VIEW: a design note for the tools (notes.c, docs/NOTES.md)
     if (garden_active()) {
         garden_update(&loco);   // part three: the garden replaces the stations while you're in it
         return;

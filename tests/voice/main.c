@@ -14,6 +14,7 @@
 #include "sfxr_voice.h"
 
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -185,7 +186,54 @@ static void cones_face_and_lines_follow(void)
     CHECK_NEAR(Vector3Distance(near, head.position), 3.0f, 0.01f, "heard from its nearest point, 3 m away");
 }
 
+// A design note: hold, talk, let go. The clip is saved as a WAV with the
+// moment before the button in it (people start talking as they press), and
+// a JSON line says where you were and what the app thinks you meant.
+static void note_keeps_the_words_before_the_button(void)
+{
+    setenv("SFXR_NOTES_DIR", "build/host-test/test-notes", 1);
+    static float tone[4800], quiet[16000];   // 0.3 s of speech, then a second of nothing
+    for (int i = 0; i < 4800; i++) tone[i] = 0.3f * sinf((float)i * 0.2f);
+    sfxr_voice_feed(tone, 4800);             // said before the press: into the moment-before ring
+    CHECK(sfxr_note_begin(), "a note starts (the script backend needs no microphone)");
+    sfxr_voice_feed(quiet, 16000);
+    sfxt_frames(1);
+    CHECK(sfxr_note_recording(), "recording");
+    CHECK(sfxr_note_end("{\"pointing\":\"garden.bug 2\"}"), "saved");
+    CHECK(sfxr_note_count() == 1, "one note this run");
+    const char *id = sfxr_note_last();
+    CHECK(strncmp(id, "note-", 5) == 0, "named by the clock: %s", id);
+    char path[256];
+    snprintf(path, sizeof path, "build/host-test/test-notes/%s.wav", id);
+    FILE *f = fopen(path, "rb");
+    CHECK(f != NULL, "the WAV exists: %s", path);
+    if (f) {
+        unsigned char h[44];
+        int16_t first[400];
+        size_t n = fread(h, 1, 44, f);
+        size_t m = fread(first, 2, 400, f);
+        fclose(f);
+        CHECK(n == 44 && memcmp(h, "RIFF", 4) == 0 && memcmp(h + 8, "WAVE", 4) == 0, "a WAV header");
+        CHECK(h[22] == 1 && h[24] == 0x80 && h[25] == 0x3e, "mono, 16 kHz");
+        int loud = 0;
+        for (size_t i = 0; i < m; i++) loud += abs(first[i]) > 1000;
+        CHECK(loud > 100, "it starts with the words said before the button (%d loud samples of %zu)", loud, m);
+    }
+    snprintf(path, sizeof path, "build/host-test/test-notes/%s.json", id);
+    f = fopen(path, "r");
+    CHECK(f != NULL, "the JSON exists: %s", path);
+    if (f) {
+        char line[2048] = "";
+        if (!fgets(line, sizeof line, f)) line[0] = 0;
+        fclose(f);
+        CHECK(strstr(line, "\"head\":{\"pos\":[") != NULL, "where your head was");
+        CHECK(strstr(line, "\"context\":{\"pointing\":\"garden.bug 2\"}") != NULL, "the app's context, as given");
+        CHECK(strstr(line, "\"seconds\":1.3") != NULL, "1.3 s long (%s)", line);
+    }
+}
+
 static const SfxtCase CASES[] = {
+    { "voice/note-keeps-the-words-before-the-button", note_keeps_the_words_before_the_button, "sfxr_note_no_preroll" },
     { "voice/push-to-talk-recognizes",       push_to_talk_recognizes,           "sfxr_voice_no_prompt" },
     { "voice/hands-free-speech-starts-and-a-pause-ends", hands_free_speech_starts_and_a_pause_ends, "sfxr_voice_any_sound_starts" },
     { "voice/repeats-are-collapsed",          repeats_are_collapsed,             "sfxr_voice_keeps_repeats" },

@@ -288,6 +288,12 @@ vrui/include/vrui.h  interaction toolkit (starts with a table of contents). vrui
 examples/<name>/     each dir with main.c -> bin/<name>   (hello, toolbox: one file per station in a row, see toolbox.h)
 apps/<name>/         your projects; same rule (make new-app NAME=foo)
 tools/xr_probe.c     runtime capability dump; run it first on real hardware
+tools/assets/        the asset pipeline: sfq_assets.py (helpers), build.py (runs a generator in Blender, exports, checks)
+tools/notes/         notesd.py (pulls design notes from the headset, transcribes), channel.ts (pushes them into Claude Code)
+examples/viewer/     look at a GLB the way the game draws it (make view MODEL=...)
+examples/toolbox/assets/bug.py   an asset generator (the bug); output examples/toolbox/resources/models/bug.glb
+.claude/skills/      notes, asset, deploy: what Claude does with a note, an asset request, a deploy
+.mcp.json            the "notes" channel and the "blender" MCP server (scripts/notes-channel.sh, scripts/blender-mcp.sh)
 tools/sfxrec_dump.c  recording -> CSV (inspect what a player actually did)
 tests/regress/<t>/   recorded tests: input.sfxrec, app, frames, golden/ (scripts/regress.sh)
 docs/TESTING.md      the testing doctrine and plan (read before writing tests)
@@ -300,11 +306,14 @@ docs/AUDIO.md        positional sound, sounds made in code, the mic, push-to-tal
 docs/SMOOTHING.md    how held things follow (snap/lag/spring/heavy/steady), springs, easing
 docs/DADDY_BUG_SMASHER.md       the toolbox's part three: a small game (examples/toolbox/garden*.c, tests/garden)
 docs/WIELDING.md, STEAM.md, PERFORMANCE.md   held things with weight; Steamworks; frame rate and foveation
+docs/NOTES.md        design notes: talk to your tools from inside the headset (the loop, the services, the channel)
+docs/ASSETS.md       models made by scripts in Blender (headless, in a container), what raylib loads, the viewer
 tests/<suite>/       C suites: mech input move hands attach voice wield steam collide garden; tests/toolbox/*.sfxt
                      scenarios against the real toolbox (make test); tests/regress/ golden replays (make regress)
-scripts/             frame.sh (headset remote control), shot-sim.sh, test-xr.sh, frame-build.sh, package.sh, new-app.sh
+scripts/             frame.sh (headset remote control), shot-sim.sh, test-xr.sh, frame-build.sh, package.sh, new-app.sh,
+                     blender.sh (Blender in its container), notes.sh (the note loop's services), blender-mcp.sh, notes-channel.sh
 tools/devkit-utils/  Valve's device-side devkit helper scripts (MIT, pinned copy; see VERSION)
-docker/              monado.Dockerfile (OpenXR test runtime), fake-frame.* (rehearsal "headset")
+docker/              monado.Dockerfile (OpenXR test runtime), fake-frame.* (rehearsal "headset"), blender.Dockerfile (Blender 5.2 headless + MCP add-on)
 templates/           vrpreferences.json
 ```
 
@@ -477,6 +486,8 @@ while (sfxr_frame_begin()) {              // wait for runtime, sample poses and 
 | `make frame-shot / frame-logs / frame-stop / frame-status / frame-probe` | see `scripts/frame.sh` |
 | `make fake-frame` | local container that behaves like a Frame in Developer Mode (rehearsal) |
 | `make new-app NAME=foo` | `apps/foo/` from the hello template |
+| `make assets` / `make view MODEL=x.glb` / `make view-shot MODEL=...` | build every changed `<app>/assets/*.py` into `<app>/resources/models/*.glb` (Blender in Docker); look at one (docs/ASSETS.md) |
+| `scripts/notes.sh build` / `install` / `status` / `once` / `claude` | the design-note loop on the build machine (docs/NOTES.md); `claude` starts Claude Code with the notes channel |
 | `make test` / `make test T=mech` / `make test-audit` | C test suites (`tests/<suite>/main.c`) headless, one process per case, each re-run with its break switch on (red leg); audit checks every switch is proven |
 | `make regress` / `make regress-bless` | golden-image replays of recorded sessions (`tests/regress/`) |
 
@@ -578,6 +589,28 @@ The quickstart's toolbox is the reference implementation of it.
   or the dashboard is up. Nothing after `session state -> IDLE` means the runtime never
   started the session.
 
+### The design loop: notes from the headset, assets from scripts (docs/NOTES.md, docs/ASSETS.md)
+- **Notes.** Hold VIEW in the toolbox, say what you want changed, let go: `sfxr_note_end()`
+  saves the clip, a JSON of the moment (head, hands, gaze, the app's `context`: what each
+  hand pointed at and the eyes or head looked at, by registry name, and the place) and a
+  screenshot into `notes/` next to the app. On the build machine, `scripts/notes.sh install`
+  runs two `systemd --user` services: **sfq-whisper** (whisper.cpp's server, large-v3-turbo on
+  the GPU, port 9878) and **sfq-notesd** (`frame.sh notes` every 2 s, transcribe, append to
+  `local-data/notes/<app>.jsonl`). The **notes channel** (`tools/notes/channel.ts`, an MCP server
+  in `.mcp.json`) pushes each new line into the live Claude Code session; start the session
+  with `scripts/notes.sh claude` (the research-preview flag). The `/notes` skill says what to do
+  with one. The tiny recognizer stays on the headset for commands only.
+- **Assets.** `examples|apps/<app>/assets/<name>.py` + `tools/assets/sfq_assets.py` → `make assets`
+  → `<app>/resources/models/<name>.glb`, built by Blender headless in `docker/blender.Dockerfile`
+  (Alpine's aarch64 Blender: there is no official Linux ARM64 build) and checked against raylib's
+  loader limits (one skin, ≤128 bones, 4 influences, no morphs, no Draco). Colors are raylib's
+  0..255 values, not linearized (raylib draws gamma-space colors raw). `make view-shot` renders
+  it lit in the simulator; look at the PNG. Blender Lab's MCP server (`blender` in `.mcp.json`)
+  is for bpy API lookup and inspection, never the source of truth. The `/asset` skill.
+- **Where things run.** Claude Code runs on the build machine (it owns Docker, the GPU, the
+  paired key), driven from a laptop by Remote Control or from the headset by notes. Blender,
+  whisper and the channel all live there too.
+
 ### Gotchas (each learned the hard way here)
 - **Static libraries and deleted files:** `ar rcs` never drops members, so after
   renaming or deleting a source file the old object lingered in `libvrui.a` and caused
@@ -626,8 +659,16 @@ The quickstart's toolbox is the reference implementation of it.
   target itself, so draw-time work (batch builds, culling) runs in tests.
 - **`scripts/regress.sh` runs `build/host-debug/bin/toolbox` as it is:** `make` first, or
   it tests a stale binary (it once passed goldens on a build from before the change).
+- **`pkill -f` and `pgrep -f` match the shell that runs them** when its command line holds the
+  pattern (an `ssh host 'pkill -f whisper-server ...'` killed its own session; a
+  `while pgrep -f "docker build"` loop waited on itself forever). Use `pkill -x <name>`.
+- **Alpine's `blender` package** doesn't pull in numpy, requests or cattrs; the glTF exporter
+  needs numpy (docker/blender.Dockerfile adds them). The exporter appends `.glb` to any other
+  file name. Blender 4.4+ actions need to sit on NLA tracks for `ACTIONS` export to find them.
+- **whisper.cpp built shared** carries an rpath to its build tree: moved, the server can't find
+  `libwhisper.so`. `scripts/notes.sh build` builds it static.
 
-### Current state and next steps (handoff, updated 2026-09-28, end of the sixth session)
+### Current state and next steps (handoff, updated 2026-09-29, end of the seventh session)
 
 **The goal (from the user):** a quickstart for the Steam Frame, **not a game engine**.
 Every bit of the hardware exposed with sane defaults; reference patterns a game would use
@@ -651,6 +692,20 @@ Bugmaster: pointing plus voice orders; see "Next" below).
   each run). README pictures: the same with the HUD default set to `HUD_OFF` temporarily.
 - The user's taste: plain, readable, "nicer to be in"; not straight-up Minecraft. The
   visual ceiling now is the artwork, not the rendering.
+
+**The seventh session (2026-09-29): the design loop.** Research first (nothing like it exists
+for native C on a headset; VoidCode VR does voice-into-a-terminal, the engine MCP servers do
+editors), then built: `sfxr_note_*` (docs/NOTES.md) with the toolbox's VIEW binding and context
+(`examples/toolbox/notes.c`; the garden marks its bugs as `garden.bug N`), tested
+(`voice/note-keeps-the-words-before-the-button`); `tools/notes/` (notesd, the channel) and
+`scripts/notes.sh` (whisper.cpp with CUDA, static; the two user services, installed and running on
+the build machine; `claude` with the channel flag); the asset pipeline (docs/ASSETS.md:
+`tools/assets/`, `docker/blender.Dockerfile`, `make assets`, `examples/viewer`) and the first
+asset, `examples/toolbox/assets/bug.py` → `bug.glb` (8 bones, walk + idle, 1208 tris), which the
+garden now draws for its bugs (tinted per type, facing where they walk, the sphere as fallback);
+`.mcp.json` (notes channel, Blender MCP) and `.claude/skills/` (notes, asset, deploy). Verified on
+the build machine only: the headset was off the network, so **nothing from this session has run on
+the Frame yet** (`make frame` built; deploy next time).
 
 **What exists (details in the docs and the headers)**
 - **sfxr:** OpenXR GL (verified on the Frame at 72 Hz, 1728² per eye) and VK paths, the
@@ -701,6 +756,14 @@ Bugmaster: pointing plus voice orders; see "Next" below).
 - The radial menu lives on the **main hand's bumper** (A and the stick share a thumb).
 
 **Next headset session: check these (the newest first)**
+0. **The loop end to end:** `scripts/notes.sh status` (both services up), `scripts/notes.sh claude`
+   in the repo, `make frame && scripts/frame.sh deploy toolbox && scripts/frame.sh run toolbox 30`.
+   In the garden, point at a bug, hold VIEW, say something, let go: the green "note saved" tag;
+   within seconds the `<channel source="notes">` event in the session with `pointing_right`
+   naming that bug, and the screenshot. Then the bugs themselves: the model's size (0.6 scale of
+   the 1.1 m asset), the walk cycle's speed against their movement, the tint per type, the
+   squash when smashed, the legs at 72 Hz with eight of them (CPU skinning re-uploads each).
+   Is the mic level fine at arm's length? Does VIEW clash with anything (it's unused elsewhere)?
 1. Daddy Bug Smasher: take the headset off mid-round, then open the dashboard: paused,
    silent, a menu in front of you on return, 3-2-1 on Resume? The garden lit, the
    Bugmaster on his tower.
@@ -720,8 +783,13 @@ Bugmaster: pointing plus voice orders; see "Next" below).
 8. `scripts/frame.sh pull toolbox` afterwards: recordings, `.events`, `shots/`.
 
 **Next (for the small game; build a primitive when the game needs it)**
+- **The loop's next phases** (docs/NOTES.md "What's next"): a way back into the headset (a
+  text line or chime when a deploy lands); resource hot reload (models, textures, shaders
+  reloaded on change, `frame.sh` pushing only `resources/`), then game code as a shared library
+  the host reloads; a first on-device guess from tiny.en shown as a tag.
 - Enemy movement: steering, separation, following the terrain, waves.
-- Animated characters (glTF animation; the world shader needs a skinning path).
+- Animated characters: the bug is the first (CPU-skinned). GPU skinning (raylib's
+  `SUPPORT_GPU_SKINNING` plus a skinning path in the world shader) when there are dozens.
 - A comfort vignette, if the game uses smooth movement.
 - Instancing, once there are hundreds of copies of something.
 - The garden's terrain isn't a collider yet (shadows and impacts skip the garden).

@@ -439,6 +439,21 @@ To keep replays exact, your app should use sfxr's clock for anything time-based:
 The full testing approach is written up in **[docs/TESTING.md](docs/TESTING.md)**. Parts of
 it (scenario files, an event log) are still being built.
 
+## Talk to your tools from the headset, and models from scripts
+
+Two more things this quickstart sets up, for making a game *with* an agent rather
+than just running one (both optional; the app builds without them):
+
+- **Design notes** (`docs/NOTES.md`): hold VIEW in the toolbox, say what you want
+  changed while pointing at it, let go. The clip, a screenshot and what you pointed
+  at are saved next to the app; on your build machine `scripts/notes.sh` runs a
+  transcriber (whisper.cpp, a big model, on the GPU) and a channel that pushes the
+  note into a live Claude Code session, which edits, builds and deploys.
+- **Assets** (`docs/ASSETS.md`): a model is a Python file (`examples/toolbox/assets/bug.py`)
+  that builds it in Blender, headless in a container, and `make assets` exports a GLB
+  the way raylib loads it (one skin, sampled animations) and checks the budgets.
+  `make view MODEL=...` shows it the way the game will draw it.
+
 ## Everyday commands
 
 | Command | What it does |

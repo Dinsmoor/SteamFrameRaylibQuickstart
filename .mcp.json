@@ -1,0 +1,6 @@
+{
+  "mcpServers": {
+    "notes":   { "command": "bash", "args": ["scripts/notes-channel.sh"] },
+    "blender": { "command": "bash", "args": ["scripts/blender-mcp.sh"] }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "sfq-notes-channel",
+  "private": true,
+  "type": "module",
+  "description": "Claude Code channel: design notes from the Steam Frame headset (docs/NOTES.md)",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  }
+}

@@ -90,7 +90,7 @@ TOOL_BINS := $(patsubst %,$(BUILD)/bin/%,$(TOOLS))
 .PHONY: test test-bins test-audit
 .PHONY: all libs examples tools run sim shot frame frame-shell package new-app fake-frame record replay regress regress-bless frame-record \
         frame-pair frame-status frame-probe frame-deploy frame-run frame-shot frame-logs frame-stop frame-go \
-        monado-image test-xr clean distclean
+        monado-image test-xr clean distclean assets assets-clean blender-image blender-mcp view view-shot
 .SECONDARY:
 
 all: examples tools
@@ -307,3 +307,38 @@ clean:
 
 distclean: clean
 	rm -rf $(RAYLIB_DIR) $(OPENXR_DIR)
+
+# --- assets: Blender -> GLB (docs/ASSETS.md) ------------------------------------
+
+# examples|apps/<app>/assets/<name>.py -> <app>/resources/models/<name>.glb, made
+# by Blender headless in its container (docker/blender.Dockerfile, run through
+# scripts/blender.sh). The .py is the source; the .glb is committed too, so a
+# checkout without Docker still has every model. `make assets` rebuilds what
+# changed; tools/assets/build.py checks each file against raylib's limits.
+ASSET_SRCS := $(wildcard examples/*/assets/*.py apps/*/assets/*.py)
+asset_out   = $(patsubst %/assets/,%/resources/models/,$(dir $(1)))$(notdir $(1:.py=.glb))
+ASSET_GLBS := $(foreach s,$(ASSET_SRCS),$(call asset_out,$(s)))
+define ASSET_RULE
+$(1): $(2) tools/assets/build.py tools/assets/sfq_assets.py scripts/blender.sh
+	@mkdir -p build/assets
+	@echo "== asset $(2) -> $(1)"
+	@scripts/blender.sh -b --python tools/assets/build.py -- $(2) $(1) > build/assets/$(notdir $(2)).log 2>&1; \
+	  grep -E '^(ASSET|Traceback|  File|.*Error|build.py)' build/assets/$(notdir $(2)).log; \
+	  test -f $(1) || { echo "asset failed: see build/assets/$(notdir $(2)).log"; exit 1; }
+endef
+$(foreach s,$(ASSET_SRCS),$(eval $(call ASSET_RULE,$(call asset_out,$(s)),$(s))))
+
+assets: $(ASSET_GLBS)
+assets-clean:
+	rm -f $(ASSET_GLBS)
+blender-image:
+	docker build -t sfq-blender --build-arg UID=$(shell id -u) --build-arg GID=$(shell id -g) -f docker/blender.Dockerfile docker
+blender-mcp:              # the MCP bridge for an LLM client (.mcp.json, docs/ASSETS.md)
+	scripts/blender.sh mcp
+
+# look at a model the way the game draws it (examples/viewer)
+MODEL ?= examples/toolbox/resources/models/bug.glb
+view: $(BUILD)/bin/viewer
+	SFQ_MODEL=$(MODEL) $(BUILD)/bin/viewer
+view-shot: $(BUILD)/bin/viewer
+	SFQ_MODEL=$(MODEL) SFQ_TURN=0 scripts/shot-sim.sh $(BUILD)/bin/viewer shots/viewer-sim.png $(SHOT_ACTIONS)

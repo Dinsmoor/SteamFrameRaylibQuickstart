@@ -50,6 +50,7 @@
 #include "sfxr_audio.h"
 #include "sfxr_voice.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 // the garden's own break switches (tests/garden proves each one matters)
@@ -96,6 +97,8 @@ typedef struct {
     Vector3 pos;           // on the ground
     int type, health;
     float bite_cd, hit_cd, wobble;
+    float anim, yaw;       // the model's animation frame (60/s) and heading (degrees; it faces -Z)
+    bool walking;
 } Bug;
 
 typedef enum { WAITING, PLAYING, WON, LOST } Round;
@@ -134,6 +137,13 @@ static struct {
     Model hammer_model;
     Texture2D bugmaster[2];   // his drawing from the flat game, two frames
     bool models_ok;
+    // the bug (examples/toolbox/assets/bug.py -> resources/models/bug.glb, docs/ASSETS.md):
+    // one model, CPU-skinned, posed and tinted per bug before each draw; spheres without it
+    Model bug_model;
+    ModelAnimation *bug_anims;
+    int bug_nanims, bug_walk, bug_idle;
+    int bug_body_mat, bug_belly_mat;   // the pink and the darker underside: tinted per type
+    bool bug_model_ok;
 
 
     VruiLocoConfig loco;
@@ -350,7 +360,8 @@ static void move_bugs(float dt)
         b->hit_cd = fmaxf(0, b->hit_cd - dt);
         b->bite_cd = fmaxf(0, b->bite_cd - dt);
         b->wobble += dt * 9;
-        if (GD.round != PLAYING) continue;
+        b->anim += dt * 60 * (b->walking ? 0.7f + TYPES[b->type].speed * 0.5f : 0.5f);   // raylib: 60 keys a second
+        if (GD.round != PLAYING) { b->walking = false; continue; }
         Vector3 to = { me.x - b->pos.x, 0, me.z - b->pos.z };
         float d = Vector3Length(to);
         float x = b->pos.x, z = b->pos.z;
@@ -363,6 +374,10 @@ static void move_bugs(float dt)
         gw_resolve_circle(&x, &z, BUG_R);
         gw_push_loose(&x, &z, BUG_R, vel, 1.0f);   // bugs nudge the chair too
         b->pos = on_ground(x, z);
+        b->walking = vel.x != 0 || vel.z != 0;
+        if (b->walking) b->yaw = atan2f(-vel.x, -vel.z) * RAD2DEG;   // the model faces -Z
+        // in the registry as "garden.bug 3": tests aim at them, and a design note says which one you meant
+        vrui_mark(ID(100 + i), TextFormat("bug %d", i), (SfxrPose){ Vector3Add(b->pos, (Vector3){ 0, BUG_R, 0 }), QuaternionIdentity() });
         // a bite, then it backs off a little
         if (d < PLAYER_R + BUG_R + 0.08f && b->bite_cd <= 0) {
             GD.hp -= TYPES[b->type].damage;
@@ -506,6 +521,38 @@ void garden_gate(void)
     if (head.x > GATE_X + 0.3f && fabsf(head.z - GATE_Z) < 2.5f) garden_enter();
 }
 
+// The bug model: its walk and idle by name, and which materials are its body
+// (the sprite's pink, and the darker belly), found by their colors, since
+// raylib keeps no material names. Missing or odd: the sphere bug stays.
+static int nearest_material(const Model *m, Color want)
+{
+    int best = -1, best_d = 1 << 30;
+    for (int i = 0; i < m->materialCount; i++) {
+        Color c = m->materials[i].maps[MATERIAL_MAP_ALBEDO].color;
+        int d = abs(c.r - want.r) + abs(c.g - want.g) + abs(c.b - want.b);
+        if (d < best_d) { best_d = d; best = i; }
+    }
+    return best;
+}
+
+static void load_bug_model(void)
+{
+    const char *path = gw_path("../models/bug.glb");
+    if (!FileExists(path)) { TraceLog(LOG_WARNING, "GARDEN: no %s (make assets): sphere bugs", path); return; }
+    GD.bug_model = LoadModel(path);
+    GD.bug_anims = LoadModelAnimations(path, &GD.bug_nanims);
+    if (GD.bug_model.meshCount == 0 || GD.bug_nanims == 0) return;
+    gw_light(&GD.bug_model);
+    GD.bug_walk = GD.bug_idle = 0;
+    for (int i = 0; i < GD.bug_nanims; i++) {
+        if (strcmp(GD.bug_anims[i].name, "walk") == 0) GD.bug_walk = i;
+        if (strcmp(GD.bug_anims[i].name, "idle") == 0) GD.bug_idle = i;
+    }
+    GD.bug_body_mat = nearest_material(&GD.bug_model, (Color){ 247, 166, 242, 255 });
+    GD.bug_belly_mat = nearest_material(&GD.bug_model, (Color){ 196, 110, 190, 255 });
+    GD.bug_model_ok = GD.bug_body_mat >= 0;
+}
+
 void garden_enter(void)
 {
     if (GD.active) return;
@@ -522,6 +569,7 @@ void garden_enter(void)
             GD.bugmaster[i] = LoadTexture(gw_path(TextFormat("sprites/bugmaster_%d.png", i + 1)));
             SetTextureFilter(GD.bugmaster[i], TEXTURE_FILTER_BILINEAR);
         }
+        load_bug_model();
         GD.models_ok = true;
     }
     GD.active = true;
@@ -759,6 +807,17 @@ static void draw_bug(const Bug *b)
     Color c = TYPES[b->type].color;
     float flat = b->squash > 0 ? fmaxf(0.1f, 1 - b->squash * 2.5f) : 1.0f;   // smashed: flattens
     float bob = b->squash > 0 ? 0 : sinf(b->wobble) * 0.03f;
+    if (GD.bug_model_ok) {
+        // the model: the asset is about 1 m across with its feet on the ground; a bug is 2 * BUG_R
+        const ModelAnimation *anim = &GD.bug_anims[b->walking ? GD.bug_walk : GD.bug_idle];
+        UpdateModelAnimation(GD.bug_model, *anim, fmodf(b->anim, (float)anim->keyframeCount));
+        GD.bug_model.materials[GD.bug_body_mat].maps[MATERIAL_MAP_ALBEDO].color = c;
+        if (GD.bug_belly_mat >= 0) GD.bug_model.materials[GD.bug_belly_mat].maps[MATERIAL_MAP_ALBEDO].color = ColorBrightness(c, -0.35f);
+        float s = BUG_R / 0.5f, wide = s * (1 + (1 - flat) * 0.6f);
+        DrawModelEx(GD.bug_model, Vector3Add(b->pos, (Vector3){ 0, b->squash > 0 ? 0 : bob * 0.5f, 0 }), (Vector3){ 0, 1, 0 }, b->yaw,
+                    (Vector3){ wide, s * flat, wide }, WHITE);
+        return;
+    }
     Vector3 body = Vector3Add(b->pos, (Vector3){ 0, BUG_R * 0.9f * flat + bob, 0 });
     rlPushMatrix();
     rlTranslatef(body.x, body.y, body.z);

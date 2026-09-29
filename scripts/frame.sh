@@ -22,6 +22,8 @@
 #   scripts/frame.sh push-recording <app> <file>        copy a recording to the headset (replay on its GPU)
 #   scripts/frame.sh pull <app> [dest]                  copy all recorded sessions, screenshots taken in the
 #                    headset + app/SteamVR logs to local-data/<app>-<time>/ (git-ignored) for review
+#   scripts/frame.sh notes <app> [dest]                 copy new design notes (wav + json + png, docs/NOTES.md)
+#                    into local-data/notes/<app>/ (only what isn't there yet; prints the new ids)
 #   scripts/frame.sh logs <app>                         pull app + Steam logs to shots/frame/
 #   scripts/frame.sh stop <app>                         kill a running instance
 #   scripts/frame.sh exec '<command>'                  run one command on the headset
@@ -171,7 +173,7 @@ cmd_deploy() {
     out=$(dk "steamos-prepare-upload --gameid $app")
     dir=$(python3 -c 'import json,sys; print(json.loads(sys.stdin.read())["directory"])' <<<"$out")
     echo "== upload dist/$app -> $(host):$dir"
-    rsync -az --delete --exclude logs/ --exclude shots/ --exclude recordings/ --exclude launch.env --exclude prefs.cfg -e "ssh ${SSH_OPTS[*]}" "$ROOT/dist/$app/" "$(host):$dir/"
+    rsync -az --delete --exclude logs/ --exclude shots/ --exclude recordings/ --exclude notes/ --exclude launch.env --exclude prefs.cfg -e "ssh ${SSH_OPTS[*]}" "$ROOT/dist/$app/" "$(host):$dir/"
     local parms
     parms=$(python3 - "$app" "$dir" "$RUNTIME" <<'EOF'
 import json, sys
@@ -281,6 +283,16 @@ cmd_pull() {   # everything from a play session, for review: recordings + app an
     echo "== pulled into ${dest#$ROOT/}"
     ls -la "$dest/sessions"
 }
+cmd_notes() {   # design notes said in the headset (sfxr_note_*): only the new ones, ids on stdout
+    local app=${1:?usage: frame.sh notes <app> [dest]}
+    local dest=${2:-$ROOT/local-data/notes/$app}
+    mkdir -p "$dest"
+    local before after
+    before=$(ls "$dest" 2>/dev/null | grep '\.json$' || true)
+    rsync -az --ignore-existing -e "ssh ${SSH_OPTS[*]}" "$(host):devkit-game/$app/notes/" "$dest/" 2>/dev/null || true
+    after=$(ls "$dest" 2>/dev/null | grep '\.json$' || true)
+    comm -13 <(echo "$before") <(echo "$after") | sed 's/\.json$//'
+}
 cmd_logs() {
     local app=${1:?usage: frame.sh logs <app>}
     local dest="$ROOT/shots/frame/$app-logs"
@@ -306,7 +318,7 @@ cmd_shell()  { ssh "${SSH_OPTS[@]}" -o IdentitiesOnly=yes -t "$(host)"; }
 
 sub=${1:-help}; shift || true
 case "$sub" in
-    pair|status|probe|deploy|run|shot|record|sessions|keep|pull|logs|stop|exec|list|delete|shell) "cmd_$sub" "$@" ;;
+    pair|status|probe|deploy|run|shot|record|sessions|keep|pull|notes|logs|stop|exec|list|delete|shell) "cmd_$sub" "$@" ;;
     push-recording) cmd_push_recording "$@" ;;
     *) sed -n '2,35p' "$0" ;;
 esac

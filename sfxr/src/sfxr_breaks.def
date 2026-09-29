@@ -20,3 +20,4 @@ BREAK(sfxr_poke_from_runtime, "holding controllers, pokes use SteamVR's poke pos
 BREAK(sfxr_shapes_from_controller_skeleton, "holding controllers, hand shapes come from SteamVR's skeleton, whose index never straightens: no point")
 BREAK(sfxr_voice_any_sound_starts, "hands-free: any sound at all starts a clip (the speech threshold is ignored)")
 BREAK(sfxr_view_ignores_radius, "the view test checks only the center: a big thing half in view is culled")
+BREAK(sfxr_note_no_preroll, "a design note starts at the button press: the words said just before it are lost")

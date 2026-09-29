@@ -234,6 +234,7 @@ void station_voice(void);                                // station_voice.c: Voi
 typedef enum { HUD_OFF, HUD_HEAD, HUD_FOLLOW, HUD_BODY, HUD_COUNT } HudStyle;
 extern const char *const HUD_STYLE_NAMES[HUD_COUNT];
 void hud_show(HudStyle style, const char *text, Color accent);
+void notes_update(void);                  // notes.c: hold VIEW, say what you want changed (docs/NOTES.md)
 void screenshot_start(const char *app);   // a 2 s countdown, then sfxr_screenshot into shots/
 void screenshot_update(void);             // every frame
 

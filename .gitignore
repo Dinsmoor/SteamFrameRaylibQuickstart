@@ -12,3 +12,7 @@ local-data/
 prefs.cfg
 external/whisper.cpp/
 external/speech/
+/notes/
+tools/notes/node_modules/
+tools/notes/bun.lock
+*.part.glb
