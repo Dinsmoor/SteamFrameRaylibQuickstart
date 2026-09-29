@@ -126,6 +126,7 @@ void toolbox_logic(void)
     onboarding_panel(&setup_pose);
     station_sign(-6.4f, "Hands-on setup", "learns how you like to grab, point and press");
     world_workbench();
+    controls_diagram();
     bench_mechanisms();
     bench_linkage();
     panel_controllers();
@@ -153,6 +154,7 @@ void toolbox_draw(void)
         garden_draw();
     } else {
         world_draw();
+        controls_diagram_draw();
         yard_draw();
     }
 }

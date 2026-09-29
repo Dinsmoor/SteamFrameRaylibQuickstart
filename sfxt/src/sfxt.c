@@ -161,6 +161,11 @@ static void fill(void)
             // and its poke pose, 12.5 cm under the grip (grip-local, as recorded)
             o->poke = sfxr_pose_mul(g, (SfxrPose){ { h ? -0.046f : 0.046f, -0.125f, -0.081f }, QuaternionIdentity() });
             o->pose_valid |= RAW_POSE_POKE;
+            // and its palm pose: the grip tipped 42 degrees about X (the grip's
+            // axes, so its -Y runs down the handle, not out of the palm)
+            o->palm = sfxr_pose_mul(g, (SfxrPose){ { h ? 0.008f : -0.008f, 0.003f, 0.002f },
+                                                   QuaternionFromAxisAngle((Vector3){ 1, 0, 0 }, -42.2f * DEG2RAD) });
+            o->pose_valid |= RAW_POSE_PALM;
         }
     }
 }

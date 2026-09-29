@@ -3,6 +3,7 @@
 //
 //   main.c               the frame loop: calls every station
 //   world.c              ground, trees, sky; the workbench (app-wired controls, throwable blocks)
+//   controls_diagram.c   the controls, where you start: both controllers with a callout on every control
 //   panels.c             the Toolbox panel (settings) and the wrist panel
 //   bench_mechanisms.c   one of every reference mechanism, default feel
 //   bench_linkage.c      controls wired to gauges, rolling counters and lamps
@@ -108,6 +109,8 @@ void  world_workbench(void);          // interaction (between vrui_begin/end)
 void  world_step(float dt);           // physics
 Color world_sky(void);
 void  world_draw(void);               // inside sfxr_draw_begin/end
+void  controls_diagram(void);         // controls_diagram.c: labels (between vrui_begin/end)
+void  controls_diagram_draw(void);    // ... and the controllers (inside sfxr_draw_begin/end)
 void  world_spawn_block(Vector3 at);
 void  world_reset_blocks(void);
 int   world_block_count(void);

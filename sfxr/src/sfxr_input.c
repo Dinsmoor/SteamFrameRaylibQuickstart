@@ -321,6 +321,15 @@ void sfxr__derive_input(void)
         h->poke  = sfxr_pose_mul(rig, runtime_poke ? raw_pose(r, RAW_POSE_POKE, r->poke) : tip_poke(r));
         h->pinch = sfxr_pose_mul(rig, raw_pose(r, RAW_POSE_PINCH, r->pinch));
         h->palm  = sfxr_pose_mul(rig, raw_pose(r, RAW_POSE_PALM, r->palm));
+        // A controller's palm pose (palm_ext, or the grip when there is none)
+        // has the grip's axes: the palm faces its -X on the right hand and +X
+        // on the left, and -Y runs down the handle. Turn it to the hand-joint
+        // convention, -Y out of the palm, so `palm` means one thing for both.
+        // (Recorded on the Frame: palm_ext is the grip tipped 42 degrees about
+        // X, and SteamVR's own skeleton puts the palm normal along +-X.)
+        if (r->source == SFXR_SOURCE_CONTROLLER && !SFXR_BREAK(sfxr_controller_palm_as_reported))
+            h->palm.orientation = QuaternionMultiply(h->palm.orientation,
+                                                     QuaternionFromAxisAngle((Vector3){ 0, 0, 1 }, (i ? -90.0f : 90.0f) * DEG2RAD));
         h->velocity = Vector3RotateByQuaternion(r->velocity, rig.orientation);
         h->angular_velocity = Vector3RotateByQuaternion(r->angular_velocity, rig.orientation);
         h->trigger = r->trigger;

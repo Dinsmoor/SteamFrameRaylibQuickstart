@@ -167,17 +167,7 @@ static SfxrPose on_table(float x, float z_off)
 void world_workbench(void)
 {
     station_sign(0, "Workbench", "controls wired to the world; pick up and throw the blocks");
-    // The controls, where you start (for the Frame controllers; bare hands:
-    // pinch is the trigger, a fist the grip)
-    vrui_sign((SfxrPose){ { 1.25f, 1.45f, ROW_Z - 0.1f }, QuaternionFromAxisAngle((Vector3){ 0, 1, 0 }, -30.0f * DEG2RAD) }, 1.0f,
-              "Controls",
-              "Move: push the stick forward to aim, let go to jump there. Left or right turns you.\n"
-              "Grab: the grip, with your hand on it (or the laser on it, from afar).\n"
-              "Use a panel: point the laser, pull the trigger.\n"
-              "Press a button: push the controller's tip into it.\n"
-              "Hand menu: hold the bumper on your main hand, tilt the stick, let go.\n"
-              "More menus: Menus & HUD station.",
-              (Color){ 44, 50, 64, 255 });
+    // (the controls, where you start: controls_diagram.c)
     // A per-item pull level: SPAWN wants a deliberate full pull with the
     // laser (poking it with a fingertip works as usual).
     if (!SFXR_BREAK(toolbox_spawn_any_pull)) vrui_push_pull(SFXR_PULL_FULL);

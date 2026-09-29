@@ -62,6 +62,12 @@ grip and 4.6 cm to the side (every recorded session), so the first headset sessi
 no poke presses at all: every button was pressed by laser. Bare hands poke with the index
 fingertip, as reported.
 
+`palm` means one thing for controllers and bare hands: -Y comes out of the palm, -Z
+runs along the fingers (the hand-joint convention). A runtime's controller palm pose
+(`palm_ext`) has the grip's axes instead, with the palm along +-X and -Y down the handle,
+so sfxr turns it. Used as given, a "palm to your face" menu opened only with the wrist
+held against the head.
+
 ```c
 const SfxrHand *h = sfxr_hand(SFXR_RIGHT);
 if (h->shape == SFXR_SHAPE_OPEN) shove_with_palm(h->palm);

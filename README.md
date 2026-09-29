@@ -153,6 +153,7 @@ on its own:
 | `main.c` | the frame loop: calls each station |
 | `world.c` | the ground, trees, sky, and the workbench with app-wired controls and throwable blocks |
 | `panels.c` | the Toolbox panel (settings) |
+| `controls_diagram.c` | the controls, where you start: both controllers (the headset's own models) with a callout on every control |
 | `station_menus.c` | hand menus (watch, palm buttons, a tablet in your hand, a radial menu) and the Menus & HUD station |
 | `hud.c` | visor HUD templates: head-locked, lazy follow, on your belt; the in-headset screenshot countdown |
 | `station_weights.c` | Weights: feather, ball, brick, kettlebell, anvil (`vrui_wield_spec` presets), and a lane to throw them down |

@@ -35,6 +35,7 @@ static void scene(void)
 static SfxrPose pose(Vector3 p, Quaternion q) { return (SfxrPose){ p, q }; }
 static Quaternion rot(Vector3 axis, float deg) { return QuaternionFromAxisAngle(axis, deg * DEG2RAD); }
 #define X_AXIS ((Vector3){ 1, 0, 0 })
+#define Y_AXIS ((Vector3){ 0, 1, 0 })
 #define Z_AXIS ((Vector3){ 0, 0, 1 })
 
 // A bare right hand in front of the chest, fingers forward.
@@ -116,6 +117,25 @@ static void palm_up_both_hands(void)
         CHECK(!g->palm_up, "%s palm down is not up", h ? "right" : "left");
         CHECK(g->palm_normal.y < -0.9f, "%s palm normal points down (%.2f)", h ? "right" : "left", g->palm_normal.y);
     }
+}
+
+// A controller's palm faces out of the palm too: `palm` -Y agrees with the
+// hand skeleton's, on both hands, whether the runtime gives a palm pose (the
+// Frame's palm_ext, the grip tipped back 42 degrees) or only the grip.
+static void controller_palm_faces_out_of_the_palm(void)
+{
+    for (int k = 0; k < 2; k++)
+        for (int h = 0; h < 2; h++) {
+            SfxrHandId id = h ? R : L;
+            sfxt_hand_kind(id, k ? SFXT_FRAME_SKELETON : SFXT_CONTROLLER);
+            sfxt_hand_set(id, pose((Vector3){ 0.25f * (h ? 1.0f : -1.0f), 1.0f, -0.35f }, rot(Y_AXIS, 30)));
+            sfxt_frames(3);
+            const SfxrHand *hand = sfxr_hand(id);
+            Vector3 n = Vector3Negate(sfxr_pose_up(hand->palm));
+            Vector3 want = Vector3RotateByQuaternion((Vector3){ h ? -1.0f : 1.0f, 0, 0 }, hand->grip.orientation);
+            CHECK(Vector3DotProduct(n, want) > 0.9f, "%s %s palm faces out of the palm (%.2f)", k ? "Frame" : "plain",
+                  h ? "right" : "left", Vector3DotProduct(n, want));
+        }
 }
 
 // --- hands the runtime reports only as joints ------------------------------------
@@ -215,6 +235,7 @@ static const SfxtCase CASES[] = {
     { "hands/light-pinch-is-a-pinch",        light_pinch_is_a_pinch,        "sfxr_pinch_shape_from_curl_only" },
     { "hands/pinch-no-flicker-at-the-edge",  pinch_no_flicker_at_the_edge,  "sfxr_pinch_no_hysteresis" },
     { "hands/palm-up-both-hands",            palm_up_both_hands,            "sfxr_palm_normal_flipped" },
+    { "hands/controller-palm-faces-out-of-the-palm", controller_palm_faces_out_of_the_palm, "sfxr_controller_palm_as_reported" },
     { "hands/joint-only-hand-pinch-clicks",  joint_only_hand_pinch_clicks,  "sfxr_no_joint_hands" },
     { "hands/joint-only-fingertip-pokes",    joint_only_fingertip_pokes,    "sfxr_no_joint_hands" },
     { "hands/joint-only-fist-grabs",         joint_only_fist_grabs,         "sfxr_no_joint_hands" },

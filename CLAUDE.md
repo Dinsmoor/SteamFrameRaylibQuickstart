@@ -837,7 +837,21 @@ Half-Life 2 gravity gun at the throwing table, and a consistency pass over the 2
 
 `make test`: 120 cases (21 unproven), audit clean, goldens re-blessed (font and sizes).
 
+Then (same day): the palm buttons only opened with the wrist next to the head. A
+controller's palm pose (`palm_ext`, or the grip) has the grip's axes: palm along -X
+(right) / +X (left), -Y down the handle; recorded on the Frame, `palm_ext` is the grip
+tipped 42 degrees about X. `hand->palm` is now turned to the joint convention (-Y out of
+the palm) for controllers too (`sfxr_input.c`; test
+`hands/controller-palm-faces-out-of-the-palm`, switch
+`sfxr_controller_palm_as_reported`; `SFXT_FRAME_SKELETON` gives the Frame's palm pose).
+The Controls sign became a **controls diagram** (`controls_diagram.c`): both controllers
+3.5x life size on a board behind the workbench, callouts on every control, labels
+following the main hand. Headset: the runtime's own models (placed from their offset to
+the grip while in hand); elsewhere a stand-in at the measured spots.
+
 **Next headset session: check these first**
+0. Palm buttons: turn the less-used palm to your face at a normal distance. The controls
+   diagram behind the workbench: real models, callouts on the right spots?
 1. Thumbs, with "Joints while holding" on (Headset panel): tip on the stick, on A/B/X/Y,
    hovering when lifted; left hand on the D-pad.
 2. Text: readable at arm's length on the panels, the signs, the labels? Anything still too
