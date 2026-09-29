@@ -164,10 +164,13 @@ static SfxrPose on_table(float x, float z_off)
     return (SfxrPose){ { x, TABLE_Y, TABLE_Z + z_off }, QuaternionIdentity() };
 }
 
+static void world_scenery(void);
+
 void world_workbench(void)
 {
     station_sign(0, "Workbench", "controls wired to the world; pick up and throw the blocks");
     // (the controls, where you start: controls_diagram.c)
+    world_scenery();
     // A per-item pull level: SPAWN wants a deliberate full pull with the
     // laser (poking it with a fingertip works as usual).
     if (!SFXR_BREAK(toolbox_spawn_any_pull)) vrui_push_pull(SFXR_PULL_FULL);
@@ -178,7 +181,26 @@ void world_workbench(void)
     static float unwired;
     vrui_lever(VRUI_ID2(G_TABLE, 3), on_table(-0.1f, 0.0f), 0.18f, SFXR_BREAK(toolbox_sky_unwired) ? &unwired : &world.sky, "SKY");
     vrui_knob(VRUI_ID2(G_TABLE, 4), on_table(0.12f, 0.12f), 0.05f, &world.block_size, 0.5f, 2.0f, 0.75f, "SIZE");
-    vrui_slider3d(VRUI_ID2(G_TABLE, 5), on_table(0.4f, 0.2f), 0.3f, &world.lift, "LIFT");
+    vrui_slider3d(VRUI_ID2(G_TABLE, 5), on_table(0.4f, 0.15f), 0.3f, &world.lift, "LIFT");
+
+    // The look of the world (graphics.c), a switch each along the front edge,
+    // and what each costs on a plaque at the back.
+    static const char *const LOOK[6] = { "LIGHT", "SHINE", "FOG", "TEXTURES", "CULL", "BATCH" };
+    bool *look[6] = { &gfx.lighting, &gfx.shine, &gfx.fog, &gfx.textures, &gfx.culling, &gfx.batching };
+    for (int i = 0; i < 6; i++) vrui_switch(VRUI_ID2(G_TABLE, 10 + i), on_table(-0.55f + 0.2f * (float)i, 0.3f), look[i], LOOK[i]);
+    int drawn, culled;
+    vrui_draw_counts(&drawn, &culled);
+    const GfxStats *st = gfx_stats();
+    SfxrPose plaque = { { -0.45f, TABLE_Y + 0.16f, TABLE_Z - 0.31f }, QuaternionFromAxisAngle((Vector3){ 1, 0, 0 }, -15.0f * DEG2RAD) };
+    vrui_text_at(plaque, TextFormat("%.0f fps, CPU %.1f ms a frame\nshapes: %d drawn, %d culled\nscenery: %d pieces in %s",
+                                    sfxr_dt() > 0 ? 1.0f / sfxr_dt() : 0.0f, sfxr_frame_cpu_ms(), drawn, culled, st->scenery_prims,
+                                    gfx.batching ? TextFormat("%d meshes, %d drawn", st->chunks, st->scenery_drawn)
+                                                 : TextFormat("%d draws", st->scenery_drawn)),
+                 0.03f, RAYWHITE);
+    sfxr_report("lighting", gfx.lighting);
+    sfxr_report("culled", (float)(culled + st->scenery_culled));
+    sfxr_report("scenery_chunks", (float)st->chunks);
+    sfxr_report("scenery_builds", (float)st->builds);
 
     for (int i = 0; i < MAX_BLOCKS; i++) {
         Block *b = &blocks[i];
@@ -206,32 +228,36 @@ Color world_sky(void)
     return ColorLerp(day, dusk, world.sky);
 }
 
-void world_draw(void)
+// The scenery that never moves (graphics.c batches it): the workbench and
+// the far landmarks. Called with the stations, every frame.
+static void world_scenery(void)
 {
-    if (world.passthrough) {   // keep the table, drop the scenery
-        DrawCube((Vector3){ 0, TABLE_Y - 0.025f, TABLE_Z }, TABLE_W, 0.05f, TABLE_D, (Color){ 140, 100, 70, 255 });
-        return;
+    Color wood = { 140, 100, 70, 255 }, legs = { 100, 72, 50, 255 };
+    scenery_box((SfxrPose){ { 0, TABLE_Y - 0.025f, TABLE_Z }, QuaternionIdentity() }, (Vector3){ TABLE_W, 0.05f, TABLE_D }, wood, MAT_WOOD);
+    for (int i = 0; i < 4; i++) {
+        float x = (i & 1) ? TABLE_W * 0.45f : -TABLE_W * 0.45f;
+        float z = TABLE_Z + ((i & 2) ? TABLE_D * 0.4f : -TABLE_D * 0.4f);
+        scenery_box((SfxrPose){ { x, (TABLE_Y - 0.05f) * 0.5f, z }, QuaternionIdentity() }, (Vector3){ 0.05f, TABLE_Y - 0.05f, 0.05f }, legs, MAT_WOOD);
     }
-    DrawPlane((Vector3){ 0, -0.001f, 0 }, (Vector2){ 200, 200 },
-              ColorLerp((Color){ 88, 120, 78, 255 }, (Color){ 40, 44, 52, 255 }, world.sky));
-    if (world.show_grid) sfxr_draw_floor_grid(20, (Color){ 255, 255, 255, 70 }, (Color){ 255, 255, 255, 30 });
-
+    if (world.passthrough) return;   // keep the table, drop the scenery
     // landmarks for scale, and to make turning and teleporting readable
     for (int i = 0; i < 12; i++) {
         float a = (float)i / 12.0f * 2.0f * PI;
         Vector3 base = { cosf(a) * 26.0f, 0, sinf(a) * 26.0f };   // well clear of the row and the yard
         float h = 2.0f + (float)(i % 3);
-        DrawCylinder(base, 0.25f, 0.25f, h, 8, (Color){ 150, 140, 125, 255 });
-        DrawSphereEx((Vector3){ base.x, h + 0.6f, base.z }, 0.9f, 6, 8, (Color){ 70, 130, 70, 255 });
+        scenery_cylinder(base, (Vector3){ base.x, h, base.z }, 0.25f, (Color){ 150, 140, 125, 255 }, MAT_WOOD);
+        scenery_sphere((Vector3){ base.x, h + 0.6f, base.z }, 0.9f, (Color){ 70, 130, 70, 255 }, MAT_GRASS);
     }
+}
 
-    // the workbench
-    DrawCube((Vector3){ 0, TABLE_Y - 0.025f, TABLE_Z }, TABLE_W, 0.05f, TABLE_D, (Color){ 140, 100, 70, 255 });
-    for (int i = 0; i < 4; i++) {
-        float x = (i & 1) ? TABLE_W * 0.45f : -TABLE_W * 0.45f;
-        float z = TABLE_Z + ((i & 2) ? TABLE_D * 0.4f : -TABLE_D * 0.4f);
-        DrawCube((Vector3){ x, (TABLE_Y - 0.05f) * 0.5f, z }, 0.05f, TABLE_Y - 0.05f, 0.05f, (Color){ 100, 72, 50, 255 });
-    }
+void world_draw(void)
+{
+    if (world.passthrough) return;   // (the table is scenery)
+    gfx_material(MAT_GRASS);
+    DrawPlane((Vector3){ 0, -0.001f, 0 }, (Vector2){ 200, 200 },
+              ColorLerp((Color){ 88, 120, 78, 255 }, (Color){ 40, 44, 52, 255 }, world.sky));
+    gfx_material(MAT_NONE);
+    if (world.show_grid) sfxr_draw_floor_grid(20, (Color){ 255, 255, 255, 70 }, (Color){ 255, 255, 255, 30 });
 
     // the lift platform, driven by the LIFT slider (a surface: yard.c)
     float lift_h = world_lift_height();

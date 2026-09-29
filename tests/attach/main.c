@@ -196,6 +196,20 @@ static void arrow_only_out_of_view(void)
     CHECK(behind, "an arrow for a target behind you");
 }
 
+// The view test (culling) sees what's ahead, not what's behind, and keeps a
+// big thing whose middle is just out of view but whose edge is in it.
+static void in_view_counts_the_edge(void)
+{
+    setup();
+    SfxrPose h = sfxr_head();
+    CHECK(sfxr_in_view(sfxr_pose_apply(h, (Vector3){ 0, 0, -3 }), 0.1f), "ahead: in view");
+    CHECK(!sfxr_in_view(sfxr_pose_apply(h, (Vector3){ 0, 0, 3 }), 0.5f), "behind: out of view");
+    // 3 m ahead and 5 m to the side: its middle is outside the view, but it's 3 m across
+    Vector3 side = sfxr_pose_apply(h, (Vector3){ 5, 0, -3 });
+    CHECK(!sfxr_in_view(side, 0.1f), "a small thing there is out of view");
+    CHECK(sfxr_in_view(side, 3.0f), "a big thing there reaches into view");
+}
+
 // Attaching where it is keeps it exactly there, and it then rides along.
 static void attach_keeps_the_pose(void)
 {
@@ -295,6 +309,7 @@ static const SfxtCase CASES[] = {
     { "attach/follow-rides-the-rig",            follow_rides_the_rig,            "vrui_follow_world_space" },
     { "attach/body-ignores-glances-follows-turns", body_ignores_glances_follows_turns, "vrui_body_follows_head" },
     { "attach/arrow-only-out-of-view",          arrow_only_out_of_view,          "vrui_arrow_ignores_view" },
+    { "attach/in-view-counts-the-edge",          in_view_counts_the_edge,         "sfxr_view_ignores_radius" },
     { "attach/attach-keeps-the-pose",           attach_keeps_the_pose,           NULL },
     { "attach/smooth-lag-halflife",             smooth_lag_halflife,             NULL },
     { "attach/smooth-spring-overshoots",        smooth_spring_overshoots,        NULL },

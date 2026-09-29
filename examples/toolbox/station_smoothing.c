@@ -72,10 +72,10 @@ void station_smoothing(void)
     if (!SM.init) init();
     station_sign(X0, "Smoothing", "wave the sword: five ghosts follow it, one per mode (Daddy Bug Smasher's hammer uses these)");
     Color wood = { 120, 92, 66, 255 };
-    vrui_box(on_bench(0, -0.025f, 0), (Vector3){ 1.4f, 0.05f, 0.6f }, wood);
+    scenery_box(on_bench(0, -0.025f, 0), (Vector3){ 1.4f, 0.05f, 0.6f }, wood, MAT_WOOD);
     for (int i = 0; i < 4; i++)
-        vrui_box(on_bench((i & 1) ? 0.62f : -0.62f, -TABLE_Y * 0.5f, (i & 2) ? 0.24f : -0.24f), (Vector3){ 0.05f, TABLE_Y - 0.05f, 0.05f },
-                 (Color){ 90, 68, 52, 255 });
+        scenery_box(on_bench((i & 1) ? 0.62f : -0.62f, -TABLE_Y * 0.5f, (i & 2) ? 0.24f : -0.24f), (Vector3){ 0.05f, TABLE_Y - 0.05f, 0.05f },
+                 (Color){ 90, 68, 52, 255 }, MAT_WOOD);
 
     // --- the sword on its stand at the front, and its five ghosts behind it
     SfxrPose stand = on_bench(0, 0.07f, 0.2f);
@@ -118,9 +118,9 @@ void station_smoothing(void)
                  (Color){ 250, 210, 90, 255 });
         vrui_text_at((SfxrPose){ Vector3Add(bottom, (Vector3){ 0, -0.03f, 0.01f }), QuaternionIdentity() }, EASE[e], 0.03f, RAYWHITE);
     }
-    vrui_box(on_bench(0, 0.85f, -0.31f), (Vector3){ 1.4f, 0.4f, 0.02f }, (Color){ 50, 54, 62, 255 });   // the board behind the rails
-    vrui_box(on_bench(-0.66f, 0.4f, -0.31f), (Vector3){ 0.04f, 0.9f, 0.04f }, (Color){ 90, 68, 52, 255 });
-    vrui_box(on_bench(0.66f, 0.4f, -0.31f), (Vector3){ 0.04f, 0.9f, 0.04f }, (Color){ 90, 68, 52, 255 });
+    scenery_box(on_bench(0, 0.85f, -0.31f), (Vector3){ 1.4f, 0.4f, 0.02f }, (Color){ 50, 54, 62, 255 }, MAT_PAINT);   // the board behind the rails
+    scenery_box(on_bench(-0.66f, 0.4f, -0.31f), (Vector3){ 0.04f, 0.9f, 0.04f }, (Color){ 90, 68, 52, 255 }, MAT_WOOD);
+    scenery_box(on_bench(0.66f, 0.4f, -0.31f), (Vector3){ 0.04f, 0.9f, 0.04f }, (Color){ 90, 68, 52, 255 }, MAT_WOOD);
 
     panel();
 }

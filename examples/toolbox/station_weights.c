@@ -117,10 +117,10 @@ void station_weights(void)
 {
     if (!WT.init) init();
     station_sign(X0, "Weights", "feather to anvil: pick each up, swing it, throw it down the lane. Heavy should feel heavy");
-    vrui_box((SfxrPose){ { X0, TABLE_H - 0.025f, ROW_Z }, QuaternionIdentity() }, (Vector3){ 1.4f, 0.05f, 0.6f }, (Color){ 120, 92, 66, 255 });
+    scenery_box((SfxrPose){ { X0, TABLE_H - 0.025f, ROW_Z }, QuaternionIdentity() }, (Vector3){ 1.4f, 0.05f, 0.6f }, (Color){ 120, 92, 66, 255 }, MAT_WOOD);
     for (int i = 0; i < 4; i++)
-        vrui_box((SfxrPose){ { X0 + ((i & 1) ? 0.62f : -0.62f), TABLE_H * 0.5f - 0.025f, ROW_Z + ((i & 2) ? 0.24f : -0.24f) }, QuaternionIdentity() },
-                 (Vector3){ 0.05f, TABLE_H - 0.05f, 0.05f }, (Color){ 90, 68, 52, 255 });
+        scenery_box((SfxrPose){ { X0 + ((i & 1) ? 0.62f : -0.62f), TABLE_H * 0.5f - 0.025f, ROW_Z + ((i & 2) ? 0.24f : -0.24f) }, QuaternionIdentity() },
+                 (Vector3){ 0.05f, TABLE_H - 0.05f, 0.05f }, (Color){ 90, 68, 52, 255 }, MAT_WOOD);
     lane();
     station_guns();   // (first: a gun holding a thing sets its pose before vrui_wield sees it)
     for (int k = 0; k < K_COUNT; k++) {

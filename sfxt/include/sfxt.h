@@ -138,6 +138,7 @@ int      sfxt_events(const char *kind, const char *label, int hand, uint64_t sin
 // from the head and saves it (SFXT_SNAPSHOT, set by the runner). Give it
 // your app's world drawing; vrui's queue is drawn either way.
 void     sfxt_set_draw(void (*draw)(void));
+void     sfxt_set_sky(Color (*sky)(void));        // the snapshot's background (default slate gray)
 
 // --- scenario files (.sfxt): every *.sfxt in `dir` is a set of cases
 // named <file>/<case>; `setup` runs once after sfxr and vrui start (your

@@ -9,3 +9,5 @@ BREAK(toolbox_lid_no_friction,   "the chest lid falls shut however far it was op
 BREAK(toolbox_voice_ring_everywhere, "the bumper opens the bugs' order ring wherever you point, so the toolbox's own ring menu never opens")
 BREAK(toolbox_physgun_no_freeze, "A while the physgun holds a thing lets it fall instead of freezing it in the air")
 BREAK(toolbox_gravgun_lifts_anything, "the gravity gun lifts the anvil too (no weight limit)")
+BREAK(toolbox_culling_ignored, "the CULL switch does nothing: everything is drawn, seen or not")
+BREAK(toolbox_scenery_rebuilds_every_frame, "static batching rebuilds the scenery meshes every frame instead of once")

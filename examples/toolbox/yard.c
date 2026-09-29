@@ -23,6 +23,7 @@
 // the box tests stay simple. (To put it elsewhere, change W and L together.)
 
 #include "toolbox.h"
+#include "rlgl.h"
 
 static Vector3 W(Vector3 p) { return (Vector3){ -p.x, p.y, -p.z }; }   // yard -> world
 static Vector3 L(Vector3 p) { return (Vector3){ -p.x, p.y, -p.z }; }   // world -> yard (a half turn is its own inverse)
@@ -125,9 +126,12 @@ void yard_setup(VruiLocoConfig *loco)
     loco->npads = NPADS;
 }
 
+static void yard_scenery(void);
+
 void yard_update(void)
 {
     if (world.passthrough) return;
+    yard_scenery();
     Color hold = { 230, 150, 60, 255 }, rung = { 200, 200, 210, 255 };
     int id = 0;
 
@@ -165,29 +169,34 @@ void yard_update(void)
     vrui_text3d(W((Vector3){ 2.0f, 1.2f, -3.9f }), "stairs: walk up in your room", 0.07f, RAYWHITE);
 }
 
-void yard_draw(void)
+// The yard's blocks, ladder and bars never move: scenery (graphics.c batches it).
+static void yard_scenery(void)
 {
-    if (world.passthrough) return;
     for (int i = 0; i < NBLOCKS; i++) {
         const Block *b = &BLOCKS[i];
         Vector3 c = W(Vector3Scale(Vector3Add(b->lo, b->hi), 0.5f)), s = Vector3Subtract(b->hi, b->lo);
-        DrawCubeV(c, s, b->color);
-        DrawCubeWiresV(c, s, (Color){ 40, 40, 48, 255 });
+        scenery_box((SfxrPose){ c, QuaternionIdentity() }, s, b->color, MAT_STONE);
     }
     // ladder rails
     for (int k = 0; k < 2; k++) {
         float x = k ? -0.95f : -1.35f;
-        DrawCylinderEx(W((Vector3){ x, 0, WALL_FACE_Z + 0.08f }), W((Vector3){ x, WALL_TOP, WALL_FACE_Z + 0.08f }), 0.02f, 0.02f, 6,
-                       (Color){ 160, 160, 170, 255 });
+        scenery_cylinder(W((Vector3){ x, 0, WALL_FACE_Z + 0.08f }), W((Vector3){ x, WALL_TOP, WALL_FACE_Z + 0.08f }), 0.02f,
+                         (Color){ 160, 160, 170, 255 }, MAT_PAINT);
     }
     // monkey-bar frame: two rails and four posts
     Color frame = { 80, 84, 96, 255 };
     for (int k = 0; k < 2; k++) {
         float x = k ? 2.6f : 1.4f;
-        DrawCylinderEx(W((Vector3){ x, BAR_Y, -6.2f }), W((Vector3){ x, BAR_Y, -8.8f }), 0.03f, 0.03f, 6, frame);
-        DrawCylinderEx(W((Vector3){ x, 0.8f, -6.2f }), W((Vector3){ x, BAR_Y, -6.2f }), 0.04f, 0.04f, 6, frame);
-        DrawCylinderEx(W((Vector3){ x, 0.8f, -8.8f }), W((Vector3){ x, BAR_Y, -8.8f }), 0.04f, 0.04f, 6, frame);
+        scenery_cylinder(W((Vector3){ x, BAR_Y, -6.2f }), W((Vector3){ x, BAR_Y, -8.8f }), 0.03f, frame, MAT_PAINT);
+        scenery_cylinder(W((Vector3){ x, 0.8f, -6.2f }), W((Vector3){ x, BAR_Y, -6.2f }), 0.04f, frame, MAT_PAINT);
+        scenery_cylinder(W((Vector3){ x, 0.8f, -8.8f }), W((Vector3){ x, BAR_Y, -8.8f }), 0.04f, frame, MAT_PAINT);
     }
+}
+
+void yard_draw(void)
+{
+    if (world.passthrough) return;
+    rlNormal3f(0, 1, 0);   // the discs and arrows face up (raylib's DrawCylinder and DrawTriangle3D send no normal)
     // pads: a disc and an arrow the way you'll face
     for (int i = 0; i < NPADS; i++) {
         const VruiTeleportPad *p = &PADS[i];

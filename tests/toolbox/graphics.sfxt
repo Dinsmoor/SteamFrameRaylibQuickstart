@@ -1,0 +1,23 @@
+# tests/toolbox/graphics.sfxt - the workbench's look switches (graphics.c):
+# static batching builds once, culling skips what you can't see, the
+# switches switch.
+app   toolbox
+rate  72
+
+case batching-builds-the-scenery-once
+  fails-if toolbox_scenery_rebuilds_every_frame
+  wait    1s
+  expect  app scenery_chunks > 5
+  expect  app scenery_builds == 1               # built once, then only drawn
+
+case culling-skips-what-is-behind-you
+  fails-if toolbox_culling_ignored
+  look    dir 180,0 over 0.3s                   # the row is behind you now
+  wait    5f
+  expect  app culled > 100
+
+case light-switch-turns-lighting-off
+  expect  app lighting == 1
+  hand    R poke table.light
+  wait    5f
+  expect  app lighting == 0

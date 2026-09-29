@@ -282,7 +282,7 @@ void station_sound(void)
 {
     if (!SN.init) init();
     station_sign(X0, "Sound", "five kinds of emitter: switch them on at the front of the table, then walk around them");
-    vrui_box(on_table(0, -0.025f, 0), (Vector3){ 1.4f, 0.05f, 0.7f }, (Color){ 120, 92, 66, 255 });
+    scenery_box(on_table(0, -0.025f, 0), (Vector3){ 1.4f, 0.05f, 0.7f }, (Color){ 120, 92, 66, 255 }, MAT_WOOD);
 
     // the switches, along the front edge
     for (int e = 0; e < E_COUNT; e++) {

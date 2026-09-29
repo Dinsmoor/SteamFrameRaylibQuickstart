@@ -88,6 +88,7 @@ void toolbox_setup(void)
     for (size_t i = 0; i < sizeof GROUPS / sizeof GROUPS[0]; i++) vrui_group_name(GROUPS[i].g, GROUPS[i].name);
 
     world_init();
+    gfx_init();          // the lighting shader and textures (graphics.c)
     loco = vrui_loco_default();
     yard_setup(&loco);   // surfaces, walls, teleport pads, "only pads inside the yard"
     setup_pose = row_pose(-6.4f, 1.35f);
@@ -100,6 +101,7 @@ void toolbox_logic(void)
     static const char *const MENU[] = { "Grid", "Day / dusk", "Go home", "Reset blocks", "HUD style", "Hints", "Bug Smasher", "Screenshot" };
     const int NMENU = (int)(sizeof MENU / sizeof MENU[0]);
 
+    gfx_frame(garden_active() ? 0.0f : world.sky, toolbox_sky());
     screenshot_update();
     if (garden_active()) {
         garden_update(&loco);   // part three: the garden replaces the stations while you're in it
@@ -150,13 +152,16 @@ void toolbox_logic(void)
 
 void toolbox_draw(void)
 {
+    gfx_draw_begin();   // everything solid in the world goes through the lighting shader
     if (garden_active()) {
         garden_draw();
     } else {
         world_draw();
+        scenery_draw();
         controls_diagram_draw();
         yard_draw();
     }
+    gfx_draw_end();
 }
 
 Color toolbox_sky(void) { return garden_active() ? garden_sky() : world_sky(); }

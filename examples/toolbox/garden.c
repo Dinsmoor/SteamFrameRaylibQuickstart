@@ -482,10 +482,10 @@ void garden_gate(void)
     // it (open or not: nothing in VR can stop you) and you're in the garden.
     Color hedge = { 60, 120, 60, 255 }, wood = { 140, 100, 60, 255 };
     Quaternion I = QuaternionIdentity();
-    vrui_box((SfxrPose){ { GATE_X, 0.6f, GATE_Z - 1.8f }, I }, (Vector3){ 0.5f, 1.2f, 2.6f }, hedge);
-    vrui_box((SfxrPose){ { GATE_X, 0.6f, GATE_Z + 1.8f }, I }, (Vector3){ 0.5f, 1.2f, 2.6f }, hedge);
-    vrui_box((SfxrPose){ { GATE_X, 0.65f, GATE_Z - 0.52f }, I }, (Vector3){ 0.08f, 1.3f, 0.08f }, wood);
-    vrui_box((SfxrPose){ { GATE_X, 0.65f, GATE_Z + 0.52f }, I }, (Vector3){ 0.08f, 1.3f, 0.08f }, wood);
+    scenery_box((SfxrPose){ { GATE_X, 0.6f, GATE_Z - 1.8f }, I }, (Vector3){ 0.5f, 1.2f, 2.6f }, hedge, MAT_GRASS);
+    scenery_box((SfxrPose){ { GATE_X, 0.6f, GATE_Z + 1.8f }, I }, (Vector3){ 0.5f, 1.2f, 2.6f }, hedge, MAT_GRASS);
+    scenery_box((SfxrPose){ { GATE_X, 0.65f, GATE_Z - 0.52f }, I }, (Vector3){ 0.08f, 1.3f, 0.08f }, wood, MAT_WOOD);
+    scenery_box((SfxrPose){ { GATE_X, 0.65f, GATE_Z + 0.52f }, I }, (Vector3){ 0.08f, 1.3f, 0.08f }, wood, MAT_WOOD);
     // the gate opens away from you (toward +X): its +Z faces +X, handle toward -Z
     SfxrPose hinge = { { GATE_X, 0.02f, GATE_Z + 0.46f }, QuaternionFromAxisAngle((Vector3){ 0, 1, 0 }, PI / 2) };
     vrui_door(ID(20), hinge, 0.92f, 1.1f, &GD.gate, NULL);

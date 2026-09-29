@@ -284,7 +284,7 @@ static void placards(void)
     for (int i = 0; i < 4; i++)
     {
         // on a strip hanging under the table's front edge, facing you
-        vrui_box(on_table(-0.51f + 0.34f * (float)i, -0.085f, 0.345f), (Vector3){ 0.32f, 0.09f, 0.01f }, (Color){ 44, 50, 64, 255 });
+        scenery_box(on_table(-0.51f + 0.34f * (float)i, -0.085f, 0.345f), (Vector3){ 0.32f, 0.09f, 0.01f }, (Color){ 44, 50, 64, 255 }, MAT_PAINT);
         vrui_text_at(on_table(-0.51f + 0.34f * (float)i, -0.085f, 0.352f), P[i], 0.028f, (Color){ 250, 220, 150, 255 });
     }
 }
@@ -293,7 +293,7 @@ void station_voice(void)
 {
     if (!VO.init) init();
     station_sign(X0, "Voice commands", "one set of orders, four ways to give them: which suits what?");
-    vrui_box(on_table(0, -0.025f, 0), (Vector3){ 1.4f, 0.05f, 0.7f }, (Color){ 120, 92, 66, 255 });
+    scenery_box(on_table(0, -0.025f, 0), (Vector3){ 1.4f, 0.05f, 0.7f }, (Color){ 120, 92, 66, 255 }, MAT_WOOD);
     for (int h = 0; h < 2; h++) {
         VO.pointed[h] = pointed_bug(h);
     }

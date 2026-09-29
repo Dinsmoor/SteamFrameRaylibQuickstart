@@ -42,11 +42,11 @@ static SfxrPose lamp_on_board(float x, float y)
 
 static void draw_bench(void)
 {
-    vrui_box(on_link(0, -0.025f, 0), (Vector3){ LINK_W, 0.05f, LINK_D }, (Color){ 110, 84, 66, 255 });
+    scenery_box(on_link(0, -0.025f, 0), (Vector3){ LINK_W, 0.05f, LINK_D }, (Color){ 110, 84, 66, 255 }, MAT_WOOD);
     for (int i = 0; i < 4; i++)
-        vrui_box(on_link((i & 1) ? LINK_W * 0.46f : -LINK_W * 0.46f, -TABLE_Y * 0.5f, (i & 2) ? LINK_D * 0.4f : -LINK_D * 0.4f),
-                 (Vector3){ 0.05f, TABLE_Y - 0.05f, 0.05f }, (Color){ 90, 68, 52, 255 });
-    vrui_box(on_link(0, 0.27f, -LINK_D * 0.5f + 0.02f), (Vector3){ LINK_W, 0.52f, 0.03f }, (Color){ 58, 60, 68, 255 });
+        scenery_box(on_link((i & 1) ? LINK_W * 0.46f : -LINK_W * 0.46f, -TABLE_Y * 0.5f, (i & 2) ? LINK_D * 0.4f : -LINK_D * 0.4f),
+                 (Vector3){ 0.05f, TABLE_Y - 0.05f, 0.05f }, (Color){ 90, 68, 52, 255 }, MAT_WOOD);
+    scenery_box(on_link(0, 0.27f, -LINK_D * 0.5f + 0.02f), (Vector3){ LINK_W, 0.52f, 0.03f }, (Color){ 58, 60, 68, 255 }, MAT_PAINT);
     station_sign(5.2f, "Linkage bench", "controls wired to gauges, rolling counters and lamps");
 }
 

@@ -43,7 +43,7 @@ static struct {
     const Model *model[2];
     SfxrPose     model_in_grip[2];   // the runtime model's pose relative to the grip
     bool         have_model[2];
-    float        half_w, bottom;     // the board, sized to its labels
+    float        half_w, bottom;     // the board, sized to its labels (m, from its middle)
 } D;
 
 static Vector3 spot_at(int hand, Spot s)
@@ -169,6 +169,15 @@ void controls_diagram(void)
     }
     D.half_w = 0.42f + widest + 0.06f;
     D.bottom = lowest - 0.02f;
+
+    // the board behind the controllers, and its post down to the ground
+    // (scenery: they never move)
+    float top = 0.44f, bottom = D.bottom, w = D.half_w * 2;
+    scenery_box(sfxr_pose_mul(board, (SfxrPose){ { 0, (top + bottom) * 0.5f, -0.08f }, QuaternionIdentity() }),
+                (Vector3){ w, top - bottom, 0.02f }, (Color){ 44, 50, 64, 255 }, MAT_PAINT);
+    float post = board.position.y + bottom;
+    scenery_box(sfxr_pose_mul(board, (SfxrPose){ { 0, bottom - post * 0.5f, -0.1f }, QuaternionIdentity() }),
+                (Vector3){ 0.05f, post, 0.05f }, (Color){ 70, 74, 84, 255 }, MAT_PAINT);
 }
 
 // The stand-in: boxes and cylinders where the Frame controller's parts are
@@ -213,14 +222,6 @@ static void stand_in(int hand, Color body)
 
 void controls_diagram_draw(void)
 {
-    // the board behind the controllers
-    SfxrPose board = board_pose();
-    sfxr_push_pose(board);
-        float top = 0.44f, bottom = D.half_w > 0 ? D.bottom : -0.4f, w = D.half_w > 0 ? D.half_w * 2 : 1.9f;
-        DrawCube((Vector3){ 0, (top + bottom) * 0.5f, -0.08f }, w, top - bottom, 0.02f, (Color){ 44, 50, 64, 255 });
-        float post = board.position.y + bottom;   // down to the ground
-        DrawCube((Vector3){ 0, bottom - post * 0.5f, -0.1f }, 0.05f, post, 0.05f, (Color){ 70, 74, 84, 255 });
-    sfxr_pop_pose();
     for (int h = 0; h < 2; h++) {
         sfxr_push_pose(controller_pose(h));
             rlScalef(DIAGRAM_SCALE, DIAGRAM_SCALE, DIAGRAM_SCALE);

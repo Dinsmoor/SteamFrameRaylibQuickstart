@@ -4,6 +4,7 @@
 //   main.c               the frame loop: calls every station
 //   world.c              ground, trees, sky; the workbench (app-wired controls, throwable blocks)
 //   controls_diagram.c   the controls, where you start: both controllers with a callout on every control
+//   graphics.c           lighting shader (resources/shaders/), textures, culling, static batching
 //   panels.c             the Toolbox panel (settings) and the wrist panel
 //   bench_mechanisms.c   one of every reference mechanism, default feel
 //   bench_linkage.c      controls wired to gauges, rolling counters and lamps
@@ -88,6 +89,29 @@ static inline void station_sign(float x, const char *title, const char *body)
 // Widget id groups: VRUI_ID2(group, index).
 enum { G_TABLE = 1, G_PANEL, G_WRIST, G_BLOCKS, G_BENCH, G_CTRL, G_HEADSET, G_LINK, G_YARD, G_HINGE,
        G_ATTACH, G_MENUS, G_HUD, G_GARDEN, G_SMOOTH, G_VOICE, G_SOUND, G_WIELD, G_WEIGHTS, G_GUNS };
+
+// graphics.c: the world's look (the switches on the workbench) ------------------
+typedef enum { MAT_NONE, MAT_PAINT, MAT_WOOD, MAT_GRASS, MAT_STONE, MAT_COUNT } GfxMaterial;
+typedef struct { bool lighting, shine, fog, textures, culling, batching; } GfxSettings;
+typedef struct {
+    int scenery_prims;                  // scenery calls this frame
+    int scenery_drawn, scenery_culled;  // chunks (batched) or primitives (not)
+    int chunks, builds;                 // batched meshes, and how many times they were built
+} GfxStats;
+extern GfxSettings gfx;
+Color toolbox_sky(void);                           // main.c: the sky color now (the fog fades into it)
+void gfx_init(void);                               // after vrui_init
+void gfx_frame(float dusk, Color sky);             // every frame, before the stations
+void gfx_draw_begin(void);                         // around the world's drawing
+void gfx_draw_end(void);
+void gfx_material(GfxMaterial m);                  // for DrawCube etc. between begin and end
+bool gfx_visible(Vector3 center, float radius);    // culling (when the CULL switch is on)
+// Scenery: things that never move, declared every frame (batched once).
+void scenery_box(SfxrPose pose, Vector3 size, Color color, GfxMaterial mat);
+void scenery_cylinder(Vector3 a, Vector3 b, float radius, Color color, GfxMaterial mat);
+void scenery_sphere(Vector3 center, float radius, Color color, GfxMaterial mat);
+void scenery_draw(void);                           // between gfx_draw_begin and _end
+const GfxStats *gfx_stats(void);
 
 // World settings, changed by the workbench controls and the Toolbox panel.
 typedef struct {

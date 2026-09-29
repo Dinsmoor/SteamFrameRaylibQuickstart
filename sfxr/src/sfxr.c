@@ -79,7 +79,7 @@ static void shot_target(void);
 // whether frames flow, what state the session is in and if controllers track.
 static double   hb_time;
 static unsigned hb_loops, hb_rendered;
-static double hb_cpu, frame_t0;   // app CPU time per frame: frame_begin returning .. frame_end
+static double hb_cpu, frame_t0, last_cpu;   // app CPU time per frame: frame_begin returning .. frame_end
 static void heartbeat(double now)
 {
     hb_loops++;
@@ -613,10 +613,19 @@ static void shot_target(void)
     shot_saved(path);
 }
 
+float sfxr_frame_cpu_ms(void)
+{
+    // replays and scripted tests report 0: what they draw must not depend on
+    // how fast this machine happens to be
+    if (S.backend == SFXR_BACKEND_REPLAY || S.backend == SFXR_BACKEND_SCRIPT) return 0;
+    return (float)(last_cpu * 1000.0);
+}
+
 void sfxr_frame_end(void)
 {
     if (S.in_draw) sfxr_draw_end();
-    hb_cpu += GetTime() - frame_t0;
+    last_cpu = GetTime() - frame_t0;
+    hb_cpu += last_cpu;
     if (ev_file) fflush(ev_file);   // a crash keeps everything up to the last frame
     S.vt->frame_end(S.rendered_this_frame);
     if (S.backend == SFXR_BACKEND_SIM && S.show_help) sfxr_sim_draw_help(10, 10);

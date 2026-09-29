@@ -79,14 +79,14 @@ void station_hinges(void)
     Color wood = { 110, 80, 55, 255 }, metal = { 80, 84, 96, 255 };
 
     // --- a door in a frame
-    vrui_box(local(-1.24f, 1.05f, 0, I), (Vector3){ 0.06f, 2.1f, 0.1f }, wood);
-    vrui_box(local(-0.36f, 1.05f, 0, I), (Vector3){ 0.06f, 2.1f, 0.1f }, wood);
-    vrui_box(local(-0.8f, 2.13f, 0, I), (Vector3){ 0.94f, 0.06f, 0.1f }, wood);
+    scenery_box(local(-1.24f, 1.05f, 0, I), (Vector3){ 0.06f, 2.1f, 0.1f }, wood, MAT_WOOD);
+    scenery_box(local(-0.36f, 1.05f, 0, I), (Vector3){ 0.06f, 2.1f, 0.1f }, wood, MAT_WOOD);
+    scenery_box(local(-0.8f, 2.13f, 0, I), (Vector3){ 0.94f, 0.06f, 0.1f }, wood, MAT_WOOD);
     vrui_door(VRUI_ID2(G_HINGE, 1), local(-1.2f, 0.02f, 0.03f, I), 0.8f, 2.05f, &H.door, "DOOR");
 
     // --- a chest; its lid is a door on its side: hinge along the back top edge
     // (hinge +Y = the chest's X), handle side toward you (+X = +Z), front up
-    vrui_box(local(0.1f, 0.22f, 0, I), (Vector3){ 0.6f, 0.44f, 0.4f }, wood);
+    scenery_box(local(0.1f, 0.22f, 0, I), (Vector3){ 0.6f, 0.44f, 0.4f }, wood, MAT_WOOD);
     Matrix m = { 0, 1, 0, 0,
                  0, 0, 1, 0,
                  1, 0, 0, 0,
@@ -95,8 +95,8 @@ void station_hinges(void)
     lid(local(-0.2f, 0.46f, -0.2f, lid_q));
 
     // --- a bell cord hanging from a post, and a lamp that rings with it
-    vrui_box(local(0.95f, 1.05f, -0.1f, I), (Vector3){ 0.06f, 2.1f, 0.06f }, metal);
-    vrui_box(local(0.95f, 2.07f, 0.05f, I), (Vector3){ 0.05f, 0.05f, 0.3f }, metal);
+    scenery_box(local(0.95f, 1.05f, -0.1f, I), (Vector3){ 0.06f, 2.1f, 0.06f }, metal, MAT_PAINT);
+    scenery_box(local(0.95f, 2.07f, 0.05f, I), (Vector3){ 0.05f, 0.05f, 0.3f }, metal, MAT_PAINT);
     if (vrui_pull_cord(VRUI_ID2(G_HINGE, 3), local(0.95f, 2.03f, 0.18f, I), &H.cord, "BELL")) {
         H.rings++;
         H.flash = 0.4f;
@@ -106,8 +106,8 @@ void station_hinges(void)
               TextFormat("rang %d", H.rings));
 
     // --- a radio with a tuning dial on its face (the dial turns about the face's normal)
-    vrui_box(local(1.7f, 0.95f, -0.05f, I), (Vector3){ 0.4f, 0.25f, 0.12f }, (Color){ 70, 60, 50, 255 });
-    vrui_box(local(1.7f, 0.41f, -0.05f, I), (Vector3){ 0.06f, 0.82f, 0.06f }, metal);
+    scenery_box(local(1.7f, 0.95f, -0.05f, I), (Vector3){ 0.4f, 0.25f, 0.12f }, (Color){ 70, 60, 50, 255 }, MAT_PAINT);
+    scenery_box(local(1.7f, 0.41f, -0.05f, I), (Vector3){ 0.06f, 0.82f, 0.06f }, metal, MAT_PAINT);
     VruiMechSpec ds = vrui_dial_spec();
     ds.label = "TUNE";
     ds.value_format = NULL;
@@ -121,7 +121,7 @@ void station_hinges(void)
     // --- a valve on a pipe: the wheel faces you (base +Y toward you), and a
     // gauge further up the pipe shows the pressure it lets through
     Quaternion facing_you = QuaternionFromAxisAngle((Vector3){ 1, 0, 0 }, PI / 2);   // +Y -> +Z
-    vrui_box(local(2.6f, 1.0f, -0.12f, I), (Vector3){ 0.1f, 2.0f, 0.1f }, (Color){ 120, 124, 132, 255 });
+    scenery_box(local(2.6f, 1.0f, -0.12f, I), (Vector3){ 0.1f, 2.0f, 0.1f }, (Color){ 120, 124, 132, 255 }, MAT_PAINT);
     VruiMechSpec vs = vrui_valve_spec();
     vs.label = "VALVE";
     vrui_valve(VRUI_ID2(G_HINGE, 5), local(2.6f, 1.15f, -0.07f, facing_you), &vs, &H.valve);
@@ -132,9 +132,9 @@ void station_hinges(void)
     // --- a key switch on a post, its key hanging on a hook beside it
     SfxrPose hook = local(3.45f, 1.3f, -0.02f, I);   // the key hangs tip down: +Y up
     if (!H.key_placed) { H.key = hook; H.key_placed = true; }
-    vrui_box(local(3.2f, 0.55f, -0.1f, I), (Vector3){ 0.08f, 1.1f, 0.08f }, metal);
-    vrui_box(local(3.2f, 1.15f, -0.08f, I), (Vector3){ 0.2f, 0.2f, 0.04f }, (Color){ 50, 54, 62, 255 });
-    vrui_box(local(3.45f, 1.39f, -0.04f, I), (Vector3){ 0.01f, 0.03f, 0.04f }, metal);   // the hook
+    scenery_box(local(3.2f, 0.55f, -0.1f, I), (Vector3){ 0.08f, 1.1f, 0.08f }, metal, MAT_PAINT);
+    scenery_box(local(3.2f, 1.15f, -0.08f, I), (Vector3){ 0.2f, 0.2f, 0.04f }, (Color){ 50, 54, 62, 255 }, MAT_PAINT);
+    scenery_box(local(3.45f, 1.39f, -0.04f, I), (Vector3){ 0.01f, 0.03f, 0.04f }, metal, MAT_PAINT);   // the hook
     static const char *const IGNITION[] = { "OFF", "ON", "START" };
     VruiKeySpec ks = vrui_key_spec(3);
     ks.spring_last = true;

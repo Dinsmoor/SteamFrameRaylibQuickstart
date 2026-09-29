@@ -11,8 +11,10 @@
 void toolbox_setup(void);
 void toolbox_logic(void);
 void toolbox_draw(void);
+Color toolbox_sky(void);
 
 int main(int argc, char **argv)
 {
+    sfxt_set_sky(toolbox_sky);
     return sfxt_scenario_main(argc, argv, "tests/toolbox", toolbox_logic, toolbox_setup, toolbox_draw);
 }

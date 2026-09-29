@@ -27,12 +27,12 @@ static SfxrPose on_bench(float x, float z)
 static void draw_bench(void)
 {
     SfxrPose o = bench_origin();
-    vrui_box(sfxr_pose_mul(o, (SfxrPose){ { 0, -0.025f, 0 }, QuaternionIdentity() }), (Vector3){ BENCH_W, 0.05f, BENCH_D },
-             (Color){ 120, 90, 70, 255 });
+    scenery_box(sfxr_pose_mul(o, (SfxrPose){ { 0, -0.025f, 0 }, QuaternionIdentity() }), (Vector3){ BENCH_W, 0.05f, BENCH_D },
+             (Color){ 120, 90, 70, 255 }, MAT_WOOD);
     for (int i = 0; i < 4; i++) {
         float x = (i & 1) ? BENCH_W * 0.45f : -BENCH_W * 0.45f, z = (i & 2) ? BENCH_D * 0.4f : -BENCH_D * 0.4f;
-        vrui_box(sfxr_pose_mul(o, (SfxrPose){ { x, -TABLE_Y * 0.5f, z }, QuaternionIdentity() }),
-                 (Vector3){ 0.05f, TABLE_Y - 0.05f, 0.05f }, (Color){ 90, 68, 52, 255 });
+        scenery_box(sfxr_pose_mul(o, (SfxrPose){ { x, -TABLE_Y * 0.5f, z }, QuaternionIdentity() }),
+                 (Vector3){ 0.05f, TABLE_Y - 0.05f, 0.05f }, (Color){ 90, 68, 52, 255 }, MAT_WOOD);
     }
     station_sign(2.5f, "Mechanisms", "one of every reference mechanism, default feel: grab, poke or laser them");
 }

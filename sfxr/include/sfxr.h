@@ -133,6 +133,7 @@ void  sfxr_frame_end(void);
 // Frame counter and the per-eye render size actually in use.
 uint64_t sfxr_frame_index(void);
 int   sfxr_eye_width(void);
+float sfxr_frame_cpu_ms(void);      // the app's CPU time last frame: frame_begin returning .. frame_end (0 in replays and tests)
 int   sfxr_eye_height(void);
 
 // ---------------------------------------------------------------------------
@@ -191,6 +192,11 @@ void     sfxr_rig_move(Vector3 delta_world);
 void     sfxr_rig_turn(float yaw_delta);    // rotates around the head, not the rig origin
 void     sfxr_rig_teleport(Vector3 floor_target); // puts the HEAD's floor point at target
 Vector3  sfxr_head_floor_point(void);       // head position projected to rig floor height
+
+// Could a sphere (world space) be seen this frame by either eye? The test
+// uses each eye's real field of view and the far clip, so it's the frustum
+// the frame is drawn with. For culling: skip drawing what this says no to.
+bool     sfxr_in_view(Vector3 center, float radius);
 
 // ---------------------------------------------------------------------------
 // Input

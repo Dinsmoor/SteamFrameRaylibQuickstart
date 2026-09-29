@@ -110,7 +110,9 @@ static void fill(void)
     S.head_stage = T.head;
     S.eye_stage[0] = S.eye_stage[1] = S.head_stage;
     for (int e = 0; e < 2; e++) {
-        S.fov[e][0] = -0.785f; S.fov[e][1] = 0.785f; S.fov[e][2] = 0.785f; S.fov[e][3] = -0.785f;
+        // the eyes see what a snapshot shows (75 degrees tall, 16:9), so
+        // culling (sfxr_in_view) keeps exactly what's in the picture
+        S.fov[e][0] = -0.938f; S.fov[e][1] = 0.938f; S.fov[e][2] = 0.6545f; S.fov[e][3] = -0.6545f;
     }
     for (int h = 0; h < 2; h++) {
         Hand *H = &T.hand[h];
@@ -184,7 +186,22 @@ static void run_frame(void)
     vrui_begin();
     if (T.scene) T.scene();
     vrui_end();
-    if (sfxr_draw_begin(BLACK)) { vrui_draw(); sfxr_draw_end(); }
+    // Draw every frame, the app's world too (T.draw), from the head into a
+    // tiny target nobody looks at: what happens while drawing (culling,
+    // building batched meshes) then happens in tests as in the headset.
+    static RenderTexture2D rt;
+    if (!rt.id) rt = LoadRenderTexture(64, 36);
+    if (rt.id) {
+        BeginTextureMode(rt);
+        ClearBackground(BLACK);
+        Camera3D cam = sfxr_head_camera();
+        cam.fovy = 75.0f;
+        BeginMode3D(cam);
+        if (T.draw) T.draw();
+        vrui_draw();
+        EndMode3D();
+        EndTextureMode();
+    }
     sfxr_frame_end();
 }
 
@@ -401,6 +418,8 @@ int sfxt_events(const char *kind, const char *label, int hand, uint64_t since_fr
 }
 
 void sfxt_set_draw(void (*draw)(void)) { T.draw = draw; }
+static Color (*snap_sky)(void);   // sfxt_set_sky (outside T: set once, before the cases start)
+void sfxt_set_sky(Color (*sky)(void)) { snap_sky = sky; }
 
 // The failing moment as a picture: the app drawn from the head, 960 x 540
 // (SFXT_SNAPSHOT_SIZE=1920x1080 for a bigger one: at that size text is
@@ -416,7 +435,7 @@ static void snapshot(void)
     RenderTexture2D rt = LoadRenderTexture(w, h);
     if (!rt.id) return;
     BeginTextureMode(rt);
-    ClearBackground((Color){ 60, 70, 90, 255 });
+    ClearBackground(snap_sky ? snap_sky() : (Color){ 60, 70, 90, 255 });
     Camera3D cam = sfxr_head_camera();
     cam.fovy = 75.0f;
     BeginMode3D(cam);

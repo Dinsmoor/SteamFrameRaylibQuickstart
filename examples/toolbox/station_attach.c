@@ -134,10 +134,10 @@ void station_attach(void)
 
     // the bench
     Color wood = { 120, 92, 66, 255 };
-    vrui_box(on_bench(0, -0.025f, 0), (Vector3){ BENCH_W, 0.05f, BENCH_D }, wood);
+    scenery_box(on_bench(0, -0.025f, 0), (Vector3){ BENCH_W, 0.05f, BENCH_D }, wood, MAT_WOOD);
     for (int i = 0; i < 4; i++)
-        vrui_box(on_bench((i & 1) ? BENCH_W * 0.46f : -BENCH_W * 0.46f, -TABLE_Y * 0.5f, (i & 2) ? BENCH_D * 0.4f : -BENCH_D * 0.4f),
-                 (Vector3){ 0.05f, TABLE_Y - 0.05f, 0.05f }, (Color){ 90, 68, 52, 255 });
+        scenery_box(on_bench((i & 1) ? BENCH_W * 0.46f : -BENCH_W * 0.46f, -TABLE_Y * 0.5f, (i & 2) ? BENCH_D * 0.4f : -BENCH_D * 0.4f),
+                 (Vector3){ 0.05f, TABLE_Y - 0.05f, 0.05f }, (Color){ 90, 68, 52, 255 }, MAT_WOOD);
 
     // 1. the turntable: a spinner (flick it, it coasts). Its result's `part`
     // is the turning top: the parent of everything that rides on it.

@@ -66,6 +66,7 @@ void vrui_init(void)
     C.own_font = C.font.texture.id != GetFontDefault().texture.id;
     C.show_controllers = true;
     C.controller_models = true;
+    C.culling = true;
 }
 
 void vrui_shutdown(void)
@@ -87,6 +88,9 @@ void vrui_set_font(Font font)
 Font vrui_font(void)                     { return C.font; }
 void vrui_show_controllers(bool on)      { C.show_controllers = on; }
 void vrui_controller_models(bool on)     { C.controller_models = on; }
+void vrui_solid_shader(Shader shader)    { C.solid_shader = shader; }
+void vrui_culling(bool on)               { C.culling = on; }
+void vrui_draw_counts(int *drawn, int *culled) { if (drawn) *drawn = C.drawn; if (culled) *culled = C.culled; }
 void vrui_hand_joints_always(bool on)    { C.joints_always = on; }
 
 bool vrui_hand_busy(SfxrHandId h)        { return C.ray_active[h] || C.grab_active[h]; }
@@ -677,6 +681,48 @@ static void draw_controllers(void)
     }
 }
 
+// A cylinder (or cone) from a to b with normals on every vertex, so a
+// lighting shader can shade it (raylib's DrawCylinderEx sends none).
+static void draw_cylinder(Vector3 a, Vector3 b, float ra, float rb, Color col)
+{
+    Vector3 axis = Vector3Subtract(b, a);
+    float len = Vector3Length(axis);
+    if (len < 1e-6f) return;
+    axis = Vector3Scale(axis, 1.0f / len);
+    Vector3 u = Vector3Normalize(Vector3CrossProduct(axis, fabsf(axis.y) < 0.9f ? (Vector3){ 0, 1, 0 } : (Vector3){ 1, 0, 0 }));
+    Vector3 v = Vector3CrossProduct(axis, u);
+    const int n = 16;
+    rlBegin(RL_TRIANGLES);
+    rlColor4ub(col.r, col.g, col.b, col.a);
+    for (int i = 0; i < n; i++) {
+        float t0 = 2 * PI * (float)i / n, t1 = 2 * PI * (float)(i + 1) / n;
+        Vector3 d0 = Vector3Add(Vector3Scale(u, cosf(t0)), Vector3Scale(v, sinf(t0)));
+        Vector3 d1 = Vector3Add(Vector3Scale(u, cosf(t1)), Vector3Scale(v, sinf(t1)));
+        Vector3 a0 = Vector3Add(a, Vector3Scale(d0, ra)), a1 = Vector3Add(a, Vector3Scale(d1, ra));
+        Vector3 b0 = Vector3Add(b, Vector3Scale(d0, rb)), b1 = Vector3Add(b, Vector3Scale(d1, rb));
+        rlNormal3f(d0.x, d0.y, d0.z); rlVertex3f(a0.x, a0.y, a0.z);
+        rlNormal3f(d1.x, d1.y, d1.z); rlVertex3f(a1.x, a1.y, a1.z);
+        rlNormal3f(d1.x, d1.y, d1.z); rlVertex3f(b1.x, b1.y, b1.z);
+        rlNormal3f(d0.x, d0.y, d0.z); rlVertex3f(a0.x, a0.y, a0.z);
+        rlNormal3f(d1.x, d1.y, d1.z); rlVertex3f(b1.x, b1.y, b1.z);
+        rlNormal3f(d0.x, d0.y, d0.z); rlVertex3f(b0.x, b0.y, b0.z);
+        // the end caps
+        rlNormal3f(-axis.x, -axis.y, -axis.z);
+        rlVertex3f(a.x, a.y, a.z); rlVertex3f(a1.x, a1.y, a1.z); rlVertex3f(a0.x, a0.y, a0.z);
+        rlNormal3f(axis.x, axis.y, axis.z);
+        rlVertex3f(b.x, b.y, b.z); rlVertex3f(b0.x, b0.y, b0.z); rlVertex3f(b1.x, b1.y, b1.z);
+    }
+    rlEnd();
+}
+
+// A triangle seen from one side, its normal from its winding.
+static void draw_tri(Vector3 a, Vector3 b, Vector3 c, Color col)
+{
+    Vector3 n = Vector3Normalize(Vector3CrossProduct(Vector3Subtract(b, a), Vector3Subtract(c, a)));
+    rlNormal3f(n.x, n.y, n.z);   // (DrawTriangle3D keeps the normal that was set)
+    DrawTriangle3D(a, b, c, col);
+}
+
 static void draw_cmd(const VruiCmd *c)
 {
     switch (c->kind) {
@@ -691,14 +737,14 @@ static void draw_cmd(const VruiCmd *c)
         sfxr_pop_pose();
         break;
     case CMD_SPHERE:   DrawSphereEx(c->a, c->size.x, 8, 12, c->color); break;
-    case CMD_CYLINDER: DrawCylinderEx(c->a, c->b, c->size.x, c->size.y, 16, c->color); break;
+    case CMD_CYLINDER: draw_cylinder(c->a, c->b, c->size.x, c->size.y, c->color); break;
     case CMD_LINE:     DrawLine3D(c->a, c->b, c->color); break;
     case CMD_PANEL:    draw_panel_quad(c); break;
     case CMD_TEXT:     draw_text3d(c); break;
     case CMD_RING:     draw_ring(c); break;
     case CMD_TRI:
-        DrawTriangle3D(c->a, c->b, c->size, c->color);
-        DrawTriangle3D(c->a, c->size, c->b, c->color);
+        draw_tri(c->a, c->b, c->size, c->color);   // both sides
+        draw_tri(c->a, c->size, c->b, c->color);
         break;
     }
 }
@@ -715,12 +761,73 @@ static void view_sphere(Color col)
     rlEnableDepthTest();
 }
 
+// A sphere around what a command draws, for culling.
+static bool cmd_visible(const VruiCmd *c)
+{
+    Vector3 at;
+    float r;
+    switch (c->kind) {
+    case CMD_BOX: case CMD_BOX_WIRES: at = c->pose.position; r = Vector3Length(c->size) * 0.5f; break;
+    case CMD_SPHERE:   at = c->a; r = c->size.x; break;
+    case CMD_CYLINDER: case CMD_LINE:
+        at = Vector3Lerp(c->a, c->b, 0.5f);
+        r = Vector3Distance(c->a, c->b) * 0.5f + (c->kind == CMD_CYLINDER ? fmaxf(c->size.x, c->size.y) : 0);
+        break;
+    case CMD_PANEL:    at = c->pose.position; r = 0.5f * sqrtf(c->size.x * c->size.x + c->size.y * c->size.y); break;
+    case CMD_TEXT:     at = c->billboard ? c->a : c->pose.position; r = c->size.x * (0.6f * (float)strlen(C.text + c->text_off) + 1.0f); break;
+    case CMD_RING:     at = c->pose.position; r = c->size.x; break;
+    case CMD_TRI:
+        at = Vector3Scale(Vector3Add(Vector3Add(c->a, c->b), c->size), 1.0f / 3.0f);
+        r = fmaxf(Vector3Distance(at, c->a), fmaxf(Vector3Distance(at, c->b), Vector3Distance(at, c->size)));
+        break;
+    default: return true;
+    }
+    return sfxr_in_view(at, r);
+}
+
+static bool is_solid(const VruiCmd *c)
+{
+    return c->kind == CMD_BOX || c->kind == CMD_SPHERE || c->kind == CMD_CYLINDER || c->kind == CMD_TRI;
+}
+
 void vrui_draw(void)
 {
+    // Which commands to draw at all: culling skips what neither eye can see
+    // (the on-top pass is HUDs and pointers, near your face: never culled).
+    static bool show[VRUI_MAX_CMDS];
     bool any_on_top = false;
+    C.drawn = C.culled = 0;
     for (int i = 0; i < C.ncmds; i++) {
-        if (C.cmds[i].on_top) any_on_top = true;
-        else draw_cmd(&C.cmds[i]);
+        const VruiCmd *c = &C.cmds[i];
+        show[i] = c->on_top || !C.culling || cmd_visible(c);
+        if (show[i]) C.drawn++; else C.culled++;
+        if (c->on_top) any_on_top = true;
+    }
+
+    // Opaque solids first, all with the app's shader in one go (the depth
+    // buffer sorts them, so their order doesn't matter); then everything
+    // else in the order it was queued, switching to the shader for a
+    // see-through solid.
+    bool lit = C.solid_shader.id != 0;
+    if (lit) {
+        BeginShaderMode(C.solid_shader);
+        for (int i = 0; i < C.ncmds; i++) {
+            const VruiCmd *c = &C.cmds[i];
+            if (show[i] && !c->on_top && is_solid(c) && c->color.a == 255) draw_cmd(c);
+        }
+        EndShaderMode();
+    }
+    for (int i = 0; i < C.ncmds; i++) {
+        const VruiCmd *c = &C.cmds[i];
+        if (!show[i] || c->on_top) continue;
+        if (lit && is_solid(c)) {
+            if (c->color.a == 255) continue;   // drawn above
+            BeginShaderMode(C.solid_shader);
+            draw_cmd(c);
+            EndShaderMode();
+        } else {
+            draw_cmd(c);
+        }
     }
 
     if (C.show_controllers) draw_controllers();

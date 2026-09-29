@@ -276,9 +276,9 @@ void station_guns(void)
 {
     if (!G.init) init();
     // the stand
-    vrui_box((SfxrPose){ { STAND_X, STAND_H - 0.02f, ROW_Z }, QuaternionIdentity() }, (Vector3){ 0.7f, 0.04f, 0.4f }, (Color){ 120, 92, 66, 255 });
-    vrui_box((SfxrPose){ { STAND_X, (STAND_H - 0.04f) * 0.5f, ROW_Z }, QuaternionIdentity() }, (Vector3){ 0.08f, STAND_H - 0.04f, 0.08f },
-             (Color){ 90, 68, 52, 255 });
+    scenery_box((SfxrPose){ { STAND_X, STAND_H - 0.02f, ROW_Z }, QuaternionIdentity() }, (Vector3){ 0.7f, 0.04f, 0.4f }, (Color){ 120, 92, 66, 255 }, MAT_WOOD);
+    scenery_box((SfxrPose){ { STAND_X, (STAND_H - 0.04f) * 0.5f, ROW_Z }, QuaternionIdentity() }, (Vector3){ 0.08f, STAND_H - 0.04f, 0.08f },
+             (Color){ 90, 68, 52, 255 }, MAT_PAINT);
     vrui_sign((SfxrPose){ { STAND_X, STAND_H + 0.55f, ROW_Z - 0.25f }, QuaternionIdentity() }, 0.8f, "Physics guns",
               "Pick one up with the grip. PHYSGUN: hold the trigger on a thing, swing it, twist your wrist, "
               "stick to reel it in or out, A to freeze it in the air. GRAVITY GUN: A lifts a thing (A again drops it), "

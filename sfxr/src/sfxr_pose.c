@@ -142,3 +142,33 @@ Camera3D sfxr_head_camera(void)
     c.projection = CAMERA_PERSPECTIVE;
     return c;
 }
+
+// ---------------------------------------------------------------------------
+// View test (culling)
+// ---------------------------------------------------------------------------
+
+// Each eye sees a four-sided pyramid (its field of view: angles left, right,
+// up and down from straight ahead) cut off at the far clip. A sphere is
+// visible if it isn't wholly outside any of the pyramid's sides. In the eye's
+// own frame (-Z ahead, +X right, +Y up) every side is a plane through the eye,
+// and "inward" is a unit normal, so a dot product is the signed distance.
+static bool eye_sees(int e, Vector3 center, float radius)
+{
+    Vector3 c = sfxr_pose_apply_inv(sfxr_eye(e), center);
+    if (SFXR_BREAK(sfxr_view_ignores_radius)) radius = 0;
+    const float *f = S.fov[e];   // left (negative), right, up, down (negative)
+    Vector3 inward[4] = {
+        { cosf(f[0]), 0, sinf(f[0]) },    // left side
+        { -cosf(f[1]), 0, -sinf(f[1]) },  // right side
+        { 0, -cosf(f[2]), -sinf(f[2]) },  // top
+        { 0, cosf(f[3]), sinf(f[3]) },    // bottom
+    };
+    for (int i = 0; i < 4; i++)
+        if (Vector3DotProduct(inward[i], c) < -radius) return false;
+    return -c.z < S.cfg.far_clip + radius;   // (behind the eye is outside two sides already)
+}
+
+bool sfxr_in_view(Vector3 center, float radius)
+{
+    return eye_sees(0, center, radius) || eye_sees(1, center, radius);
+}

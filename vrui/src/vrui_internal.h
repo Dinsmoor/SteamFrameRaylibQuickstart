@@ -94,6 +94,9 @@ typedef struct {
     bool show_controllers;
     bool controller_models;   // draw the runtime's controller models when available
     bool joints_always;       // hand joints also while holding controllers
+    Shader solid_shader;      // vrui_solid_shader (id 0: none)
+    bool culling;             // vrui_culling
+    int  drawn, culled;       // last vrui_draw
 
     // arbitration
     VruiId ray_hot[2], ray_active[2];

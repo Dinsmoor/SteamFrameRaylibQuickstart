@@ -131,6 +131,13 @@ Font vrui_font(void);                 // the font vrui draws with (for your own 
 void vrui_show_controllers(bool on);  // draw the controllers / hands (default on)
 void vrui_controller_models(bool on); // the headset's own controller models when available (default on)
 void vrui_hand_joints_always(bool on);// joints while holding controllers too (bare hands: always)
+// Solid shapes (boxes, spheres, cylinders, triangles) drawn with your shader,
+// e.g. one that lights them; panels, text and lines stay as they are. A
+// shader with id 0 (the default) draws them flat.
+void vrui_solid_shader(Shader shader);
+// Culling: skip drawing what neither eye can see (sfxr_in_view). Default on.
+void vrui_culling(bool on);
+void vrui_draw_counts(int *drawn, int *culled);   // last vrui_draw: shapes drawn and skipped
 
 // Pose helpers
 SfxrPose vrui_facing(Vector3 position, Vector3 viewer);   // +Z faces viewer, yaw only

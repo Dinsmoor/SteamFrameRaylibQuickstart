@@ -207,8 +207,8 @@ static void sandbag(void)
     // draw: the rope, the bag, a post and arm to hang it from
     vrui_line(BAG_TOP, c, (Color){ 200, 190, 160, 255 });
     vrui_box((SfxrPose){ c, QuaternionIdentity() }, (Vector3){ 2 * BAG_R, 2.4f * BAG_R, 2 * BAG_R }, (Color){ 150, 120, 80, 255 });
-    vrui_box((SfxrPose){ { BAG_TOP.x + 0.6f, 1.15f, BAG_TOP.z }, QuaternionIdentity() }, (Vector3){ 0.08f, 2.3f, 0.08f }, (Color){ 90, 70, 55, 255 });
-    vrui_box((SfxrPose){ { BAG_TOP.x + 0.3f, 2.33f, BAG_TOP.z }, QuaternionIdentity() }, (Vector3){ 0.68f, 0.06f, 0.06f }, (Color){ 90, 70, 55, 255 });
+    scenery_box((SfxrPose){ { BAG_TOP.x + 0.6f, 1.15f, BAG_TOP.z }, QuaternionIdentity() }, (Vector3){ 0.08f, 2.3f, 0.08f }, (Color){ 90, 70, 55, 255 }, MAT_WOOD);
+    scenery_box((SfxrPose){ { BAG_TOP.x + 0.3f, 2.33f, BAG_TOP.z }, QuaternionIdentity() }, (Vector3){ 0.68f, 0.06f, 0.06f }, (Color){ 90, 70, 55, 255 }, MAT_WOOD);
     vrui_text3d(Vector3Add(c, (Vector3){ 0, 0.35f, 0 }), TextFormat("sandbag: %d hits", WD.hits), 0.0308f, RAYWHITE);
 }
 
@@ -239,10 +239,10 @@ void station_wield(void)
     // the rack: two posts and two rails behind the weapons, a shelf for the dagger
     Color frame = { 90, 70, 55, 255 };
     for (int s = -1; s <= 1; s += 2)
-        vrui_box((SfxrPose){ { X0 + 0.75f * (float)s, 0.6f, ROW_Z - 0.08f }, QuaternionIdentity() }, (Vector3){ 0.06f, 1.2f, 0.06f }, frame);
-    vrui_box((SfxrPose){ { X0, 1.15f, ROW_Z - 0.08f }, QuaternionIdentity() }, (Vector3){ 1.56f, 0.05f, 0.05f }, frame);
-    vrui_box((SfxrPose){ { X0, 0.3f, ROW_Z - 0.08f }, QuaternionIdentity() }, (Vector3){ 1.56f, 0.05f, 0.05f }, frame);
-    vrui_box((SfxrPose){ { X0 + 0.55f, TABLE_Y - 0.01f, ROW_Z + 0.05f }, QuaternionIdentity() }, (Vector3){ 0.45f, 0.02f, 0.35f }, frame);
+        scenery_box((SfxrPose){ { X0 + 0.75f * (float)s, 0.6f, ROW_Z - 0.08f }, QuaternionIdentity() }, (Vector3){ 0.06f, 1.2f, 0.06f }, frame, MAT_WOOD);
+    scenery_box((SfxrPose){ { X0, 1.15f, ROW_Z - 0.08f }, QuaternionIdentity() }, (Vector3){ 1.56f, 0.05f, 0.05f }, frame, MAT_WOOD);
+    scenery_box((SfxrPose){ { X0, 0.3f, ROW_Z - 0.08f }, QuaternionIdentity() }, (Vector3){ 1.56f, 0.05f, 0.05f }, frame, MAT_WOOD);
+    scenery_box((SfxrPose){ { X0 + 0.55f, TABLE_Y - 0.01f, ROW_Z + 0.05f }, QuaternionIdentity() }, (Vector3){ 0.45f, 0.02f, 0.35f }, frame, MAT_WOOD);
 
     for (int i = 0; i < W_COUNT; i++) {
         VruiWieldSpec s = WD.spec[i];

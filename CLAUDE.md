@@ -849,8 +849,30 @@ The Controls sign became a **controls diagram** (`controls_diagram.c`): both con
 following the main hand. Headset: the runtime's own models (placed from their offset to
 the grip while in hand); elsewhere a stand-in at the measured spots.
 
+Then: **graphics** (`examples/toolbox/graphics.c`). The user wanted the world nicer to be in
+without costing frame rate, "not straight-up Minecraft"; the shader documented heavily IN
+its source (they are new to shaders), not in the docs. One shader for everything solid
+(`resources/shaders/world.vs/.fs`): sun + sky/ground hemisphere light, a small shine, fog
+into the sky color, a gentle tiling texture laid on by world position (static things
+only: `MAT_NONE` for movers), lighting done in linear light. vrui gained
+`vrui_solid_shader` (its boxes/spheres/cylinders/triangles lit; cylinders and triangles
+now carry normals: raylib's DrawCylinderEx/DrawTriangle3D/DrawCubeV send none),
+`vrui_culling` + `vrui_draw_counts`; sfxr gained `sfxr_in_view` (both eyes' real frusta)
+and `sfxr_frame_cpu_ms`. Static batching: `scenery_box/cylinder/sphere` declared every
+frame, merged once into 6 m chunk x material meshes (raylib GenMesh* shapes, UploadMesh),
+rebuilt only when the call count changes; tables, posts, frames, yard, trees moved to it.
+Six switches on the workbench (LIGHT SHINE FOG TEXTURES CULL BATCH) and a cost plaque.
+The harness now draws every frame (app + vrui) into a tiny target so draw-time work runs
+in tests; its eyes match the snapshot camera (75 degrees, 16:9); `sfxt_set_sky`. Tests
+`tests/toolbox/graphics.sfxt`, `attach/in-view-counts-the-edge`. Textures use our own
+tiling value noise: raylib's Perlin/cellular images don't wrap (seams every repeat).
+Pixel-art NEAREST filtering was tried and dropped (too Minecraft; anisotropic filtering
+blurs it on some GPUs anyway).
+
 **Next headset session: check these first**
-0. Palm buttons: turn the less-used palm to your face at a normal distance. The controls
+0. Graphics: flip each workbench switch and watch the cost plaque (CPU ms) and the
+   Performance overlay; is the fog/lighting pleasant at day and dusk (SKY lever)?
+   Palm buttons: turn the less-used palm to your face at a normal distance. The controls
    diagram behind the workbench: real models, callouts on the right spots?
 1. Thumbs, with "Joints while holding" on (Headset panel): tip on the stick, on A/B/X/Y,
    hovering when lifted; left hand on the D-pad.
