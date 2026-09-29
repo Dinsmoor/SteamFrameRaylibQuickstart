@@ -41,17 +41,18 @@ what both eyes see.)*
 
 ## Contents
 1. [What you get](#what-you-get)
-2. [A tour of the files](#a-tour-of-the-files)
-3. [Where to look when you build your own Frame app](#where-to-look-when-you-build-your-own-frame-app)
-4. [What you need](#what-you-need)
-5. [Build and try it on your computer](#build-and-try-it-on-your-computer)
-6. [Run it on the Steam Frame](#run-it-on-the-steam-frame)
-7. [Your own app](#your-own-app)
-8. [Testing](#testing)
-9. [Everyday commands](#everyday-commands)
-10. [Troubleshooting](#troubleshooting)
-11. [How it works (short version)](#how-it-works-short-version)
-12. [Credits and licenses](#credits-and-licenses)
+2. [What's in the toolbox](#whats-in-the-toolbox)
+3. [A tour of the files](#a-tour-of-the-files)
+4. [Where to look when you build your own Frame app](#where-to-look-when-you-build-your-own-frame-app)
+5. [What you need](#what-you-need)
+6. [Build and try it on your computer](#build-and-try-it-on-your-computer)
+7. [Run it on the Steam Frame](#run-it-on-the-steam-frame)
+8. [Your own app](#your-own-app)
+9. [Testing](#testing)
+10. [Everyday commands](#everyday-commands)
+11. [Troubleshooting](#troubleshooting)
+12. [How it works (short version)](#how-it-works-short-version)
+13. [Credits and licenses](#credits-and-licenses)
 
 ---
 
@@ -83,6 +84,59 @@ what both eyes see.)*
 - **Remote headset tools:** build, install, launch, screenshot and record on the headset
   **over Wi-Fi**, while it sits on your desk. Recorded sessions replay exactly, on your
   computer or on the headset's own GPU.
+
+## What's in the toolbox
+
+The toolbox (`examples/toolbox`) is one walk-around world. You start facing the
+**workbench**, with the **controls diagram** behind it: both controllers, a callout
+on every control. The stations stand in one row to your left and right, each under
+a sign; walk or teleport along the aisle. The hand menus (see Menus & HUD) and the
+visor HUD, which names the station you're at, go with you everywhere.
+
+**At the start: the workbench**
+
+| On it | What it does |
+|---|---|
+| SPAWN button | drops a new block (a full pull by laser, or poke it) |
+| GRID switch, SKY lever, SIZE knob, LIFT slider | wired to the world: a floor grid, day to dusk, the next block's size, a lift platform behind you |
+| the blocks | pick them up, throw them, knock them with your hands |
+| LIGHT, SHINE, FOG, TEXTURES, CULL, BATCH | the world's look and the tricks that keep it fast, one switch each; a plaque says what each costs (frame rate, CPU time, what was drawn and skipped) |
+
+**Along the row, left to right**
+
+| Station | What you try there |
+|---|---|
+| Particles | a campfire, a chimney, a steam pipe and a spark grinder: Source-engine-style particles, with a wind slider |
+| Physics guns | a physgun (Garry's Mod: hold things on a beam, reel, twist, freeze) and a gravity gun (Half-Life 2: lift, punt) |
+| Weights | feather, ball, brick, kettlebell, anvil: pick each up and throw it down the lane; heavy should feel heavy |
+| Wielding | a sword, a hammer, a spear and a dagger held by their handles, one hand or two, and a sandbag to hit |
+| Voice commands | one set of orders to some bugs, given four ways: speak, a ring menu, a pop-up, hands-free |
+| Sound | five kinds of sound emitter to walk around: a chime (point), a radio (cone), a stream (line), rain under a canopy (box), wind (ambient) |
+| Menus & HUD | the hand menus (a watch, palm buttons, a tablet, a radial menu) and visor HUD styles |
+| Hands-on setup | learns how you like to grab, point and press, and sets the toolbox up to match |
+| Headset | worn state, refresh rate, passthrough, batteries, hand joints, performance counters |
+| Controllers | every input live: buttons with touch, pull levels, stick, finger curl, a haptics tester |
+| Toolbox | settings: gravity, smooth or snap turning, real falls, how hard to pull, how to grab, throw power, block size and colour |
+| *(the workbench)* | |
+| Mechanisms | one of every reference control at its default feel: knobs, dials, cranks, levers, sliders, plungers, a pull cord, a joystick, buttons, switches |
+| Linkage bench | controls wired to needle gauges, rolling counters and lamps |
+| Attach & label | things riding on things (a turntable, a lever on it, a flag on the lever, your belt) and every kind of label in the world |
+| Smoothing | a sword with five ghosts following it, one per smoothing mode, and easing curves |
+| Hinges & cords | a door, a chest lid, a bell cord, a radio dial, a two-handed valve wheel, a key switch |
+| Garden gate | into Daddy Bug Smasher (below) |
+
+**Behind you: the Movement yard.** Teleport pads, stairs to walk up in your room, a
+climbing wall with a ladder, and monkey bars.
+
+**Daddy Bug Smasher** is a small game at the end of the row that uses all of the
+above together. It's a VR port of a flat-screen raylib game the author made with their
+kids, from the kids' drawings. You are Daddy: take your hammer off its stump and smash
+the bugs the **Bugmaster** sends from his tower. He taunts you from the top of it in
+his original recorded voice. Swing hard: it's the speed of the hammer's head that
+counts. Smash 8 before they bite you 10 times. The hammer follows your hand by its
+weight, rides on your belt, and comes back when you point and grip; your health is on
+the HUD, with arrows to bugs behind you. How each part is built:
+[docs/DADDY_BUG_SMASHER.md](docs/DADDY_BUG_SMASHER.md).
 
 ## A tour of the files
 
