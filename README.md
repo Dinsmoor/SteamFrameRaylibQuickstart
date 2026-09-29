@@ -26,12 +26,13 @@ while (sfxr_frame_begin()) {                 // one loop iteration = one headset
 **Status:** runs on a real Steam Frame (SteamOS, SteamVR 2.17.10), at the full
 1728×1728 per eye at 72 Hz, using the Frame's own controllers.
 
-![The toolbox where you start: station signs, the Toolbox panel, the workbench and the controls](docs/images/toolbox.jpg)
+![The toolbox where you start: the workbench, the controls diagram behind it, the Toolbox panel and the station signs](docs/images/toolbox.jpg)
 
 | | |
 |---|---|
 | ![The Controllers panel: every input, live](docs/images/controllers-panel.jpg) | ![The Voice commands station: one set of orders bound four ways](docs/images/voice-commands.jpg) |
-| ![The physgun holding a brick on its beam, beside the Weights table](docs/images/physgun.jpg) | ![Daddy Bug Smasher: the Bugmaster on his tower, bugs coming, the hammer in hand](docs/images/daddy-bug-smasher.jpg) |
+| ![The physgun holding a brick on its beam, beside the Weights table](docs/images/physgun.jpg) | ![Daddy Bug Smasher: the Bugmaster taunting from his tower, bugs coming, the hammer in hand](docs/images/daddy-bug-smasher.jpg) |
+| ![The Particles bench: chimney smoke leaning in the wind, a steam jet, the spark grinder](docs/images/particles.jpg) | ![The Sound station's stream: rippling water between river stones](docs/images/stream.jpg) |
 
 *(Drawn by the test harness from the player's head: `SFXT_SNAPSHOT_SIZE=1600x900`; see
 [docs/TESTING.md](docs/TESTING.md). In the headset, the Screenshot hand-menu item saves
